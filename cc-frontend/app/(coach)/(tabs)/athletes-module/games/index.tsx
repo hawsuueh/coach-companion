@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 export default function Home() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Training Screen of Coach</Text>
+      <Text style={styles.text}>Games Screen of Coach</Text>
     </View>
   );
 }

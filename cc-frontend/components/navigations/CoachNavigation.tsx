@@ -18,7 +18,7 @@ const TABS: Tab[] = [
   {
     name: 'athletes',
     icon: 'account-group',
-    route: '/(tabs)/athletes-module'
+    route: '/(tabs)/athletes-module/athletes'
   },
   {
     name: 'training',
