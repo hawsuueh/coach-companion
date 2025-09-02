@@ -22,7 +22,7 @@ export default function AthleteDetailScreen() {
   const { id } = useLocalSearchParams();
 
   // Get athlete data - in the future this will be fetched from Supabase
-  const athlete = MOCK_ATHLETES[id as string];
+  const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
 
   const handleBackPress = () => {
     router.back();
@@ -31,18 +31,25 @@ export default function AthleteDetailScreen() {
   const handleAttributesPress = () => {
     console.log('Attributes pressed for athlete:', athlete?.name);
     // Navigate to attributes detail screen
-    router.push(`/athlete/${athlete.id}/attributes` as any);
+    router.push(
+      `/(coach)/(tabs)/athletes-module/${athlete.id}/attributes` as any
+    );
   };
 
   const handleInjuryRecordsPress = () => {
     console.log('Injury Records pressed for athlete:', athlete?.name);
     // Navigate to injury records screen
-    router.push(`/athlete/${athlete.id}/injuries` as any);
+    router.push(
+      `/(coach)/(tabs)/athletes-module/${athlete.id}/injuries` as any
+    );
   };
 
   const handleGameRecordsPress = () => {
     console.log('Game Records pressed for athlete:', athlete?.name);
     // Navigate to game records screen
+    router.push(
+      `/(coach)/(tabs)/athletes-module/${athlete.id}/game-records` as any
+    );
   };
 
   if (!athlete) {

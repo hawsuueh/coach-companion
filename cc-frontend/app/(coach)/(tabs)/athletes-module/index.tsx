@@ -73,7 +73,7 @@ export default function AthleteScreen() {
   const handleAthletePress = (athlete: Athlete) => {
     console.log('Athlete pressed:', athlete.name);
     // Navigate to athlete detail screen
-    router.push(`/athlete/${athlete.id}` as any);
+    router.push(`/(coach)/(tabs)/athletes-module/${athlete.id}` as any);
   };
 
   const handleAddAthlete = () => {
