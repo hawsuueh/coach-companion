@@ -1,3 +1,4 @@
+// Imports
 import React, { useState } from 'react';
 import {
   Image,
@@ -5,11 +6,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  StyleSheet
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
+// Export login component
 export default function LoginScreen() {
+  // Logic
   const [role, setRole] = useState<'coach' | 'athlete' | 'director' | null>(
     null
   );
@@ -31,63 +35,58 @@ export default function LoginScreen() {
     }
   };
 
+  // Structure
   return (
     <ImageBackground
       source={require('@/assets/backgrounds/bg-login.png')}
+      style={styles.background}
       resizeMode="cover"
-      className="flex-1"
     >
-      {/* Overlay */}
-      <View className="absolute inset-0 bg-white/80" />
+      {/* White transparent overlay */}
+      <View style={styles.overlay} />
 
-      <View className="flex-1 px-6">
+      <View style={styles.container}>
         {/* Header with logos */}
-        <View className="flex-row justify-between pt-12">
+        <View style={styles.header}>
           <Image
             source={require('@/assets/logos/logo-cc.png')}
-            className="h-24 w-24"
+            style={styles.logo}
             resizeMode="contain"
           />
           <Image
             source={require('@/assets/logos/logo-unc.png')}
-            className="h-24 w-24"
+            style={styles.logo}
             resizeMode="contain"
           />
         </View>
 
-        {/* Main content */}
-        <View className="flex-1 items-center justify-center">
-          {/* Title */}
-          <View className="mb-12 items-center">
-            <Text className="text-5xl font-extrabold leading-tight text-black">
-              Coach
-            </Text>
-            <Text className="text-5xl font-extrabold leading-tight text-black">
-              Companion
-            </Text>
+        {/* Main content - centered */}
+        <View style={styles.centerContent}>
+          {/* App title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Coach</Text>
+            <Text style={styles.title}>Companion</Text>
 
-            <Text className="mt-4 text-2xl font-bold text-black">LOGIN</Text>
-            <Text className="mt-1 text-base text-gray-600">
-              Please sign in to continue
-            </Text>
+            <Text style={styles.loginTitle}>LOGIN</Text>
+            <Text style={styles.subtitle}>Please sign in to continue</Text>
           </View>
 
           {/* Role selection */}
-          <View className="mb-10 flex-row">
+          <View style={styles.roleContainer}>
             {roles.map(roleOption => (
               <TouchableOpacity
                 key={roleOption}
                 onPress={() => setRole(roleOption as typeof role)}
-                className={`mx-1 rounded-full border px-6 py-2 ${
-                  role === roleOption
-                    ? 'border-red-600 bg-red-600'
-                    : 'border-gray-300 bg-white'
-                }`}
+                style={[
+                  styles.roleButton,
+                  role === roleOption && styles.roleButtonActive
+                ]}
               >
                 <Text
-                  className={`text-base font-semibold capitalize ${
-                    role === roleOption ? 'text-white' : 'text-gray-700'
-                  }`}
+                  style={[
+                    styles.roleText,
+                    role === roleOption && styles.roleTextActive
+                  ]}
                 >
                   {roleOption}
                 </Text>
@@ -95,45 +94,164 @@ export default function LoginScreen() {
             ))}
           </View>
 
-          {/* Inputs */}
-          <View className="mb-8 w-full">
+          {/* Input fields */}
+          <View style={styles.inputContainer}>
             {/* Email input */}
-            <View className="mb-4 flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
-              <Text className="mr-3 text-gray-400">✉</Text>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.icon}>✉</Text>
               <TextInput
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                className="flex-1 text-base text-gray-900"
+                style={styles.input}
                 placeholderTextColor="#9CA3AF"
               />
             </View>
 
             {/* Password input */}
-            <View className="flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
-              <Text className="mr-3 text-gray-400">🔒</Text>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.icon}>🔒</Text>
               <TextInput
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                className="flex-1 text-base text-gray-900"
+                style={styles.input}
                 placeholderTextColor="#9CA3AF"
               />
             </View>
           </View>
 
           {/* Login button */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            className="rounded-full bg-gray-800 px-16 py-4 shadow-md"
-          >
-            <Text className="text-lg font-bold text-white">LOGIN</Text>
+          <TouchableOpacity onPress={handleLogin} style={styles.loginButton}>
+            <Text style={styles.loginButtonText}>LOGIN</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ImageBackground>
   );
 }
+
+// Styles
+const styles = StyleSheet.create({
+  background: {
+    flex: 1
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.8)'
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 48
+  },
+  logo: {
+    height: 100,
+    width: 100
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 48
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#000',
+    lineHeight: 52
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 16,
+    color: '#000'
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#4B5563',
+    marginTop: 4
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    marginBottom: 40
+  },
+  roleButton: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+    borderRadius: 50,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    marginHorizontal: 4
+  },
+  roleButtonActive: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626'
+  },
+  roleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    textTransform: 'capitalize'
+  },
+  roleTextActive: {
+    color: '#fff'
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 32
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2
+  },
+  icon: {
+    marginRight: 12,
+    fontSize: 16,
+    color: '#9CA3AF'
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827'
+  },
+  loginButton: {
+    backgroundColor: '#374151',
+    borderRadius: 50,
+    paddingVertical: 14,
+    paddingHorizontal: 64,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700'
+  }
+});
