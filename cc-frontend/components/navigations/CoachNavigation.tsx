@@ -1,6 +1,7 @@
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Tab = {
@@ -18,7 +19,7 @@ const TABS: Tab[] = [
   {
     name: 'athletes',
     icon: 'account-group',
-    route: '/(tabs)/athletes-module/athletes'
+    route: '/(tabs)/athletes-module'
   },
   {
     name: 'training',
@@ -39,34 +40,44 @@ const CoachNavigation: React.FC = () => {
   console.log('Current pathname:', pathname);
 
   return (
-    <View style={styles.container}>
-      {TABS.map((tab, index) => {
-        const normalizePath = (path: string) => path.replace('/(tabs)', '');
-        const isActive = normalizePath(pathname) === normalizePath(tab.route);
-        console.log('tab:', tab.route, 'pathname:', pathname);
+    <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+      <View style={styles.container}>
+        {TABS.map((tab, index) => {
+          const normalizePath = (path: string) => path.replace('/(tabs)', '');
+          const isActive = normalizePath(pathname) === normalizePath(tab.route);
+          console.log('tab:', tab.route, 'pathname:', pathname);
 
-        console.log(isActive);
+          console.log(isActive);
 
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => router.push(tab.route as any)}
-            style={styles.tab}
-          >
-            <MaterialCommunityIcons
-              name={tab.icon as any}
-              size={24}
-              style={isActive ? styles.activeIcon : styles.inactiveIcon}
-            />
-            {isActive && <View style={styles.dot} />}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => router.push(tab.route as any)}
+              style={styles.tab}
+            >
+              <MaterialCommunityIcons
+                name={tab.icon as any}
+                size={24}
+                style={isActive ? styles.activeIcon : styles.inactiveIcon}
+              />
+              {isActive && <View style={styles.dot} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#ffffff',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000
+  },
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
