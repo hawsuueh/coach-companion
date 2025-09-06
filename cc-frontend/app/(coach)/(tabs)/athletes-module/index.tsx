@@ -78,12 +78,16 @@ export default function AthleteScreen() {
 
   const handleAddAthlete = () => {
     console.log('Add athlete pressed');
-    // Navigate to add athlete screen
+    // TODO: Navigate to add athlete screen when created
+    // router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
+    alert('Add Athlete functionality coming soon!');
   };
 
   const handleAddGame = () => {
     console.log('Add game pressed');
-    // Navigate to add game screen
+    // TODO: Navigate to add game screen when created
+    // router.push('/(coach)/(tabs)/athletes-module/add-game' as any);
+    alert('Add Game functionality coming soon!');
   };
 
   const handleGamePress = (game: Game) => {
@@ -122,57 +126,65 @@ export default function AthleteScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-      {/* Header Section - Using reusable Header component */}
-      <Header
-        title="Athletes & Games"
-        onNotificationPress={handleNotificationPress}
-        onMenuPress={handleMenuPress}
-      />
+    <View className="flex-1" style={{ position: 'relative' }}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
+        {/* Header Section - Using reusable Header component */}
+        <Header
+          title="Athletes & Games"
+          onNotificationPress={handleNotificationPress}
+          onMenuPress={handleMenuPress}
+        />
 
-      {/* Tab Navigation - Using reusable SubTab component */}
-      <SubTab
-        tabs={athleteTabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+        {/* Tab Navigation - Using reusable SubTab component */}
+        <SubTab
+          tabs={athleteTabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-      {/* Search and Filter Section - Using reusable SearchBar component */}
-      <SearchBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onFilterPress={handleFilterPress}
-      />
+        {/* Search and Filter Section - Using reusable SearchBar component */}
+        <SearchBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onFilterPress={handleFilterPress}
+        />
 
-      {/* Athlete/Game List */}
-      <View className="flex-1 px-3">
-        {activeTab === 'athletes' ? (
-          <FlatList
-            data={filteredAthletes}
-            renderItem={renderAthleteCard}
-            keyExtractor={item => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 8 }}
-          />
-        ) : (
-          <FlatList
-            data={filteredGames}
-            renderItem={renderGameCard}
-            keyExtractor={item => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 8 }}
-          />
-        )}
-      </View>
+        {/* Athlete/Game List */}
+        <View className="flex-1 px-3">
+          {activeTab === 'athletes' ? (
+            <FlatList
+              data={filteredAthletes}
+              renderItem={renderAthleteCard}
+              keyExtractor={item => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: 100,
+                paddingHorizontal: 8
+              }}
+            />
+          ) : (
+            <FlatList
+              data={filteredGames}
+              renderItem={renderGameCard}
+              keyExtractor={item => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: 100,
+                paddingHorizontal: 8
+              }}
+            />
+          )}
+        </View>
+      </SafeAreaView>
 
       {/* Floating Action Button */}
       <FloatingActionButton
-        icon="add"
+        icon={activeTab === 'athletes' ? 'person-add' : 'add'}
         onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddGame}
         color="#FF0000"
         size="medium"
         position="bottom-right"
       />
-    </SafeAreaView>
+    </View>
   );
 }
