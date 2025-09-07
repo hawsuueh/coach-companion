@@ -74,8 +74,7 @@ export default function GameRosterScreen() {
 
   const handleStartRecording = () => {
     console.log('Start recording for game:', game?.gameName);
-    // TODO: Navigate to real-time stats screen
-    alert('Start Recording - functionality coming soon!');
+    router.push(`/athletes-module/game/${id}/recording`);
   };
 
   const handleAddAthlete = () => {
