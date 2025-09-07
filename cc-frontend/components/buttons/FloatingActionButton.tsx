@@ -13,7 +13,7 @@ interface FloatingActionButtonProps {
 export default function FloatingActionButton({
   icon,
   onPress,
-  color = '#FF0000',
+  color = '#EC1D25',
   size = 'medium',
   position = 'bottom-right',
   className = ''
@@ -107,7 +107,7 @@ export default function FloatingActionButton({
       }}
     >
       <TouchableOpacity
-        className={`${sizeClasses.container} items-center justify-center rounded-full shadow-xl`}
+        className={`${sizeClasses.container} items-center justify-center rounded-lg shadow-xl`}
         style={{
           backgroundColor: color,
           shadowColor: '#000',

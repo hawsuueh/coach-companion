@@ -92,7 +92,10 @@ export default function AthleteScreen() {
 
   const handleGamePress = (game: Game) => {
     console.log('Game pressed:', game.gameName);
-    // Navigate to game detail screen
+    // Navigate to team roster screen for this specific game
+    router.push(
+      `/(coach)/(tabs)/athletes-module/game/${game.id}/roster` as any
+    );
   };
 
   const filteredAthletes = athletes.filter(

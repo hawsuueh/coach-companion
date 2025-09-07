@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FloatingActionButton from '@/components/buttons/FloatingActionButton';
 import Header from '@/components/headers/Header';
 
 // Mock data - in the future this will come from Supabase
@@ -227,6 +228,15 @@ export default function InjuriesScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        icon="add"
+        onPress={handleAddInjury}
+        color="#FF0000"
+        size="medium"
+        position="bottom-right"
+      />
     </View>
   );
 }
