@@ -153,15 +153,27 @@ export default function GameRecordingScreen() {
         statType === 'threePointFG' ||
         statType === 'freeThrows'
       ) {
-        updateStat(playerId, statType, {
-          ...currentStats[statType],
-          attempted: currentStats[statType].attempted + 1
-        });
+        setPlayerStats(prev => ({
+          ...prev,
+          [playerId]: {
+            ...prev[playerId],
+            [statType]: {
+              ...prev[playerId][statType],
+              attempted: prev[playerId][statType].attempted + 1
+            }
+          }
+        }));
       } else if (statType === 'rebounds') {
-        updateStat(playerId, statType, {
-          ...currentStats[statType],
-          defensive: currentStats[statType].defensive + 1
-        });
+        setPlayerStats(prev => ({
+          ...prev,
+          [playerId]: {
+            ...prev[playerId],
+            rebounds: {
+              ...prev[playerId].rebounds,
+              defensive: prev[playerId].rebounds.defensive + 1
+            }
+          }
+        }));
       } else {
         updateStat(playerId, statType, (currentStats[statType] as number) + 1);
       }
@@ -180,18 +192,30 @@ export default function GameRecordingScreen() {
       ) {
         const currentAttempted = currentStats[statType].attempted;
         if (currentAttempted > 0) {
-          updateStat(playerId, statType, {
-            ...currentStats[statType],
-            attempted: currentAttempted - 1
-          });
+          setPlayerStats(prev => ({
+            ...prev,
+            [playerId]: {
+              ...prev[playerId],
+              [statType]: {
+                ...prev[playerId][statType],
+                attempted: prev[playerId][statType].attempted - 1
+              }
+            }
+          }));
         }
       } else if (statType === 'rebounds') {
         const currentDefensive = currentStats[statType].defensive;
         if (currentDefensive > 0) {
-          updateStat(playerId, statType, {
-            ...currentStats[statType],
-            defensive: currentDefensive - 1
-          });
+          setPlayerStats(prev => ({
+            ...prev,
+            [playerId]: {
+              ...prev[playerId],
+              rebounds: {
+                ...prev[playerId].rebounds,
+                defensive: prev[playerId].rebounds.defensive - 1
+              }
+            }
+          }));
         }
       } else {
         updateStat(playerId, statType, (currentStats[statType] as number) - 1);
@@ -512,13 +536,17 @@ export default function GameRecordingScreen() {
                         </Text>
                         {stat.type === 'complex' && selectedPlayerId && (
                           <Text className="text-sm text-gray-500">
-                            {playerStats[selectedPlayerId]?.[
-                              stat.key as keyof PlayerStats
-                            ]?.made || 0}{' '}
+                            {(
+                              playerStats[selectedPlayerId]?.[
+                                stat.key as keyof PlayerStats
+                              ] as { made: number; attempted: number }
+                            )?.made || 0}{' '}
                             /{' '}
-                            {playerStats[selectedPlayerId]?.[
-                              stat.key as keyof PlayerStats
-                            ]?.attempted || 0}
+                            {(
+                              playerStats[selectedPlayerId]?.[
+                                stat.key as keyof PlayerStats
+                              ] as { made: number; attempted: number }
+                            )?.attempted || 0}
                           </Text>
                         )}
                         {stat.type === 'rebounds' && selectedPlayerId && (
@@ -533,9 +561,9 @@ export default function GameRecordingScreen() {
                         )}
                         {stat.type === 'simple' && selectedPlayerId && (
                           <Text className="text-sm text-gray-500">
-                            {playerStats[selectedPlayerId]?.[
+                            {(playerStats[selectedPlayerId]?.[
                               stat.key as keyof PlayerStats
-                            ] || 0}
+                            ] as number) || 0}
                           </Text>
                         )}
                       </View>
@@ -554,18 +582,20 @@ export default function GameRecordingScreen() {
                         </TouchableOpacity>
                         <Text className="w-8 text-center font-medium">
                           {stat.type === 'complex' && selectedPlayerId
-                            ? playerStats[selectedPlayerId]?.[
-                                stat.key as keyof PlayerStats
-                              ]?.attempted || 0
+                            ? (
+                                playerStats[selectedPlayerId]?.[
+                                  stat.key as keyof PlayerStats
+                                ] as { made: number; attempted: number }
+                              )?.attempted || 0
                             : stat.type === 'rebounds' && selectedPlayerId
                               ? (playerStats[selectedPlayerId]?.rebounds
                                   ?.offensive || 0) +
                                 (playerStats[selectedPlayerId]?.rebounds
                                   ?.defensive || 0)
                               : selectedPlayerId
-                                ? playerStats[selectedPlayerId]?.[
+                                ? (playerStats[selectedPlayerId]?.[
                                     stat.key as keyof PlayerStats
-                                  ] || 0
+                                  ] as number) || 0
                                 : 0}
                         </Text>
                         <TouchableOpacity
