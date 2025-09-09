@@ -10,6 +10,8 @@ import {
   TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatCard from '../../../../../../components/cards/StatCard';
+import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_GAMES = {
@@ -62,7 +64,6 @@ interface PlayerStats {
   blocks: number;
   turnovers: number;
   fouls: number;
-  points: number;
 }
 
 export default function GameRecordingScreen() {
@@ -87,6 +88,15 @@ export default function GameRecordingScreen() {
     selectedAthleteIds.includes(athlete.id)
   );
 
+  // Calculate total points for a player
+  const calculateTotalPoints = (stats: PlayerStats | undefined) => {
+    if (!stats) return 0;
+    const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
+    const threePointPoints = (stats.threePointFG?.made || 0) * 3;
+    const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
+    return twoPointPoints + threePointPoints + freeThrowPoints;
+  };
+
   // Initialize player stats if not exists
   const initializePlayerStats = (playerId: string) => {
     if (!playerStats[playerId]) {
@@ -102,8 +112,7 @@ export default function GameRecordingScreen() {
           steals: 0,
           blocks: 0,
           turnovers: 0,
-          fouls: 0,
-          points: 0
+          fouls: 0
         }
       }));
     }
@@ -126,101 +135,6 @@ export default function GameRecordingScreen() {
         }
       ]
     );
-  };
-
-  const updateStat = (
-    playerId: string,
-    statType: keyof PlayerStats,
-    value: number
-  ) => {
-    initializePlayerStats(playerId);
-    setPlayerStats(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        [statType]: value
-      }
-    }));
-  };
-
-  const incrementStat = (playerId: string, statType: keyof PlayerStats) => {
-    initializePlayerStats(playerId);
-    const currentStats = playerStats[playerId];
-    if (currentStats) {
-      if (
-        statType === 'fieldGoals' ||
-        statType === 'twoPointFG' ||
-        statType === 'threePointFG' ||
-        statType === 'freeThrows'
-      ) {
-        setPlayerStats(prev => ({
-          ...prev,
-          [playerId]: {
-            ...prev[playerId],
-            [statType]: {
-              ...prev[playerId][statType],
-              attempted: prev[playerId][statType].attempted + 1
-            }
-          }
-        }));
-      } else if (statType === 'rebounds') {
-        setPlayerStats(prev => ({
-          ...prev,
-          [playerId]: {
-            ...prev[playerId],
-            rebounds: {
-              ...prev[playerId].rebounds,
-              defensive: prev[playerId].rebounds.defensive + 1
-            }
-          }
-        }));
-      } else {
-        updateStat(playerId, statType, (currentStats[statType] as number) + 1);
-      }
-    }
-  };
-
-  const decrementStat = (playerId: string, statType: keyof PlayerStats) => {
-    initializePlayerStats(playerId);
-    const currentStats = playerStats[playerId];
-    if (currentStats && (currentStats[statType] as number) > 0) {
-      if (
-        statType === 'fieldGoals' ||
-        statType === 'twoPointFG' ||
-        statType === 'threePointFG' ||
-        statType === 'freeThrows'
-      ) {
-        const currentAttempted = currentStats[statType].attempted;
-        if (currentAttempted > 0) {
-          setPlayerStats(prev => ({
-            ...prev,
-            [playerId]: {
-              ...prev[playerId],
-              [statType]: {
-                ...prev[playerId][statType],
-                attempted: prev[playerId][statType].attempted - 1
-              }
-            }
-          }));
-        }
-      } else if (statType === 'rebounds') {
-        const currentDefensive = currentStats[statType].defensive;
-        if (currentDefensive > 0) {
-          setPlayerStats(prev => ({
-            ...prev,
-            [playerId]: {
-              ...prev[playerId],
-              rebounds: {
-                ...prev[playerId].rebounds,
-                defensive: prev[playerId].rebounds.defensive - 1
-              }
-            }
-          }));
-        }
-      } else {
-        updateStat(playerId, statType, (currentStats[statType] as number) - 1);
-      }
-    }
   };
 
   const handleExport = () => {
@@ -467,7 +381,10 @@ export default function GameRecordingScreen() {
                           ? 'border-red-500 bg-red-50'
                           : 'border-gray-200 bg-white'
                       }`}
-                      onPress={() => setSelectedPlayerId(athlete.id)}
+                      onPress={() => {
+                        setSelectedPlayerId(athlete.id);
+                        initializePlayerStats(athlete.id);
+                      }}
                     >
                       <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-gray-300">
                         <Text className="font-bold text-gray-600">
@@ -513,106 +430,193 @@ export default function GameRecordingScreen() {
                 )}
 
                 <View className="p-4">
-                  {[
-                    {
-                      key: 'fieldGoals',
-                      label: 'Field Goals',
-                      type: 'complex'
-                    },
-                    { key: 'freeThrows', label: 'Free Throw', type: 'complex' },
-                    { key: 'rebounds', label: 'Rebounds', type: 'rebounds' },
-                    { key: 'assists', label: 'Assists', type: 'simple' },
-                    { key: 'steals', label: 'Steals', type: 'simple' },
-                    { key: 'blocks', label: 'Blocks', type: 'simple' },
-                    { key: 'turnovers', label: 'Turnovers', type: 'simple' }
-                  ].map(stat => (
-                    <View
-                      key={stat.key}
-                      className="flex-row items-center justify-between border-b border-gray-100 py-3"
-                    >
-                      <View className="flex-1">
-                        <Text className="font-medium text-black">
-                          {stat.label}
-                        </Text>
-                        {stat.type === 'complex' && selectedPlayerId && (
-                          <Text className="text-sm text-gray-500">
-                            {(
-                              playerStats[selectedPlayerId]?.[
-                                stat.key as keyof PlayerStats
-                              ] as { made: number; attempted: number }
-                            )?.made || 0}{' '}
-                            /{' '}
-                            {(
-                              playerStats[selectedPlayerId]?.[
-                                stat.key as keyof PlayerStats
-                              ] as { made: number; attempted: number }
-                            )?.attempted || 0}
-                          </Text>
-                        )}
-                        {stat.type === 'rebounds' && selectedPlayerId && (
-                          <Text className="text-sm text-gray-500">
-                            Off:{' '}
-                            {playerStats[selectedPlayerId]?.rebounds
-                              ?.offensive || 0}{' '}
-                            | Def:{' '}
-                            {playerStats[selectedPlayerId]?.rebounds
-                              ?.defensive || 0}
-                          </Text>
-                        )}
-                        {stat.type === 'simple' && selectedPlayerId && (
-                          <Text className="text-sm text-gray-500">
-                            {(playerStats[selectedPlayerId]?.[
-                              stat.key as keyof PlayerStats
-                            ] as number) || 0}
-                          </Text>
-                        )}
-                      </View>
-                      <View className="flex-row items-center space-x-2">
-                        <TouchableOpacity
-                          className="h-8 w-8 items-center justify-center rounded-full bg-gray-200"
-                          onPress={() =>
-                            selectedPlayerId &&
-                            decrementStat(
-                              selectedPlayerId,
-                              stat.key as keyof PlayerStats
-                            )
+                  {/* 2-Point Field Goals Card */}
+                  <StatCard
+                    title="2-Point Field Goals"
+                    type="shooting"
+                    stats={
+                      selectedPlayerId
+                        ? playerStats[selectedPlayerId]?.twoPointFG
+                        : { made: 0, attempted: 0 }
+                    }
+                    onUpdate={(field, value) =>
+                      selectedPlayerId &&
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          twoPointFG: {
+                            ...prev[selectedPlayerId].twoPointFG,
+                            [field]: value
                           }
-                        >
-                          <Text className="font-bold text-gray-600">-</Text>
-                        </TouchableOpacity>
-                        <Text className="w-8 text-center font-medium">
-                          {stat.type === 'complex' && selectedPlayerId
-                            ? (
-                                playerStats[selectedPlayerId]?.[
-                                  stat.key as keyof PlayerStats
-                                ] as { made: number; attempted: number }
-                              )?.attempted || 0
-                            : stat.type === 'rebounds' && selectedPlayerId
-                              ? (playerStats[selectedPlayerId]?.rebounds
-                                  ?.offensive || 0) +
-                                (playerStats[selectedPlayerId]?.rebounds
-                                  ?.defensive || 0)
-                              : selectedPlayerId
-                                ? (playerStats[selectedPlayerId]?.[
-                                    stat.key as keyof PlayerStats
-                                  ] as number) || 0
-                                : 0}
-                        </Text>
-                        <TouchableOpacity
-                          className="h-8 w-8 items-center justify-center rounded-full bg-gray-200"
-                          onPress={() =>
-                            selectedPlayerId &&
-                            incrementStat(
-                              selectedPlayerId,
-                              stat.key as keyof PlayerStats
-                            )
+                        }
+                      }))
+                    }
+                  />
+
+                  {/* 3-Point Field Goals Card */}
+                  <StatCard
+                    title="3-Point Field Goals"
+                    type="shooting"
+                    stats={
+                      selectedPlayerId
+                        ? playerStats[selectedPlayerId]?.threePointFG
+                        : { made: 0, attempted: 0 }
+                    }
+                    onUpdate={(field, value) =>
+                      selectedPlayerId &&
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          threePointFG: {
+                            ...prev[selectedPlayerId].threePointFG,
+                            [field]: value
                           }
-                        >
-                          <Text className="font-bold text-gray-600">+</Text>
-                        </TouchableOpacity>
-                      </View>
+                        }
+                      }))
+                    }
+                  />
+
+                  {/* Free Throws Card */}
+                  <StatCard
+                    title="Free Throws"
+                    type="shooting"
+                    stats={
+                      selectedPlayerId
+                        ? playerStats[selectedPlayerId]?.freeThrows
+                        : { made: 0, attempted: 0 }
+                    }
+                    onUpdate={(field, value) =>
+                      selectedPlayerId &&
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          freeThrows: {
+                            ...prev[selectedPlayerId].freeThrows,
+                            [field]: value
+                          }
+                        }
+                      }))
+                    }
+                  />
+
+                  {/* Rebounds Card */}
+                  <StatCard
+                    title="Rebounds"
+                    type="rebounds"
+                    stats={
+                      selectedPlayerId
+                        ? playerStats[selectedPlayerId]?.rebounds
+                        : { offensive: 0, defensive: 0 }
+                    }
+                    onUpdate={(field, value) =>
+                      selectedPlayerId &&
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          rebounds: {
+                            ...prev[selectedPlayerId].rebounds,
+                            [field]: value
+                          }
+                        }
+                      }))
+                    }
+                  />
+
+                  {/* Other Stats Card */}
+                  <View className="rounded-lg bg-gray-100 p-4">
+                    <Text className="mb-3 text-lg font-semibold text-black">
+                      Other Stats
+                    </Text>
+
+                    <SimpleStatRow
+                      label="Assists"
+                      value={playerStats[selectedPlayerId]?.assists || 0}
+                      onUpdate={value =>
+                        selectedPlayerId &&
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            assists: value
+                          }
+                        }))
+                      }
+                    />
+
+                    <SimpleStatRow
+                      label="Steals"
+                      value={playerStats[selectedPlayerId]?.steals || 0}
+                      onUpdate={value =>
+                        selectedPlayerId &&
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            steals: value
+                          }
+                        }))
+                      }
+                    />
+
+                    <SimpleStatRow
+                      label="Blocks"
+                      value={playerStats[selectedPlayerId]?.blocks || 0}
+                      onUpdate={value =>
+                        selectedPlayerId &&
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            blocks: value
+                          }
+                        }))
+                      }
+                    />
+
+                    <SimpleStatRow
+                      label="Turnovers"
+                      value={playerStats[selectedPlayerId]?.turnovers || 0}
+                      onUpdate={value =>
+                        selectedPlayerId &&
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            turnovers: value
+                          }
+                        }))
+                      }
+                    />
+
+                    <SimpleStatRow
+                      label="Fouls"
+                      value={playerStats[selectedPlayerId]?.fouls || 0}
+                      onUpdate={value =>
+                        selectedPlayerId &&
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            fouls: value
+                          }
+                        }))
+                      }
+                    />
+
+                    {/* Total Points - Calculated Display */}
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-medium text-black">
+                        Total Points
+                      </Text>
+                      <Text className="text-lg font-bold text-red-500">
+                        {calculateTotalPoints(playerStats[selectedPlayerId])}
+                      </Text>
                     </View>
-                  ))}
+                  </View>
                 </View>
               </View>
             </View>
@@ -659,7 +663,7 @@ export default function GameRecordingScreen() {
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">PTS</Text>
                               <Text className="font-bold text-black">
-                                {stats?.points || 0}
+                                {calculateTotalPoints(stats)}
                               </Text>
                             </View>
                             <View className="items-center">
