@@ -12,6 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatCard from '../../../../../../components/cards/StatCard';
 import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
+import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
+import ShootingStats_StatsForm from '../../../../../../components/cards/ShootingStats_StatsForm';
+import ReboundingStats_StatsForm from '../../../../../../components/cards/ReboundingStats_StatsForm';
+import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_GAMES = {
@@ -54,7 +58,7 @@ const MOCK_ROSTERS = {
 };
 
 interface PlayerStats {
-  fieldGoals: { made: number; attempted: number };
+  totalFieldGoals: { made: number; attempted: number };
   twoPointFG: { made: number; attempted: number };
   threePointFG: { made: number; attempted: number };
   freeThrows: { made: number; attempted: number };
@@ -71,6 +75,12 @@ export default function GameRecordingScreen() {
   const { id } = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState<'realtime' | 'stats'>('realtime');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [selectedStatsAthlete, setSelectedStatsAthlete] = useState<{
+    id: string;
+    number: string;
+    name: string;
+    position: string;
+  } | null>(null);
   const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>(
     {}
   );
@@ -103,7 +113,7 @@ export default function GameRecordingScreen() {
       setPlayerStats(prev => ({
         ...prev,
         [playerId]: {
-          fieldGoals: { made: 0, attempted: 0 },
+          totalFieldGoals: { made: 0, attempted: 0 },
           twoPointFG: { made: 0, attempted: 0 },
           threePointFG: { made: 0, attempted: 0 },
           freeThrows: { made: 0, attempted: 0 },
@@ -142,6 +152,83 @@ export default function GameRecordingScreen() {
       'Export Stats',
       'Export functionality will be implemented soon!'
     );
+  };
+
+  // Stats form handlers
+  const handleStatsAthleteSelect = (athlete: {
+    id: string;
+    number: string;
+    name: string;
+    position: string;
+  }) => {
+    setSelectedStatsAthlete(athlete);
+    initializePlayerStats(athlete.id);
+  };
+
+  const handleShootingStatsUpdate = (
+    statType: 'total' | 'twoPoint' | 'threePoint' | 'freeThrows',
+    field: 'made' | 'attempted',
+    value: number
+  ) => {
+    if (!selectedStatsAthlete) return;
+
+    setPlayerStats(prev => ({
+      ...prev,
+      [selectedStatsAthlete.id]: {
+        ...prev[selectedStatsAthlete.id],
+        [statType === 'total'
+          ? 'totalFieldGoals'
+          : statType === 'twoPoint'
+            ? 'twoPointFG'
+            : statType === 'threePoint'
+              ? 'threePointFG'
+              : 'freeThrows']: {
+          ...prev[selectedStatsAthlete.id][
+            statType === 'total'
+              ? 'totalFieldGoals'
+              : statType === 'twoPoint'
+                ? 'twoPointFG'
+                : statType === 'threePoint'
+                  ? 'threePointFG'
+                  : 'freeThrows'
+          ],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleReboundingStatsUpdate = (
+    field: 'offensive' | 'defensive',
+    value: number
+  ) => {
+    if (!selectedStatsAthlete) return;
+
+    setPlayerStats(prev => ({
+      ...prev,
+      [selectedStatsAthlete.id]: {
+        ...prev[selectedStatsAthlete.id],
+        rebounds: {
+          ...prev[selectedStatsAthlete.id].rebounds,
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleOtherStatsUpdate = (
+    field: 'assists' | 'steals' | 'blocks' | 'turnovers' | 'fouls',
+    value: number
+  ) => {
+    if (!selectedStatsAthlete) return;
+
+    setPlayerStats(prev => ({
+      ...prev,
+      [selectedStatsAthlete.id]: {
+        ...prev[selectedStatsAthlete.id],
+        [field]: value
+      }
+    }));
   };
 
   const updateQuarterScore = (
@@ -622,80 +709,172 @@ export default function GameRecordingScreen() {
             </View>
           </ScrollView>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            <View className="p-4">
-              <Text className="mb-4 text-lg font-semibold text-black">
-                Complete Stats Sheet
-              </Text>
-              <View className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                {/* Stats Sheet Header */}
-                <View className="border-b border-gray-200 bg-gray-100 p-3">
-                  <Text className="text-center font-bold text-black">
-                    BUCAL MEN'S BASKETBALL SEASON 6
-                  </Text>
-                  <Text className="mt-1 text-center text-sm text-gray-600">
-                    {game.gameName}
-                  </Text>
-                  <Text className="text-center text-sm text-gray-600">
-                    {game.date}
-                  </Text>
-                </View>
+          <ScrollView
+            className="flex-1 bg-gray-100"
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="space-y-4 p-4">
+              {/* Athlete Selection */}
+              <View className="mb-4">
+                <AthleteDropdown_StatsForm
+                  athletes={selectedAthletes}
+                  selectedAthlete={selectedStatsAthlete}
+                  onSelectAthlete={handleStatsAthleteSelect}
+                />
+              </View>
 
-                {/* Player Stats Table */}
-                <View className="p-3">
-                  {selectedAthletes.map(athlete => {
-                    const stats = playerStats[athlete.id];
-                    return (
-                      <View
-                        key={athlete.id}
-                        className="border-b border-gray-100 py-2"
-                      >
-                        <View className="flex-row items-center justify-between">
-                          <View className="flex-1">
-                            <Text className="font-semibold text-black">
-                              #{athlete.number} {athlete.name}
-                            </Text>
-                            <Text className="text-sm text-gray-500">
-                              {athlete.position}
-                            </Text>
-                          </View>
-                          <View className="flex-row space-x-4">
-                            <View className="items-center">
-                              <Text className="text-xs text-gray-500">PTS</Text>
-                              <Text className="font-bold text-black">
-                                {calculateTotalPoints(stats)}
+              {/* Stats Form */}
+              {selectedStatsAthlete && (
+                <View className="space-y-4">
+                  {/* Shooting Statistics */}
+                  <ShootingStats_StatsForm
+                    totalFieldGoals={
+                      playerStats[selectedStatsAthlete.id]?.totalFieldGoals || {
+                        made: 0,
+                        attempted: 0
+                      }
+                    }
+                    twoPointFG={
+                      playerStats[selectedStatsAthlete.id]?.twoPointFG || {
+                        made: 0,
+                        attempted: 0
+                      }
+                    }
+                    threePointFG={
+                      playerStats[selectedStatsAthlete.id]?.threePointFG || {
+                        made: 0,
+                        attempted: 0
+                      }
+                    }
+                    freeThrows={
+                      playerStats[selectedStatsAthlete.id]?.freeThrows || {
+                        made: 0,
+                        attempted: 0
+                      }
+                    }
+                    onUpdate={handleShootingStatsUpdate}
+                  />
+
+                  {/* Rebounding Statistics */}
+                  <ReboundingStats_StatsForm
+                    offensive={
+                      playerStats[selectedStatsAthlete.id]?.rebounds
+                        ?.offensive || 0
+                    }
+                    defensive={
+                      playerStats[selectedStatsAthlete.id]?.rebounds
+                        ?.defensive || 0
+                    }
+                    onUpdate={handleReboundingStatsUpdate}
+                  />
+
+                  {/* Other Statistics */}
+                  <OtherStats_StatsForm
+                    assists={playerStats[selectedStatsAthlete.id]?.assists || 0}
+                    steals={playerStats[selectedStatsAthlete.id]?.steals || 0}
+                    blocks={playerStats[selectedStatsAthlete.id]?.blocks || 0}
+                    turnovers={
+                      playerStats[selectedStatsAthlete.id]?.turnovers || 0
+                    }
+                    fouls={playerStats[selectedStatsAthlete.id]?.fouls || 0}
+                    onUpdate={handleOtherStatsUpdate}
+                  />
+
+                  {/* Add Button */}
+                  <TouchableOpacity className="flex-row items-center justify-center rounded-lg bg-red-500 px-6 py-4">
+                    <Ionicons name="add" size={20} color="white" />
+                    <Text className="ml-2 text-lg font-semibold text-white">
+                      Add
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Complete Stats Sheet */}
+              <View className="mt-6">
+                <Text className="mb-4 text-lg font-semibold text-black">
+                  Complete Stats Sheet
+                </Text>
+                <View className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  {/* Stats Sheet Header */}
+                  <View className="border-b border-gray-200 bg-gray-100 p-3">
+                    <Text className="text-center font-bold text-black">
+                      BUCAL MEN'S BASKETBALL SEASON 6
+                    </Text>
+                    <Text className="mt-1 text-center text-sm text-gray-600">
+                      {game.gameName}
+                    </Text>
+                    <Text className="text-center text-sm text-gray-600">
+                      {game.date}
+                    </Text>
+                  </View>
+
+                  {/* Player Stats Table */}
+                  <View className="p-3">
+                    {selectedAthletes.map(athlete => {
+                      const stats = playerStats[athlete.id];
+                      return (
+                        <View
+                          key={athlete.id}
+                          className="border-b border-gray-100 py-2"
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <View className="flex-1">
+                              <Text className="font-semibold text-black">
+                                #{athlete.number} {athlete.name}
+                              </Text>
+                              <Text className="text-sm text-gray-500">
+                                {athlete.position}
                               </Text>
                             </View>
-                            <View className="items-center">
-                              <Text className="text-xs text-gray-500">REB</Text>
-                              <Text className="font-bold text-black">
-                                {(stats?.rebounds?.offensive || 0) +
-                                  (stats?.rebounds?.defensive || 0)}
-                              </Text>
-                            </View>
-                            <View className="items-center">
-                              <Text className="text-xs text-gray-500">AST</Text>
-                              <Text className="font-bold text-black">
-                                {stats?.assists || 0}
-                              </Text>
-                            </View>
-                            <View className="items-center">
-                              <Text className="text-xs text-gray-500">STL</Text>
-                              <Text className="font-bold text-black">
-                                {stats?.steals || 0}
-                              </Text>
-                            </View>
-                            <View className="items-center">
-                              <Text className="text-xs text-gray-500">BLK</Text>
-                              <Text className="font-bold text-black">
-                                {stats?.blocks || 0}
-                              </Text>
+                            <View className="flex-row space-x-4">
+                              <View className="items-center">
+                                <Text className="text-xs text-gray-500">
+                                  PTS
+                                </Text>
+                                <Text className="font-bold text-black">
+                                  {calculateTotalPoints(stats)}
+                                </Text>
+                              </View>
+                              <View className="items-center">
+                                <Text className="text-xs text-gray-500">
+                                  REB
+                                </Text>
+                                <Text className="font-bold text-black">
+                                  {(stats?.rebounds?.offensive || 0) +
+                                    (stats?.rebounds?.defensive || 0)}
+                                </Text>
+                              </View>
+                              <View className="items-center">
+                                <Text className="text-xs text-gray-500">
+                                  AST
+                                </Text>
+                                <Text className="font-bold text-black">
+                                  {stats?.assists || 0}
+                                </Text>
+                              </View>
+                              <View className="items-center">
+                                <Text className="text-xs text-gray-500">
+                                  STL
+                                </Text>
+                                <Text className="font-bold text-black">
+                                  {stats?.steals || 0}
+                                </Text>
+                              </View>
+                              <View className="items-center">
+                                <Text className="text-xs text-gray-500">
+                                  BLK
+                                </Text>
+                                <Text className="font-bold text-black">
+                                  {stats?.blocks || 0}
+                                </Text>
+                              </View>
                             </View>
                           </View>
                         </View>
-                      </View>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
             </View>
