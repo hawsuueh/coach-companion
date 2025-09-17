@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-export default function Home() {
+export default function Training() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Training Screen of Coach</Text>
