@@ -1,40 +1,27 @@
-import {
-  useFonts,
-  PoetsenOne_400Regular
-} from '@expo-google-fonts/poetsen-one';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import CoachNavigation from '@/components/navigations/CoachNavigation';
-
-// SplashScreen.preventAutoHideAsync();
+import Header1 from '@/components/headers/Header1';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CoachLayout() {
-  const [loaded, error] = useFonts({
-    PoetsenOne_400Regular
-  });
-
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
-  if (!loaded && !error) {
-    return null;
-  }
-
   return (
-    <View style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }} />
-      <CoachNavigation />
-    </View>
+    <SafeAreaView className="flex-1 bg-white">
+      {/* Custom Header */}
+      <Header1
+        onNotificationPress={() => {
+          console.log('Notifications pressed');
+        }}
+        onMenuPress={() => {
+          console.log('Menu pressed');
+        }}
+      />
+
+      {/* Main content (screens + bottom navigation) */}
+      <View className="flex-1">
+        <Stack screenOptions={{ headerShown: false }} />
+        <CoachNavigation />
+      </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  }
-});

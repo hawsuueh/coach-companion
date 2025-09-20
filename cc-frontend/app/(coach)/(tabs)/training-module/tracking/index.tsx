@@ -3,11 +3,14 @@ import { View, FlatList, Text } from 'react-native';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
-import FloatingButton from '@/components/training-module/buttons/FloatingButton';
-import { Ionicons, Entypo } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function Training() {
+export default function Tracking() {
   const [searchText, setSearchText] = useState('');
+
+  const handleAthletePress = () => {
+    console.log('Athlete button pressed');
+  };
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
@@ -58,13 +61,18 @@ export default function Training() {
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
-      {/* Search + Filter */}
       <View className="mb-4">
+        {/* Search */}
         <View className="mb-5">
           <SearchBar searchText={searchText} setSearchText={setSearchText} />
         </View>
-
-        <View className="items-end p-2">
+        {/* Athlete + Filter Icon Buttons */}
+        <View className="flex-row justify-end gap-3 p-2">
+          <IconButton
+            IconComponent={Ionicons}
+            icon="people-sharp"
+            onPress={handleAthletePress}
+          />
           <IconButton
             IconComponent={Ionicons}
             icon="filter-outline"
@@ -91,13 +99,6 @@ export default function Training() {
             <Text className="text-base text-gray-500">No trainings found</Text>
           </View>
         }
-      />
-
-      {/* Floating Button */}
-      <FloatingButton
-        onPress={handleFloatingPress}
-        icon="cycle"
-        IconComponent={Entypo}
       />
     </View>
   );

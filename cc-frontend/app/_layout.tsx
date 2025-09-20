@@ -1,12 +1,35 @@
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  Inter_300Light,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_700Bold
+} from '@expo-google-fonts/inter';
+import { PoetsenOne_400Regular } from '@expo-google-fonts/poetsen-one';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+
+import '../global.css';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
-  );
+  const [loaded, error] = useFonts({
+    InterLight: Inter_300Light,
+    InterRegular: Inter_400Regular,
+    InterMedium: Inter_500Medium,
+    InterBold: Inter_700Bold,
+    PoetsenOne: PoetsenOne_400Regular
+  });
+
+  useEffect(() => {
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  if (!loaded && !error) return null;
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

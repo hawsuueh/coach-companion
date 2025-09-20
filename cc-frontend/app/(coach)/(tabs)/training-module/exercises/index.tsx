@@ -4,9 +4,9 @@ import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
-import { Ionicons, Entypo } from '@expo/vector-icons';
+import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 
-export default function Training() {
+export default function Exercises() {
   const [searchText, setSearchText] = useState('');
 
   const handleFilterPress = () => {
@@ -18,42 +18,42 @@ export default function Training() {
   };
 
   // Sample data (replace with actual data later)
-  const trainings = [
+  const exercises = [
     {
       id: '1',
-      trainingName: 'Core Strength Training',
-      dateTime: 'Sept 15, 2025 - 7:00 AM'
+      exerciseName: 'Push-Ups',
+      description: 'Strengthens chest, shoulders, and triceps'
     },
     {
       id: '2',
-      trainingName: 'Upper Body Strength',
-      dateTime: 'Sept 16, 2025 - 5:00 PM'
+      exerciseName: 'Squats',
+      description: 'Targets quads, hamstrings, and glutes'
     },
     {
       id: '3',
-      trainingName: 'Explosive Power Workout',
-      dateTime: 'Sept 17, 2025 - 6:30 AM'
+      exerciseName: 'Plank',
+      description: 'Improves core strength and stability'
     },
     {
       id: '4',
-      trainingName: 'Core Strength Training',
-      dateTime: 'Sept 15, 2025 - 7:00 AM'
+      exerciseName: 'Lunges',
+      description: 'Enhances balance and strengthens legs'
     },
     {
       id: '5',
-      trainingName: 'Upper Body Strength',
-      dateTime: 'Sept 16, 2025 - 5:00 PM'
+      exerciseName: 'Burpees',
+      description: 'Full-body exercise for strength and endurance'
     },
     {
       id: '6',
-      trainingName: 'Explosive Power Workout',
-      dateTime: 'Sept 17, 2025 - 6:30 AM'
+      exerciseName: 'Jump Rope',
+      description: 'Boosts cardiovascular endurance and coordination'
     }
   ];
 
-  // Filter trainings by search text (case-insensitive)
-  const filteredTrainings = trainings.filter(item =>
-    item.trainingName.toLowerCase().includes(searchText.toLowerCase())
+  // Filter exercises by search text (case-insensitive)
+  const filteredTrainings = exercises.filter(item =>
+    item.exerciseName.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (
@@ -79,10 +79,10 @@ export default function Training() {
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <List1
-            title={item.trainingName}
-            subtitle={item.dateTime}
-            onPress={() => console.log(`Pressed ${item.trainingName}`)}
-            onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
+            title={item.exerciseName}
+            subtitle={item.description}
+            onPress={() => console.log(`Pressed ${item.exerciseName}`)}
+            onLongPress={() => console.log(`Long pressed ${item.exerciseName}`)}
           />
         )}
         contentContainerStyle={{ paddingBottom: 10 }} // extra space for FAB
@@ -96,8 +96,8 @@ export default function Training() {
       {/* Floating Button */}
       <FloatingButton
         onPress={handleFloatingPress}
-        icon="cycle"
-        IconComponent={Entypo}
+        icon="add"
+        IconComponent={FontAwesome6}
       />
     </View>
   );
