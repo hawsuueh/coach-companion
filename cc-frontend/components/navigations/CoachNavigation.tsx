@@ -71,7 +71,7 @@ const CoachNavigation: React.FC = () => {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f5f5f5',
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -84,9 +84,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f5f5f5',
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e0e0e0',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

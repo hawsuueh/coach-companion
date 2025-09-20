@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { useDrawer } from '@/contexts/DrawerContext';
 
 interface HeaderProps {
   title: string;
@@ -22,6 +23,15 @@ export default function Header({
   onBackPress,
   className = ''
 }: HeaderProps) {
+  const { openDrawer } = useDrawer();
+
+  const handleMenuPress = () => {
+    if (onMenuPress) {
+      onMenuPress(); // Call custom handler if provided
+    } else {
+      openDrawer(); // Default behavior: open drawer
+    }
+  };
   return (
     <View
       className={`flex-row items-center justify-between bg-white px-5 py-4 ${className}`}
@@ -65,7 +75,7 @@ export default function Header({
           </TouchableOpacity>
         )}
         {showMenu && (
-          <TouchableOpacity onPress={onMenuPress}>
+          <TouchableOpacity onPress={handleMenuPress}>
             <Ionicons name="menu" size={24} color="#000" />
           </TouchableOpacity>
         )}

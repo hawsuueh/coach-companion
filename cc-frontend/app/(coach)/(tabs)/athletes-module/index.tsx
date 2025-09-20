@@ -62,10 +62,6 @@ export default function AthleteScreen() {
     console.log('Notification pressed');
   };
 
-  const handleMenuPress = () => {
-    console.log('Menu pressed');
-  };
-
   const handleFilterPress = () => {
     console.log('Filter pressed');
   };
@@ -135,7 +131,6 @@ export default function AthleteScreen() {
         <Header
           title="Athletes & Games"
           onNotificationPress={handleNotificationPress}
-          onMenuPress={handleMenuPress}
         />
 
         {/* Tab Navigation - Using reusable SubTab component */}

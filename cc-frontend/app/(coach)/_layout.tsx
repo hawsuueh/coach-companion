@@ -8,6 +8,8 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import '@/global.css';
 import CoachNavigation from '@/components/navigations/CoachNavigation';
+import { DrawerProvider } from '@/contexts/DrawerContext';
+import SideDrawer from '@/components/navigations/SideDrawer';
 
 // SplashScreen.preventAutoHideAsync();
 
@@ -27,10 +29,13 @@ export default function CoachLayout() {
   }
 
   return (
-    <View style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }} />
-      <CoachNavigation />
-    </View>
+    <DrawerProvider>
+      <View style={styles.container}>
+        <Stack screenOptions={{ headerShown: false }} />
+        <CoachNavigation />
+        <SideDrawer />
+      </View>
+    </DrawerProvider>
   );
 }
 

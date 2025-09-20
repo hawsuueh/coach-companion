@@ -142,16 +142,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign Out
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('🚪 Signing out user:', user?.email);
+      console.log('🗑️ Clearing session from AsyncStorage...');
+
+      await supabase.auth.signOut();
+
+      // Clear local state immediately
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+
+      console.log('✅ Sign out completed - all data cleared');
+    } catch (error) {
+      console.error('❌ Sign out error:', error);
+    }
   };
 
   // Listen for auth changes
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
+      console.log('🔄 Checking for existing session...');
       const {
         data: { session }
       } = await supabase.auth.getSession();
+
+      if (session) {
+        console.log('✅ Found existing session for:', session.user.email);
+        console.log('📱 Session restored from AsyncStorage!');
+      } else {
+        console.log('❌ No existing session found');
+      }
+
       setSession(session);
       setUser(session?.user || null);
 
@@ -169,6 +192,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔔 Auth state changed:', event);
+
+      if (event === 'SIGNED_IN') {
+        console.log('✅ User signed in:', session?.user.email);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 User signed out');
+        console.log('🗑️ AsyncStorage cleared');
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed for:', session?.user.email);
+      }
+
       setSession(session);
       setUser(session?.user || null);
 
