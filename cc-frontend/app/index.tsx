@@ -21,7 +21,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signIn, user, profile, loading: authLoading } = useAuth();
 
-  // Auto-redirect if user is already logged in
+  // Auto-redirect based on auth state
   useEffect(() => {
     console.log('🔄 Redirect check:', {
       user: !!user,
@@ -29,7 +29,11 @@ export default function LoginScreen() {
       authLoading
     });
 
-    if (user && profile && !authLoading) {
+    // Don't do anything while auth is still loading
+    if (authLoading) return;
+
+    // If user is logged in, redirect to appropriate dashboard
+    if (user && profile) {
       const routes = {
         coach: '/(coach)/(tabs)/home',
         athlete: '/(athlete)/(tabs)/home',
@@ -43,6 +47,15 @@ export default function LoginScreen() {
       if (routes[userRole]) {
         router.replace(routes[userRole] as any);
       }
+    }
+
+    // If user was logged out (session cleared), stay on login screen
+    if (!user && !profile && !authLoading) {
+      console.log('🚪 User logged out - staying on login screen');
+      // Clear any form errors when returning to login
+      setError('');
+      setEmail('');
+      setPassword('');
     }
   }, [user, profile, authLoading, router]);
 

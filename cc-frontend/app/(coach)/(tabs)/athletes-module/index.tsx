@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { FlatList, View, Alert, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingActionButton from '@/components/buttons/FloatingActionButton';
@@ -8,6 +8,7 @@ import GameCard from '@/components/cards/GameCard';
 import Header from '@/components/headers/Header';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
+import supabase from '@/config/supabaseClient';
 
 interface Athlete {
   id: string;
@@ -16,22 +17,38 @@ interface Athlete {
   position: string;
 }
 
+interface DatabaseAthlete {
+  athlete_no: number;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  position: string | null;
+  player_no: number | null;
+}
+
 interface Game {
   id: string;
   gameName: string;
   date: string;
 }
 
-const MOCK_ATHLETES: Athlete[] = [
-  { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  { id: '2', number: '7', name: 'Mike Johnson', position: 'Midfielder' },
-  { id: '3', number: '23', name: 'David Wilson', position: 'Defender' },
-  { id: '4', number: '1', name: 'Tom Brown', position: 'Goalkeeper' },
-  { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },
-  { id: '6', number: '4', name: 'Chris Miller', position: 'Defender' },
-  { id: '7', number: '8', name: 'Ryan Taylor', position: 'Midfielder' },
-  { id: '8', number: '11', name: 'Kevin Lee', position: 'Forward' }
-];
+// Helper function to transform database athlete to UI athlete
+const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
+  const fullName = [
+    dbAthlete.first_name,
+    dbAthlete.middle_name,
+    dbAthlete.last_name
+  ]
+    .filter(name => name && name.trim() !== '')
+    .join(' ');
+
+  return {
+    id: dbAthlete.athlete_no.toString(),
+    number: dbAthlete.player_no?.toString() || '0',
+    name: fullName || 'Unknown Player',
+    position: dbAthlete.position || 'Unknown'
+  };
+};
 
 const MOCK_GAMES: Game[] = [
   {
@@ -50,13 +67,109 @@ export default function AthleteScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
-  const [athletes, setAthletes] = useState<Athlete[]>(MOCK_ATHLETES);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [games, setGames] = useState<Game[]>(MOCK_GAMES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const athleteTabs = [
     { id: 'athletes', label: 'Athletes' },
     { id: 'games', label: 'Games' }
   ];
+
+  // Fetch athletes from database
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // For now, fetch all athletes. Later we can add batch filtering
+        const { data, error: fetchError } = await supabase
+          .from('Athlete')
+          .select('*')
+          .order('athlete_no', { ascending: true });
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (data) {
+          const transformedAthletes = data.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
+        }
+      } catch (err) {
+        console.error('Error fetching athletes:', err);
+        setError('Failed to load athletes. Please try again.');
+        // Fallback to empty array or show error state
+        setAthletes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAthletes();
+  }, []);
+
+  // Function to refresh athlete data
+  const refreshAthletes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('Athlete')
+        .select('*')
+        .order('athlete_no', { ascending: true });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (data) {
+        const transformedAthletes = data.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
+      }
+    } catch (err) {
+      console.error('Error refreshing athletes:', err);
+      setError('Failed to refresh athletes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch athletes by batch (for future use)
+  const fetchAthletesByBatch = async (batchNo: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('athlete_batch')
+        .select(
+          `
+          Athlete!inner(*)
+        `
+        )
+        .eq('batch_no', batchNo);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (data) {
+        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
+        const transformedAthletes = athletes.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
+      }
+    } catch (err) {
+      console.error('Error fetching athletes by batch:', err);
+      setError('Failed to load athletes for this batch. Please try again.');
+      setAthletes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNotificationPress = () => {
     console.log('Notification pressed');
@@ -150,16 +263,44 @@ export default function AthleteScreen() {
         {/* Athlete/Game List */}
         <View className="flex-1 px-3">
           {activeTab === 'athletes' ? (
-            <FlatList
-              data={filteredAthletes}
-              renderItem={renderAthleteCard}
-              keyExtractor={item => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: 100,
-                paddingHorizontal: 8
-              }}
-            />
+            <>
+              {loading ? (
+                <View className="flex-1 items-center justify-center">
+                  <Text className="text-gray-500">Loading athletes...</Text>
+                </View>
+              ) : error ? (
+                <View className="flex-1 items-center justify-center px-4">
+                  <Text className="mb-4 text-center text-red-500">{error}</Text>
+                  <TouchableOpacity
+                    onPress={refreshAthletes}
+                    className="rounded-lg bg-red-500 px-4 py-2"
+                  >
+                    <Text className="font-semibold text-white">Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : filteredAthletes.length === 0 ? (
+                <View className="flex-1 items-center justify-center">
+                  <Text className="text-center text-gray-500">
+                    {searchQuery
+                      ? 'No athletes found matching your search.'
+                      : 'No athletes found.'}
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredAthletes}
+                  renderItem={renderAthleteCard}
+                  keyExtractor={item => item.id}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingBottom: 100,
+                    paddingHorizontal: 8
+                  }}
+                  refreshing={loading}
+                  onRefresh={refreshAthletes}
+                />
+              )}
+            </>
           ) : (
             <FlatList
               data={filteredGames}

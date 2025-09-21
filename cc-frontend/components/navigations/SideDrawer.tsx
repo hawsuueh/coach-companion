@@ -9,9 +9,11 @@ import {
   View,
   Text,
   StatusBar,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDrawer } from '@/contexts/DrawerContext';
 
@@ -45,7 +47,8 @@ function DrawerItem({
 }
 
 export default function SideDrawer() {
-  const { user, profile } = useAuth();
+  const router = useRouter();
+  const { user, profile, signOut } = useAuth();
   const { isDrawerOpen, closeDrawer } = useDrawer();
   const slideAnim = React.useRef(new Animated.Value(-300)).current;
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
@@ -116,8 +119,40 @@ export default function SideDrawer() {
 
   const handleLogoutPress = () => {
     console.log('Logout pressed from drawer');
-    animateClose();
-    // TODO: Implement logout functionality later
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            console.log('Logout cancelled');
+          }
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            animateClose();
+
+            // Use the signOut function from AuthContext
+            try {
+              await signOut();
+              console.log('✅ User logged out successfully');
+
+              // Force redirect to login screen after logout
+              router.replace('/');
+            } catch (error) {
+              console.error('❌ Logout error:', error);
+            }
+          }
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   // Don't render Modal at all when closed to prevent overlay issues
@@ -129,14 +164,8 @@ export default function SideDrawer() {
       visible={isDrawerOpen}
       animationType="none"
       onRequestClose={animateClose}
-      statusBarTranslucent
     >
       <View style={{ flex: 1 }}>
-        {/* Status bar handling for Android */}
-        {Platform.OS === 'android' && (
-          <StatusBar backgroundColor="rgba(0,0,0,0.5)" translucent />
-        )}
-
         {/* Overlay */}
         <TouchableWithoutFeedback onPress={animateClose}>
           <Animated.View
