@@ -1,6 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, View, Alert, Text, TouchableOpacity } from 'react-native';
+import {
+  FlatList,
+  View,
+  Alert,
+  Text,
+  TouchableOpacity,
+  Modal
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingActionButton from '@/components/buttons/FloatingActionButton';
@@ -24,6 +31,12 @@ interface DatabaseAthlete {
   last_name: string | null;
   position: string | null;
   player_no: number | null;
+}
+
+interface Batch {
+  batch_no: number;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 interface Game {
@@ -71,20 +84,149 @@ export default function AthleteScreen() {
   const [games, setGames] = useState<Game[]>(MOCK_GAMES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   const athleteTabs = [
     { id: 'athletes', label: 'Athletes' },
     { id: 'games', label: 'Games' }
   ];
 
-  // Fetch athletes from database
+  // Helper function to determine current batch based on today's date
+  const getCurrentBatch = (batches: Batch[]): Batch | null => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+
+    return (
+      batches.find(batch => {
+        if (!batch.start_date || !batch.end_date) return false;
+
+        const startDate = new Date(batch.start_date);
+        const endDate = new Date(batch.end_date);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        return today >= startDate && today <= endDate;
+      }) || null
+    );
+  };
+
+  // Fetch batches from database
+  const fetchBatches = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('Batch')
+        .select('*')
+        .order('start_date', { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (data) {
+        setBatches(data);
+        // Auto-select current batch if available
+        const currentBatch = getCurrentBatch(data);
+        setSelectedBatch(currentBatch);
+      }
+    } catch (err) {
+      console.error('Error fetching batches:', err);
+    }
+  };
+
+  // Fetch athletes from database with batch filtering
   useEffect(() => {
     const fetchAthletes = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // For now, fetch all athletes. Later we can add batch filtering
+        if (selectedBatch) {
+          // Fetch athletes for selected batch using athlete_batch junction table
+          const { data, error: fetchError } = await supabase
+            .from('athlete_batch')
+            .select(
+              `
+              Athlete!inner(*)
+            `
+            )
+            .eq('batch_no', selectedBatch.batch_no);
+
+          if (fetchError) {
+            throw fetchError;
+          }
+
+          if (data) {
+            const athletes = data
+              .map((item: any) => item.Athlete)
+              .filter(Boolean);
+            const transformedAthletes = athletes.map(transformDatabaseAthlete);
+            setAthletes(transformedAthletes);
+          }
+        } else {
+          // If no batch selected, fetch all athletes
+          const { data, error: fetchError } = await supabase
+            .from('Athlete')
+            .select('*')
+            .order('athlete_no', { ascending: true });
+
+          if (fetchError) {
+            throw fetchError;
+          }
+
+          if (data) {
+            const transformedAthletes = data.map(transformDatabaseAthlete);
+            setAthletes(transformedAthletes);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching athletes:', err);
+        setError('Failed to load athletes. Please try again.');
+        setAthletes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAthletes();
+  }, [selectedBatch]);
+
+  // Fetch batches on component mount
+  useEffect(() => {
+    fetchBatches();
+  }, []);
+
+  // Function to refresh athlete data
+  const refreshAthletes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (selectedBatch) {
+        // Fetch athletes for selected batch using athlete_batch junction table
+        const { data, error: fetchError } = await supabase
+          .from('athlete_batch')
+          .select(
+            `
+            Athlete!inner(*)
+          `
+          )
+          .eq('batch_no', selectedBatch.batch_no);
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (data) {
+          const athletes = data
+            .map((item: any) => item.Athlete)
+            .filter(Boolean);
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
+        }
+      } else {
+        // If no batch selected, fetch all athletes
         const { data, error: fetchError } = await supabase
           .from('Athlete')
           .select('*')
@@ -98,74 +240,10 @@ export default function AthleteScreen() {
           const transformedAthletes = data.map(transformDatabaseAthlete);
           setAthletes(transformedAthletes);
         }
-      } catch (err) {
-        console.error('Error fetching athletes:', err);
-        setError('Failed to load athletes. Please try again.');
-        // Fallback to empty array or show error state
-        setAthletes([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAthletes();
-  }, []);
-
-  // Function to refresh athlete data
-  const refreshAthletes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from('Athlete')
-        .select('*')
-        .order('athlete_no', { ascending: true });
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const transformedAthletes = data.map(transformDatabaseAthlete);
-        setAthletes(transformedAthletes);
       }
     } catch (err) {
       console.error('Error refreshing athletes:', err);
       setError('Failed to refresh athletes. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to fetch athletes by batch (for future use)
-  const fetchAthletesByBatch = async (batchNo: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from('athlete_batch')
-        .select(
-          `
-          Athlete!inner(*)
-        `
-        )
-        .eq('batch_no', batchNo);
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setAthletes(transformedAthletes);
-      }
-    } catch (err) {
-      console.error('Error fetching athletes by batch:', err);
-      setError('Failed to load athletes for this batch. Please try again.');
-      setAthletes([]);
     } finally {
       setLoading(false);
     }
@@ -176,7 +254,12 @@ export default function AthleteScreen() {
   };
 
   const handleFilterPress = () => {
-    console.log('Filter pressed');
+    setShowBatchModal(true);
+  };
+
+  const handleBatchSelect = (batch: Batch | null) => {
+    setSelectedBatch(batch);
+    setShowBatchModal(false);
   };
 
   const handleAthletePress = (athlete: Athlete) => {
@@ -258,7 +341,27 @@ export default function AthleteScreen() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onFilterPress={handleFilterPress}
+          filterType="batch"
+          placeholder="Search athletes..."
         />
+
+        {/* Batch Selection Indicator */}
+        {selectedBatch && (
+          <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
+            <Text className="text-center text-sm text-red-600">
+              Showing athletes from Batch {selectedBatch.batch_no}
+              {selectedBatch.start_date && selectedBatch.end_date && (
+                <Text className="text-red-500">
+                  {' '}
+                  ({new Date(
+                    selectedBatch.start_date
+                  ).toLocaleDateString()} -{' '}
+                  {new Date(selectedBatch.end_date).toLocaleDateString()})
+                </Text>
+              )}
+            </Text>
+          </View>
+        )}
 
         {/* Athlete/Game List */}
         <View className="flex-1 px-3">
@@ -324,6 +427,83 @@ export default function AthleteScreen() {
         size="medium"
         position="bottom-right"
       />
+
+      {/* Batch Selection Modal */}
+      <Modal
+        visible={showBatchModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBatchModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50">
+          <View className="mx-4 w-80 rounded-xl bg-white p-6">
+            <Text className="mb-4 text-center text-lg font-semibold">
+              Select Batch
+            </Text>
+
+            {/* All Athletes Option */}
+            <TouchableOpacity
+              onPress={() => handleBatchSelect(null)}
+              className={`mb-3 rounded-lg p-3 ${
+                selectedBatch === null ? 'bg-red-100' : 'bg-gray-100'
+              }`}
+            >
+              <Text
+                className={`text-center font-medium ${
+                  selectedBatch === null ? 'text-red-600' : 'text-gray-700'
+                }`}
+              >
+                All Athletes
+              </Text>
+            </TouchableOpacity>
+
+            {/* Batch Options */}
+            {batches.map(batch => (
+              <TouchableOpacity
+                key={batch.batch_no}
+                onPress={() => handleBatchSelect(batch)}
+                className={`mb-3 rounded-lg p-3 ${
+                  selectedBatch?.batch_no === batch.batch_no
+                    ? 'bg-red-100'
+                    : 'bg-gray-100'
+                }`}
+              >
+                <Text
+                  className={`text-center font-medium ${
+                    selectedBatch?.batch_no === batch.batch_no
+                      ? 'text-red-600'
+                      : 'text-gray-700'
+                  }`}
+                >
+                  Batch {batch.batch_no}
+                </Text>
+                {batch.start_date && batch.end_date && (
+                  <Text
+                    className={`text-center text-sm ${
+                      selectedBatch?.batch_no === batch.batch_no
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {new Date(batch.start_date).toLocaleDateString()} -{' '}
+                    {new Date(batch.end_date).toLocaleDateString()}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              onPress={() => setShowBatchModal(false)}
+              className="mt-4 rounded-lg bg-gray-200 p-3"
+            >
+              <Text className="text-center font-medium text-gray-700">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
