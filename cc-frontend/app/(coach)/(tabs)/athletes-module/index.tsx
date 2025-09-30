@@ -45,6 +45,15 @@ interface Game {
   date: string;
 }
 
+interface DatabaseGame {
+  game_no: number;
+  date: string | null;
+  time: string | null;
+  season_no: number | null;
+  player_name: string | null;
+  opponent_name: string | null;
+}
+
 // Helper function to transform database athlete to UI athlete
 const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
   const fullName = [
@@ -63,30 +72,45 @@ const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
   };
 };
 
-const MOCK_GAMES: Game[] = [
-  {
-    id: '1',
-    gameName: 'UNC Basketball Team vs State University',
-    date: 'Oct 15, 2025'
-  },
-  { id: '2', gameName: 'Game 2', date: 'Date' },
-  { id: '3', gameName: 'Game 3', date: 'Date' },
-  { id: '4', gameName: 'Game 4', date: 'Date' },
-  { id: '5', gameName: 'Game 5', date: 'Date' },
-  { id: '6', gameName: 'Game 6', date: 'Date' }
-];
+// Helper function to transform database game to UI game
+const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
+  const gameDate = dbGame.date
+    ? new Date(dbGame.date).toLocaleDateString()
+    : 'TBD';
+  const gameTime = dbGame.time
+    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : '';
+
+  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
+
+  // Create game name using player_name and opponent_name
+  const playerTeam = dbGame.player_name || 'Your Team';
+  const opponentTeam = dbGame.opponent_name || 'TBD';
+  const gameName = `${playerTeam} vs ${opponentTeam}`;
+
+  return {
+    id: dbGame.game_no.toString(),
+    gameName: gameName,
+    date: formattedDate
+  };
+};
 
 export default function AthleteScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [games, setGames] = useState<Game[]>(MOCK_GAMES);
+  const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [gamesLoading, setGamesLoading] = useState(true);
+  const [gamesError, setGamesError] = useState<string | null>(null);
 
   const athleteTabs = [
     { id: 'athletes', label: 'Athletes' },
@@ -132,6 +156,34 @@ export default function AthleteScreen() {
       }
     } catch (err) {
       console.error('Error fetching batches:', err);
+    }
+  };
+
+  // Fetch games from database
+  const fetchGames = async () => {
+    try {
+      setGamesLoading(true);
+      setGamesError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('Game')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (data) {
+        const transformedGames = data.map(transformDatabaseGame);
+        setGames(transformedGames);
+      }
+    } catch (err) {
+      console.error('Error fetching games:', err);
+      setGamesError('Failed to load games. Please try again.');
+      setGames([]);
+    } finally {
+      setGamesLoading(false);
     }
   };
 
@@ -192,9 +244,10 @@ export default function AthleteScreen() {
     fetchAthletes();
   }, [selectedBatch]);
 
-  // Fetch batches on component mount
+  // Fetch batches and games on component mount
   useEffect(() => {
     fetchBatches();
+    fetchGames();
   }, []);
 
   // Function to refresh athlete data
@@ -405,16 +458,46 @@ export default function AthleteScreen() {
               )}
             </>
           ) : (
-            <FlatList
-              data={filteredGames}
-              renderItem={renderGameCard}
-              keyExtractor={item => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: 100,
-                paddingHorizontal: 8
-              }}
-            />
+            <>
+              {gamesLoading ? (
+                <View className="flex-1 items-center justify-center">
+                  <Text className="text-gray-500">Loading games...</Text>
+                </View>
+              ) : gamesError ? (
+                <View className="flex-1 items-center justify-center px-4">
+                  <Text className="mb-4 text-center text-red-500">
+                    {gamesError}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={fetchGames}
+                    className="rounded-lg bg-red-500 px-4 py-2"
+                  >
+                    <Text className="font-semibold text-white">Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : filteredGames.length === 0 ? (
+                <View className="flex-1 items-center justify-center">
+                  <Text className="text-center text-gray-500">
+                    {searchQuery
+                      ? 'No games found matching your search.'
+                      : 'No games found.'}
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredGames}
+                  renderItem={renderGameCard}
+                  keyExtractor={item => item.id}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingBottom: 100,
+                    paddingHorizontal: 8
+                  }}
+                  refreshing={gamesLoading}
+                  onRefresh={fetchGames}
+                />
+              )}
+            </>
           )}
         </View>
       </SafeAreaView>
