@@ -61,24 +61,22 @@ export default function Tracking() {
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
-      <View className="mb-4">
-        {/* Search */}
-        <View className="mb-5">
-          <SearchBar searchText={searchText} setSearchText={setSearchText} />
-        </View>
-        {/* Athlete + Filter Icon Buttons */}
-        <View className="flex-row justify-end gap-3 p-2">
-          <IconButton
-            IconComponent={Ionicons}
-            icon="people-sharp"
-            onPress={handleAthletePress}
-          />
-          <IconButton
-            IconComponent={Ionicons}
-            icon="filter-outline"
-            onPress={handleFilterPress}
-          />
-        </View>
+      {/* Search */}
+      <View className="mb-5">
+        <SearchBar searchText={searchText} setSearchText={setSearchText} />
+      </View>
+      {/* Athlete + Filter Icon Buttons */}
+      <View className="mb-1 flex-row justify-end gap-3 p-2">
+        <IconButton
+          IconComponent={Ionicons}
+          icon="people-sharp"
+          onPress={handleAthletePress}
+        />
+        <IconButton
+          IconComponent={Ionicons}
+          icon="filter-outline"
+          onPress={handleFilterPress}
+        />
       </View>
 
       {/* Trainings List */}
@@ -93,7 +91,7 @@ export default function Tracking() {
             onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
           />
         )}
-        contentContainerStyle={{ paddingBottom: 10 }} // extra space for FAB
+        contentContainerStyle={{ paddingBottom: 5 }} // extra space for FAB
         ListEmptyComponent={
           <View className="mt-10 items-center">
             <Text className="text-base text-gray-500">No trainings found</Text>

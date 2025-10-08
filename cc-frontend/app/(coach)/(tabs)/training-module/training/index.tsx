@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, FlatList, Text } from 'react-native';
+import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
@@ -8,6 +9,7 @@ import { Ionicons, Entypo } from '@expo/vector-icons';
 
 export default function Training() {
   const [searchText, setSearchText] = useState('');
+  const router = useRouter();
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
@@ -17,35 +19,39 @@ export default function Training() {
     console.log('Floating button pressed');
   };
 
+  const handleTrainingPress = (trainingId: string) => {
+    router.push(`/training-module/training/${trainingId}` as Href);
+  };
+
   // Sample data (replace with actual data later)
   const trainings = [
     {
-      id: '1',
+      trainingId: '1',
       trainingName: 'Core Strength Training',
       dateTime: 'Sept 15, 2025 - 7:00 AM'
     },
     {
-      id: '2',
+      trainingId: '2',
       trainingName: 'Upper Body Strength',
       dateTime: 'Sept 16, 2025 - 5:00 PM'
     },
     {
-      id: '3',
+      trainingId: '3',
       trainingName: 'Explosive Power Workout',
       dateTime: 'Sept 17, 2025 - 6:30 AM'
     },
     {
-      id: '4',
+      trainingId: '4',
       trainingName: 'Core Strength Training',
       dateTime: 'Sept 15, 2025 - 7:00 AM'
     },
     {
-      id: '5',
+      trainingId: '5',
       trainingName: 'Upper Body Strength',
       dateTime: 'Sept 16, 2025 - 5:00 PM'
     },
     {
-      id: '6',
+      trainingId: '6',
       trainingName: 'Explosive Power Workout',
       dateTime: 'Sept 17, 2025 - 6:30 AM'
     }
@@ -58,34 +64,33 @@ export default function Training() {
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
-      {/* Search + Filter */}
-      <View className="mb-4">
-        <View className="mb-5">
-          <SearchBar searchText={searchText} setSearchText={setSearchText} />
-        </View>
+      {/* Search */}
+      <View className="mb-5">
+        <SearchBar searchText={searchText} setSearchText={setSearchText} />
+      </View>
 
-        <View className="items-end p-2">
-          <IconButton
-            IconComponent={Ionicons}
-            icon="filter-outline"
-            onPress={handleFilterPress}
-          />
-        </View>
+      {/* Filter Button */}
+      <View className="mb-1 items-end p-2">
+        <IconButton
+          IconComponent={Ionicons}
+          icon="filter-outline"
+          onPress={handleFilterPress}
+        />
       </View>
 
       {/* Trainings List */}
       <FlatList
         data={filteredTrainings}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.trainingId}
         renderItem={({ item }) => (
           <List1
             title={item.trainingName}
             subtitle={item.dateTime}
-            onPress={() => console.log(`Pressed ${item.trainingName}`)}
+            onPress={() => handleTrainingPress(item.trainingId)}
             onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
           />
         )}
-        contentContainerStyle={{ paddingBottom: 10 }} // extra space for FAB
+        contentContainerStyle={{ paddingBottom: 5 }} // extra space for FAB
         ListEmptyComponent={
           <View className="mt-10 items-center">
             <Text className="text-base text-gray-500">No trainings found</Text>
@@ -94,11 +99,12 @@ export default function Training() {
       />
 
       {/* Floating Button */}
-      <FloatingButton
-        onPress={handleFloatingPress}
-        icon="cycle"
-        IconComponent={Entypo}
-      />
+      <Link
+        href="/(coach)/(tabs)/training-module/(modals)/generate-training"
+        asChild
+      >
+        <FloatingButton icon="cycle" IconComponent={Entypo} />
+      </Link>
     </View>
   );
 }

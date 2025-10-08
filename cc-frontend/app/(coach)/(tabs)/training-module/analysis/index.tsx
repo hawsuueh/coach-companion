@@ -14,7 +14,7 @@ export default function Exercises() {
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
       {/* Athlete Icon Button */}
-      <View className="items-end p-2">
+      <View className="mb-1 items-end p-2">
         <IconButton
           IconComponent={Ionicons}
           icon="people-sharp"

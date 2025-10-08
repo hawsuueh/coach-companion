@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity } from 'react-native';
 
 type FloatingButtonProps = {
-  onPress: () => void;
+  onPress?: () => void;
   icon: string;
   IconComponent: React.ComponentType<any>;
   size?: number;

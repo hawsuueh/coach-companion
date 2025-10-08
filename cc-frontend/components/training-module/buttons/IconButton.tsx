@@ -20,7 +20,7 @@ export default function IconButton({
         shadowRadius: 2,
         elevation: 4 // Android shadow
       }}
-      className="rounded-xl bg-white px-3 py-1 drop-shadow-xl"
+      className="rounded-xl bg-white px-2 py-1 drop-shadow-xl"
       onPress={onPress}
     >
       <IconComponent name={icon} size={24} color="black" />

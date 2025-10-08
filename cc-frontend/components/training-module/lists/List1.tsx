@@ -19,17 +19,10 @@ export default function List1({
       onPress={onPress}
       onLongPress={onLongPress}
       className="mb-4 flex-row items-center justify-between rounded-xl bg-white p-4"
-      style={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 4 // Android shadow
-      }}
     >
       {/* Content */}
-      <View className="flex-1 p-2">
-        <Text className="text-title1 mb-2">{title}</Text>
+      <View className="flex-1">
+        <Text className="text-title1 mb-1">{title}</Text>
         <Text className="text-label3">{subtitle}</Text>
       </View>
 

@@ -52,30 +52,28 @@ export default function Exercises() {
   ];
 
   // Filter exercises by search text (case-insensitive)
-  const filteredTrainings = exercises.filter(item =>
+  const filteredExercises = exercises.filter(item =>
     item.exerciseName.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
       {/* Search + Filter */}
-      <View className="mb-4">
-        <View className="mb-5">
-          <SearchBar searchText={searchText} setSearchText={setSearchText} />
-        </View>
-
-        <View className="items-end p-2">
-          <IconButton
-            IconComponent={Ionicons}
-            icon="filter-outline"
-            onPress={handleFilterPress}
-          />
-        </View>
+      <View className="mb-5">
+        <SearchBar searchText={searchText} setSearchText={setSearchText} />
       </View>
 
-      {/* Trainings List */}
+      <View className="mb-1 items-end p-2">
+        <IconButton
+          IconComponent={Ionicons}
+          icon="filter-outline"
+          onPress={handleFilterPress}
+        />
+      </View>
+
+      {/* Exercises List */}
       <FlatList
-        data={filteredTrainings}
+        data={filteredExercises}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <List1
@@ -85,7 +83,7 @@ export default function Exercises() {
             onLongPress={() => console.log(`Long pressed ${item.exerciseName}`)}
           />
         )}
-        contentContainerStyle={{ paddingBottom: 10 }} // extra space for FAB
+        contentContainerStyle={{ paddingBottom: 5 }} // extra space for FAB
         ListEmptyComponent={
           <View className="mt-10 items-center">
             <Text className="text-base text-gray-500">No trainings found</Text>
