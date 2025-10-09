@@ -11,18 +11,22 @@ function CoachLayoutContent() {
   const pathname = usePathname();
   const { openDrawer } = useDrawer(); // useDrawer() safely called here
 
-  // Landing paths inside training-module
-  const trainingLandingPaths = [
+  // Landing paths
+  // Define the paths you want to have the Header1 here
+  const landingPaths = [
+    '/home',
     '/training-module/training',
     '/training-module/exercises',
     '/training-module/analysis',
-    '/training-module/tracking'
+    '/training-module/tracking',
+    '/athletes-module',
+    '/drills-module'
   ];
 
   // Check if current path is a training-module deeper route
-  const isTrainingModule = pathname.startsWith('/training-module');
-  const isLandingPath = trainingLandingPaths.includes(pathname);
-  const showHeader1 = !isTrainingModule || isLandingPath;
+  // const isTrainingModule = pathname.startsWith('/training-module');
+  const isLandingPath = landingPaths.includes(pathname);
+  const showHeader1 = isLandingPath;
 
   return (
     <>
