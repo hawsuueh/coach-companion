@@ -1,7 +1,6 @@
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Tab = {
@@ -40,38 +39,37 @@ const CoachNavigation: React.FC = () => {
   console.log('Current pathname:', pathname);
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.safeArea}>
-      <View style={styles.container}>
-        {TABS.map((tab, index) => {
-          const normalizePath = (path: string) => path.replace('/(tabs)', '');
-          const isActive = normalizePath(pathname) === normalizePath(tab.route);
-          console.log('tab:', tab.route, 'pathname:', pathname);
-
-          console.log(isActive);
-
-          return (
-            <TouchableOpacity
-              key={index}
-              onPress={() => router.push(tab.route as any)}
-              style={styles.tab}
-            >
-              <MaterialCommunityIcons
-                name={tab.icon as any}
-                size={24}
-                style={isActive ? styles.activeIcon : styles.inactiveIcon}
-              />
-              {isActive && <View style={styles.dot} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      {TABS.map((tab, index) => {
+        const normalizePath = (path: string) => path.replace('/(tabs)', '');
+        const currentPath = normalizePath(pathname);
+        const tabPath = normalizePath(tab.route.replace(/\/$/, ''));
+        const isActive =
+          tab.name === 'training'
+            ? currentPath.startsWith('/training-module/')
+            : currentPath === tabPath;
+        return (
+          <TouchableOpacity
+            key={index}
+            onPress={() => router.push(tab.route as any)}
+            style={styles.tab}
+          >
+            <MaterialCommunityIcons
+              name={tab.icon as any}
+              size={24}
+              style={isActive ? styles.activeIcon : styles.inactiveIcon}
+            />
+            {isActive && <View style={styles.dot} />}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -84,9 +82,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#f0f0f0',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

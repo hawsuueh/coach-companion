@@ -1,18 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  FlatList,
-  View,
-  Alert,
-  Text,
-  TouchableOpacity,
-  Modal
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlatList, View, Text, TouchableOpacity, Modal } from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingActionButton from '@/components/buttons/FloatingActionButton';
 import GameCard from '@/components/cards/GameCard';
-import Header from '@/components/headers/Header';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
 import supabase from '@/config/supabaseClient';
@@ -375,132 +366,124 @@ export default function AthleteScreen() {
 
   return (
     <View className="flex-1" style={{ position: 'relative' }}>
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        {/* Header Section - Using reusable Header component */}
-        <Header
-          title="Athletes & Games"
-          onNotificationPress={handleNotificationPress}
-        />
+      {/* Tab Navigation - Using reusable SubTab component */}
+      <SubTab
+        tabs={athleteTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
-        {/* Tab Navigation - Using reusable SubTab component */}
-        <SubTab
-          tabs={athleteTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+      {/* Search and Filter Section - Using reusable SearchBar component */}
+      <SearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterPress={handleFilterPress}
+        filterType="batch"
+        placeholder="Search athletes..."
+      />
 
-        {/* Search and Filter Section - Using reusable SearchBar component */}
-        <SearchBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onFilterPress={handleFilterPress}
-          filterType="batch"
-          placeholder="Search athletes..."
-        />
-
-        {/* Batch Selection Indicator */}
-        {selectedBatch && (
-          <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
-            <Text className="text-center text-sm text-red-600">
-              Showing athletes from Batch {selectedBatch.batch_no}
-              {selectedBatch.start_date && selectedBatch.end_date && (
-                <Text className="text-red-500">
-                  {' '}
-                  ({new Date(
-                    selectedBatch.start_date
-                  ).toLocaleDateString()} -{' '}
-                  {new Date(selectedBatch.end_date).toLocaleDateString()})
-                </Text>
-              )}
-            </Text>
-          </View>
-        )}
-
-        {/* Athlete/Game List */}
-        <View className="flex-1 px-3">
-          {activeTab === 'athletes' ? (
-            <>
-              {loading ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="text-gray-500">Loading athletes...</Text>
-                </View>
-              ) : error ? (
-                <View className="flex-1 items-center justify-center px-4">
-                  <Text className="mb-4 text-center text-red-500">{error}</Text>
-                  <TouchableOpacity
-                    onPress={refreshAthletes}
-                    className="rounded-lg bg-red-500 px-4 py-2"
-                  >
-                    <Text className="font-semibold text-white">Retry</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : filteredAthletes.length === 0 ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="text-center text-gray-500">
-                    {searchQuery
-                      ? 'No athletes found matching your search.'
-                      : 'No athletes found.'}
-                  </Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={filteredAthletes}
-                  renderItem={renderAthleteCard}
-                  keyExtractor={item => item.id}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingBottom: 100,
-                    paddingHorizontal: 8
-                  }}
-                  refreshing={loading}
-                  onRefresh={refreshAthletes}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              {gamesLoading ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="text-gray-500">Loading games...</Text>
-                </View>
-              ) : gamesError ? (
-                <View className="flex-1 items-center justify-center px-4">
-                  <Text className="mb-4 text-center text-red-500">
-                    {gamesError}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={fetchGames}
-                    className="rounded-lg bg-red-500 px-4 py-2"
-                  >
-                    <Text className="font-semibold text-white">Retry</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : filteredGames.length === 0 ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="text-center text-gray-500">
-                    {searchQuery
-                      ? 'No games found matching your search.'
-                      : 'No games found.'}
-                  </Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={filteredGames}
-                  renderItem={renderGameCard}
-                  keyExtractor={item => item.id}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingBottom: 100,
-                    paddingHorizontal: 8
-                  }}
-                  refreshing={gamesLoading}
-                  onRefresh={fetchGames}
-                />
-              )}
-            </>
-          )}
+      {/* Batch Selection Indicator */}
+      {selectedBatch && (
+        <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
+          <Text className="text-center text-sm text-red-600">
+            Showing athletes from Batch {selectedBatch.batch_no}
+            {selectedBatch.start_date && selectedBatch.end_date && (
+              <Text className="text-red-500">
+                {' '}
+                ({new Date(
+                  selectedBatch.start_date
+                ).toLocaleDateString()} -{' '}
+                {new Date(selectedBatch.end_date).toLocaleDateString()})
+              </Text>
+            )}
+          </Text>
         </View>
-      </SafeAreaView>
+      )}
+
+      {/* Athlete/Game List */}
+      <View className="flex-1 px-3">
+        {activeTab === 'athletes' ? (
+          <>
+            {loading ? (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-gray-500">Loading athletes...</Text>
+              </View>
+            ) : error ? (
+              <View className="flex-1 items-center justify-center px-4">
+                <Text className="mb-4 text-center text-red-500">{error}</Text>
+                <TouchableOpacity
+                  onPress={refreshAthletes}
+                  className="rounded-lg bg-red-500 px-4 py-2"
+                >
+                  <Text className="font-semibold text-white">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : filteredAthletes.length === 0 ? (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-center text-gray-500">
+                  {searchQuery
+                    ? 'No athletes found matching your search.'
+                    : 'No athletes found.'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredAthletes}
+                renderItem={renderAthleteCard}
+                keyExtractor={item => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingBottom: 100,
+                  paddingHorizontal: 8
+                }}
+                refreshing={loading}
+                onRefresh={refreshAthletes}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {gamesLoading ? (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-gray-500">Loading games...</Text>
+              </View>
+            ) : gamesError ? (
+              <View className="flex-1 items-center justify-center px-4">
+                <Text className="mb-4 text-center text-red-500">
+                  {gamesError}
+                </Text>
+                <TouchableOpacity
+                  onPress={fetchGames}
+                  className="rounded-lg bg-red-500 px-4 py-2"
+                >
+                  <Text className="font-semibold text-white">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : filteredGames.length === 0 ? (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-center text-gray-500">
+                  {searchQuery
+                    ? 'No games found matching your search.'
+                    : 'No games found.'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredGames}
+                renderItem={renderGameCard}
+                keyExtractor={item => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingBottom: 100,
+                  paddingHorizontal: 8
+                }}
+                refreshing={gamesLoading}
+                onRefresh={fetchGames}
+              />
+            )}
+          </>
+        )}
+      </View>
 
       {/* Floating Action Button */}
       <FloatingActionButton
