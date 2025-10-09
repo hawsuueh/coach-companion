@@ -100,7 +100,7 @@ export default function Training() {
 
       {/* Floating Button */}
       <Link
-        href="/(coach)/(tabs)/training-module/(modals)/generate-training/index"
+        href="/(coach)/(tabs)/training-module/(modals)/generate-training"
         asChild
       >
         <FloatingButton icon="cycle" IconComponent={Entypo} />
