@@ -1,35 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Image,
   ImageBackground,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginScreen() {
-  const [role, setRole] = useState<'coach' | 'athlete' | 'director' | null>(
-    null
-  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const router = useRouter();
+  const { signIn, user, profile, loading: authLoading } = useAuth();
 
-  const roles = ['coach', 'athlete', 'director'];
+  // Auto-redirect based on auth state
+  useEffect(() => {
+    console.log('🔄 Redirect check:', {
+      user: !!user,
+      profile: profile,
+      authLoading
+    });
 
-  const handleLogin = () => {
-    const routes = {
-      coach: '/(coach)/(tabs)/home',
-      athlete: '/(athlete)/(tabs)/home',
-      director: '/(director)/(tabs)/home'
-    };
+    // Don't do anything while auth is still loading
+    if (authLoading) return;
 
-    if (role && routes[role]) {
-      router.replace(routes[role] as any);
+    // If user is logged in, redirect to appropriate dashboard
+    if (user && profile) {
+      const routes = {
+        coach: '/(coach)/(tabs)/home',
+        athlete: '/(athlete)/(tabs)/home',
+        director: '/(director)/(tabs)/home',
+        'sports director': '/(director)/(tabs)/home'
+      };
+
+      const userRole = profile.role?.toLowerCase() as keyof typeof routes;
+      console.log('🚀 Redirecting to:', userRole, routes[userRole]);
+
+      if (routes[userRole]) {
+        router.replace(routes[userRole] as any);
+      }
+    }
+
+    // If user was logged out (session cleared), stay on login screen
+    if (!user && !profile && !authLoading) {
+      console.log('🚪 User logged out - staying on login screen');
+      // Clear any form errors when returning to login
+      setError('');
+      setEmail('');
+      setPassword('');
+    }
+  }, [user, profile, authLoading, router]);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await signIn(email.trim(), password);
+
+      if (result.error) {
+        setError(result.error);
+      }
+      // Success is handled by the useEffect above
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#374151" />
+        <Text className="mt-4 text-lg text-gray-600">Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <ImageBackground
@@ -72,28 +132,12 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Role selection */}
-          <View className="mb-10 flex-row">
-            {roles.map(roleOption => (
-              <TouchableOpacity
-                key={roleOption}
-                onPress={() => setRole(roleOption as typeof role)}
-                className={`mx-1 rounded-full border px-6 py-2 ${
-                  role === roleOption
-                    ? 'border-red-600 bg-red-600'
-                    : 'border-gray-300 bg-white'
-                }`}
-              >
-                <Text
-                  className={`text-base font-semibold capitalize ${
-                    role === roleOption ? 'text-white' : 'text-gray-700'
-                  }`}
-                >
-                  {roleOption}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Error message */}
+          {error ? (
+            <View className="mb-6 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <Text className="text-center text-red-700">{error}</Text>
+            </View>
+          ) : null}
 
           {/* Inputs */}
           <View className="mb-8 w-full">
@@ -128,9 +172,21 @@ export default function LoginScreen() {
           {/* Login button */}
           <TouchableOpacity
             onPress={handleLogin}
-            className="rounded-full bg-gray-800 px-16 py-4 shadow-md"
+            disabled={loading || authLoading}
+            className={`rounded-full px-16 py-4 shadow-md ${
+              loading || authLoading ? 'bg-gray-400' : 'bg-gray-800'
+            }`}
           >
-            <Text className="text-lg font-bold text-white">LOGIN</Text>
+            {loading ? (
+              <View className="flex-row items-center">
+                <ActivityIndicator size="small" color="white" />
+                <Text className="ml-2 text-lg font-bold text-white">
+                  Signing in...
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-lg font-bold text-white">LOGIN</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

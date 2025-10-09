@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
+import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AttributesCard from '@/components/cards/AttributesCard';
-import Header from '@/components/headers/Header';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_ATHLETES = {
@@ -65,15 +66,8 @@ export default function AthleteDetailScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
+    <View className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
       {/* Header */}
-      <Header
-        title="Athlete Menu"
-        showBack={true}
-        showNotifications={false}
-        showMenu={false}
-        onBackPress={handleBackPress}
-      />
 
       {/* Athlete Profile Section */}
       <View className="items-center px-4 py-8">
@@ -109,6 +103,6 @@ export default function AthleteDetailScreen() {
           onPress={handleGameRecordsPress}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

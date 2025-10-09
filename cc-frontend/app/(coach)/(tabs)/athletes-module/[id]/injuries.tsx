@@ -172,7 +172,9 @@ export default function InjuriesScreen() {
 
   const handleAddInjury = () => {
     console.log('Add new injury for athlete:', athlete?.name);
-    // Navigate to add injury screen
+    // TODO: Navigate to add injury screen when created
+    // router.push(`/(coach)/(tabs)/athletes-module/${athlete.id}/add-injury` as any);
+    alert(`Add Injury for ${athlete?.name} - functionality coming soon!`);
   };
 
   if (!athlete) {
@@ -188,42 +190,44 @@ export default function InjuriesScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-      {/* Header */}
-      <Header
-        title="Injury Records"
-        showBack={true}
-        showNotifications={false}
-        showMenu={false}
-        onBackPress={handleBackPress}
-      />
+    <View className="flex-1">
+      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
+        {/* Header */}
+        <Header
+          title="Injury Records"
+          showBack={true}
+          showNotifications={false}
+          showMenu={false}
+          onBackPress={handleBackPress}
+        />
 
-      {/* Scrollable Content */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Athlete Profile Section */}
-        <View className="items-center px-4 py-4 sm:py-6">
-          <Text className="mb-1 text-center text-xl font-bold text-black sm:text-2xl">
-            {athlete.name}
-          </Text>
-          <Text className="text-center text-base text-gray-600 sm:text-lg">
-            {athlete.position}
-          </Text>
-        </View>
+        {/* Scrollable Content */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Athlete Profile Section */}
+          <View className="items-center px-4 py-4 sm:py-6">
+            <Text className="mb-1 text-center text-xl font-bold text-black sm:text-2xl">
+              {athlete.name}
+            </Text>
+            <Text className="text-center text-base text-gray-600 sm:text-lg">
+              {athlete.position}
+            </Text>
+          </View>
 
-        {/* Injury Categories List */}
-        <View className="px-4 pb-20">
-          {injuries.map((injury, index) => (
-            <InjuryCard
-              key={index}
-              type={injury.type}
-              icon={injury.icon}
-              incidents={injury.incidents}
-              color={injury.color}
-              onPress={() => handleInjuryPress(injury.type)}
-            />
-          ))}
-        </View>
-      </ScrollView>
+          {/* Injury Categories List */}
+          <View className="px-4 pb-20">
+            {injuries.map((injury, index) => (
+              <InjuryCard
+                key={index}
+                type={injury.type}
+                icon={injury.icon}
+                incidents={injury.incidents}
+                color={injury.color}
+                onPress={() => handleInjuryPress(injury.type)}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
 
       {/* Floating Action Button */}
       <FloatingActionButton
@@ -233,6 +237,6 @@ export default function InjuriesScreen() {
         size="medium"
         position="bottom-right"
       />
-    </SafeAreaView>
+    </View>
   );
 }
