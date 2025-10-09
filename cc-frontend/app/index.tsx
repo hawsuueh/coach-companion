@@ -1,5 +1,4 @@
-// Imports
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Image,
   ImageBackground,
@@ -7,251 +6,190 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Export login component
 export default function LoginScreen() {
-  // Logic
-  const [role, setRole] = useState<'coach' | 'athlete' | 'director' | null>(
-    null
-  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const router = useRouter();
+  const { signIn, user, profile, loading: authLoading } = useAuth();
 
-  const roles = ['coach', 'athlete', 'director'];
+  // Auto-redirect based on auth state
+  useEffect(() => {
+    console.log('🔄 Redirect check:', {
+      user: !!user,
+      profile: profile,
+      authLoading
+    });
 
-  const handleLogin = () => {
-    const routes = {
-      coach: '/(coach)/(tabs)/home',
-      athlete: '/(athlete)/(tabs)/home',
-      director: '/(director)/(tabs)/home'
-    };
+    // Don't do anything while auth is still loading
+    if (authLoading) return;
 
-    if (role && routes[role]) {
-      router.replace(routes[role] as any);
+    // If user is logged in, redirect to appropriate dashboard
+    if (user && profile) {
+      const routes = {
+        coach: '/(coach)/(tabs)/home',
+        athlete: '/(athlete)/(tabs)/home',
+        director: '/(director)/(tabs)/home',
+        'sports director': '/(director)/(tabs)/home'
+      };
+
+      const userRole = profile.role?.toLowerCase() as keyof typeof routes;
+      console.log('🚀 Redirecting to:', userRole, routes[userRole]);
+
+      if (routes[userRole]) {
+        router.replace(routes[userRole] as any);
+      }
+    }
+
+    // If user was logged out (session cleared), stay on login screen
+    if (!user && !profile && !authLoading) {
+      console.log('🚪 User logged out - staying on login screen');
+      // Clear any form errors when returning to login
+      setError('');
+      setEmail('');
+      setPassword('');
+    }
+  }, [user, profile, authLoading, router]);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await signIn(email.trim(), password);
+
+      if (result.error) {
+        setError(result.error);
+      }
+      // Success is handled by the useEffect above
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Structure
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#374151" />
+        <Text className="mt-4 text-lg text-gray-600">Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <ImageBackground
       source={require('@/assets/backgrounds/bg-login.png')}
-      style={styles.background}
       resizeMode="cover"
+      className="flex-1"
     >
-      {/* White transparent overlay */}
-      <View style={styles.overlay} />
+      {/* Overlay */}
+      <View className="absolute inset-0 bg-white/80" />
 
-      <View style={styles.container}>
+      <View className="flex-1 px-6">
         {/* Header with logos */}
-        <View style={styles.header}>
+        <View className="flex-row justify-between pt-12">
           <Image
             source={require('@/assets/logos/logo-cc.png')}
-            style={styles.logo}
+            className="h-24 w-24"
             resizeMode="contain"
           />
           <Image
             source={require('@/assets/logos/logo-unc.png')}
-            style={styles.logo}
+            className="h-24 w-24"
             resizeMode="contain"
           />
         </View>
 
-        {/* Main content - centered */}
-        <View style={styles.centerContent}>
-          {/* App title */}
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Coach</Text>
-            <Text style={styles.title}>Companion</Text>
+        {/* Main content */}
+        <View className="flex-1 items-center justify-center">
+          {/* Title */}
+          <View className="mb-12 items-center">
+            <Text className="text-5xl font-extrabold leading-tight text-black">
+              Coach
+            </Text>
+            <Text className="text-5xl font-extrabold leading-tight text-black">
+              Companion
+            </Text>
 
-            <Text style={styles.loginTitle}>LOGIN</Text>
-            <Text style={styles.subtitle}>Please sign in to continue</Text>
+            <Text className="mt-4 text-2xl font-bold text-black">LOGIN</Text>
+            <Text className="mt-1 text-base text-gray-600">
+              Please sign in to continue
+            </Text>
           </View>
 
-          {/* Role selection */}
-          <View style={styles.roleContainer}>
-            {roles.map(roleOption => (
-              <TouchableOpacity
-                key={roleOption}
-                onPress={() => setRole(roleOption as typeof role)}
-                style={[
-                  styles.roleButton,
-                  role === roleOption && styles.roleButtonActive
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.roleText,
-                    role === roleOption && styles.roleTextActive
-                  ]}
-                >
-                  {roleOption}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Error message */}
+          {error ? (
+            <View className="mb-6 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <Text className="text-center text-red-700">{error}</Text>
+            </View>
+          ) : null}
 
-          {/* Input fields */}
-          <View style={styles.inputContainer}>
+          {/* Inputs */}
+          <View className="mb-8 w-full">
             {/* Email input */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.icon}>✉</Text>
+            <View className="mb-4 flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
+              <Text className="mr-3 text-gray-400">✉</Text>
               <TextInput
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                style={styles.input}
+                className="flex-1 text-base text-gray-900"
                 placeholderTextColor="#9CA3AF"
               />
             </View>
 
             {/* Password input */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.icon}>🔒</Text>
+            <View className="flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
+              <Text className="mr-3 text-gray-400">🔒</Text>
               <TextInput
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                style={styles.input}
+                className="flex-1 text-base text-gray-900"
                 placeholderTextColor="#9CA3AF"
               />
             </View>
           </View>
 
           {/* Login button */}
-          <TouchableOpacity onPress={handleLogin} style={styles.loginButton}>
-            <Text style={styles.loginButtonText}>LOGIN</Text>
+          <TouchableOpacity
+            onPress={handleLogin}
+            disabled={loading || authLoading}
+            className={`rounded-full px-16 py-4 shadow-md ${
+              loading || authLoading ? 'bg-gray-400' : 'bg-gray-800'
+            }`}
+          >
+            {loading ? (
+              <View className="flex-row items-center">
+                <ActivityIndicator size="small" color="white" />
+                <Text className="ml-2 text-lg font-bold text-white">
+                  Signing in...
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-lg font-bold text-white">LOGIN</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
     </ImageBackground>
   );
 }
-
-// Styles
-const styles = StyleSheet.create({
-  background: {
-    flex: 1
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.8)'
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 48
-  },
-  logo: {
-    height: 100,
-    width: 100
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 48
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#000',
-    lineHeight: 52
-  },
-  loginTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 16,
-    color: '#000'
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginTop: 4
-  },
-  roleContainer: {
-    flexDirection: 'row',
-    marginBottom: 40
-  },
-  roleButton: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#fff',
-    borderRadius: 50,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    marginHorizontal: 4
-  },
-  roleButtonActive: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626'
-  },
-  roleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    textTransform: 'capitalize'
-  },
-  roleTextActive: {
-    color: '#fff'
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 32
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  icon: {
-    marginRight: 12,
-    fontSize: 16,
-    color: '#9CA3AF'
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827'
-  },
-  loginButton: {
-    backgroundColor: '#374151',
-    borderRadius: 50,
-    paddingVertical: 14,
-    paddingHorizontal: 64,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700'
-  }
-});

@@ -1,12 +1,15 @@
-// app/(coach)/_layout.tsx
 import { Stack, usePathname } from 'expo-router';
-import { View } from 'react-native';
-import CoachNavigation from '@/components/navigations/CoachNavigation';
-import Header1 from '@/components/headers/Header1';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CoachNavigation from '@/components/navigations/CoachNavigation';
+import { DrawerProvider, useDrawer } from '@/contexts/DrawerContext';
+import Header1 from '@/components/headers/Header1';
+import SideDrawer from '@/components/navigations/SideDrawer';
+import '@/global.css';
 
-export default function CoachLayout() {
+// Inner component — now inside DrawerProvider
+function CoachLayoutContent() {
   const pathname = usePathname();
+  const { openDrawer } = useDrawer(); // useDrawer() safely called here
 
   // Landing paths inside training-module
   const trainingLandingPaths = [
@@ -22,24 +25,29 @@ export default function CoachLayout() {
   const showHeader1 = !isTrainingModule || isLandingPath;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <>
       {/* Show Header1 only if not in training-module deeper pages */}
       {showHeader1 && (
         <Header1
-          onNotificationPress={() => {
-            console.log('Notifications pressed');
-          }}
-          onMenuPress={() => {
-            console.log('Menu pressed');
-          }}
+          onNotificationPress={() => console.log('Notifications pressed')}
+          onMenuPress={openDrawer} // ✅ will open drawer when menu pressed
         />
       )}
 
-      {/* Main content (screens + bottom navigation) */}
-      <View className="flex-1">
-        <Stack screenOptions={{ headerShown: false }} />
-        <CoachNavigation />
-      </View>
+      <Stack screenOptions={{ headerShown: false }} />
+      <CoachNavigation />
+      <SideDrawer />
+    </>
+  );
+}
+
+export default function CoachLayout() {
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      {/* ✅ Provider wraps everything that needs drawer access */}
+      <DrawerProvider>
+        <CoachLayoutContent />
+      </DrawerProvider>
     </SafeAreaView>
   );
 }
