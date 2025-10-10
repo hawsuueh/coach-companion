@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Header from '@/components/headers/Header';
+import { useEffect } from 'react';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_ATHLETES = {
@@ -93,15 +93,16 @@ function AttributeRow({
 export default function AttributesScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Attributes');
+  });
 
   // Get athlete data - in the future this will be fetched from Supabase
   const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
   const attributes =
     MOCK_ATTRIBUTES[id as keyof typeof MOCK_ATTRIBUTES] || MOCK_ATTRIBUTES['1']; // Fallback to first athlete
-
-  const handleBackPress = () => {
-    router.back();
-  };
 
   const handleEditAttribute = (label: string) => {
     console.log('Edit attribute:', label, 'for athlete:', athlete?.name);
@@ -115,27 +116,16 @@ export default function AttributesScreen() {
 
   if (!athlete) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Athlete not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Athlete not found
+        </Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-      {/* Header */}
-      <Header
-        title="Attributes"
-        showBack={true}
-        showNotifications={false}
-        showMenu={false}
-        onBackPress={handleBackPress}
-      />
-
+    <View className="flex-1">
       {/* Scrollable Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Athlete Profile Section */}
@@ -204,6 +194,6 @@ export default function AttributesScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
