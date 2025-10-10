@@ -9,7 +9,6 @@ import {
   Alert,
   TextInput
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import StatCard from '../../../../../../components/cards/StatCard';
 import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
 import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
@@ -17,6 +16,7 @@ import ShootingStats_StatsForm from '../../../../../../components/cards/Shooting
 import ReboundingStats_StatsForm from '../../../../../../components/cards/ReboundingStats_StatsForm';
 import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 import supabase from '../../../../../../config/supabaseClient';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Database interfaces
 interface DatabaseAthlete {
@@ -159,6 +159,11 @@ export default function GameRecordingScreen() {
   // Auto-save functionality
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSavesRef = useRef<Set<string>>(new Set());
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Game Recording');
+  }, [setTitle]);
 
   // Fetch game data from database
   const fetchGame = async () => {
@@ -225,7 +230,7 @@ export default function GameRecordingScreen() {
       if (data && data.length > 0) {
         // Transform database stats to UI format
         const statsMap: Record<string, PlayerStats> = {};
-        
+
         data.forEach((stat: DatabaseAthleteGame) => {
           const athleteId = stat.athlete_no.toString();
           if (!statsMap[athleteId]) {
@@ -247,7 +252,8 @@ export default function GameRecordingScreen() {
           currentStats.twoPointFG.made += stat.two_point_made || 0;
           currentStats.twoPointFG.attempted += stat.two_point_attempted || 0;
           currentStats.threePointFG.made += stat.three_point_made || 0;
-          currentStats.threePointFG.attempted += stat.three_point_attempted || 0;
+          currentStats.threePointFG.attempted +=
+            stat.three_point_attempted || 0;
           currentStats.freeThrows.made += stat.free_throws_made || 0;
           currentStats.freeThrows.attempted += stat.free_throws_attempted || 0;
           currentStats.rebounds.offensive += stat.offensive_rebounds || 0;
@@ -302,9 +308,11 @@ export default function GameRecordingScreen() {
 
   // Update quarter scores automatically - show total points for now
   const updateQuarterScores = () => {
-    const totalPoints = Object.values(playerStats).reduce((sum, stats) => 
-      sum + calculateTotalPoints(stats), 0);
-    
+    const totalPoints = Object.values(playerStats).reduce(
+      (sum, stats) => sum + calculateTotalPoints(stats),
+      0
+    );
+
     setQuarterScores(prev => ({
       ...prev,
       home: {
@@ -417,8 +425,11 @@ export default function GameRecordingScreen() {
         game_no: parseInt(id),
         quarter_no: currentQuarter, // Use current quarter
         points: totalPoints,
-        field_goals_made: (stats.twoPointFG.made || 0) + (stats.threePointFG.made || 0),
-        field_goals_attempted: (stats.twoPointFG.attempted || 0) + (stats.threePointFG.attempted || 0),
+        field_goals_made:
+          (stats.twoPointFG.made || 0) + (stats.threePointFG.made || 0),
+        field_goals_attempted:
+          (stats.twoPointFG.attempted || 0) +
+          (stats.threePointFG.attempted || 0),
         two_point_made: stats.twoPointFG.made || 0,
         two_point_attempted: stats.twoPointFG.attempted || 0,
         three_point_made: stats.threePointFG.made || 0,
@@ -521,7 +532,7 @@ export default function GameRecordingScreen() {
         }
       }
     }));
-    
+
     // Trigger auto-save
     scheduleAutoSave(selectedStatsAthlete.id);
   };
@@ -542,7 +553,7 @@ export default function GameRecordingScreen() {
         }
       }
     }));
-    
+
     // Trigger auto-save
     scheduleAutoSave(selectedStatsAthlete.id);
   };
@@ -560,7 +571,7 @@ export default function GameRecordingScreen() {
         [field]: value
       }
     }));
-    
+
     // Trigger auto-save
     scheduleAutoSave(selectedStatsAthlete.id);
   };
@@ -572,747 +583,717 @@ export default function GameRecordingScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Loading game data...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Loading game data...
+        </Text>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center px-4">
-          <Text className="mb-4 text-center text-lg font-semibold text-red-500">
-            {error}
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              setError(null);
-              setLoading(true);
-              if (id) {
-                Promise.all([fetchGame(), fetchRosterAthletes(), fetchGameStats()]).finally(() => setLoading(false));
-              }
-            }}
-            className="rounded-lg bg-red-500 px-4 py-2"
-          >
-            <Text className="font-semibold text-white">Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center px-4">
+        <Text className="mb-4 text-center text-lg font-semibold text-red-500">
+          {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            if (id) {
+              Promise.all([
+                fetchGame(),
+                fetchRosterAthletes(),
+                fetchGameStats()
+              ]).finally(() => setLoading(false));
+            }
+          }}
+          className="rounded-lg bg-red-500 px-4 py-2"
+        >
+          <Text className="font-semibold text-white">Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   if (!game) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Game not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Game not found
+        </Text>
+      </View>
     );
   }
 
   return (
     <View className="flex-1 bg-white">
-      <SafeAreaView className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
-          <TouchableOpacity onPress={handleBackPress} className="p-2">
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-semibold text-black">
-            {game.gameName}
-          </Text>
-          <TouchableOpacity
-            onPress={handleReset}
-            className="rounded bg-black px-3 py-1"
-          >
-            <Text className="font-medium text-white">Reset</Text>
-          </TouchableOpacity>
-        </View>
+      <View>
+        <Text className="mb-2 mt-2 text-center text-lg font-semibold text-black">
+          {game.gameName}
+        </Text>
+      </View>
+      <View className="mb-1 items-end p-2">
+        <TouchableOpacity
+          onPress={handleReset}
+          className="rounded bg-black px-3 py-1"
+        >
+          <Text className="font-medium text-white">Reset</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Quarter Selector */}
-        <View className="border-b border-gray-200 px-4 py-3">
-          <Text className="mb-2 text-center text-sm font-medium text-gray-600">
-            Recording for Quarter:
-          </Text>
-          <View className="flex-row justify-center space-x-2">
-            {[1, 2, 3, 4].map(quarter => (
-              <TouchableOpacity
-                key={quarter}
-                onPress={() => handleQuarterChange(quarter)}
-                className={`rounded-lg px-4 py-2 ${
-                  currentQuarter === quarter
-                    ? 'bg-red-500'
-                    : 'bg-gray-200'
+      {/* Quarter Selector */}
+      <View className="border-b border-gray-200 px-4 py-3">
+        <Text className="mb-2 text-center text-sm font-medium text-gray-600">
+          Recording for Quarter:
+        </Text>
+        <View className="flex-row justify-center space-x-2">
+          {[1, 2, 3, 4].map(quarter => (
+            <TouchableOpacity
+              key={quarter}
+              onPress={() => handleQuarterChange(quarter)}
+              className={`rounded-lg px-4 py-2 ${
+                currentQuarter === quarter ? 'bg-red-500' : 'bg-gray-200'
+              }`}
+            >
+              <Text
+                className={`font-semibold ${
+                  currentQuarter === quarter ? 'text-white' : 'text-gray-700'
                 }`}
               >
-                <Text
-                  className={`font-semibold ${
-                    currentQuarter === quarter
-                      ? 'text-white'
-                      : 'text-gray-700'
-                  }`}
-                >
-                  Q{quarter}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                Q{quarter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Quarter Scores Section */}
+      <View className="px-4 py-2">
+        <TouchableOpacity
+          className="flex-row items-center justify-between py-3"
+          onPress={() => setShowQuarterScores(!showQuarterScores)}
+        >
+          <Text className="text-lg font-semibold text-black">
+            Quarter Scores
+          </Text>
+          <Ionicons
+            name={showQuarterScores ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color="#666"
+          />
+        </TouchableOpacity>
+
+        {showQuarterScores && (
+          <View className="mb-4 rounded-lg bg-gray-50 p-4">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ minWidth: 600 }}>
+                {/* Header Row */}
+                <View className="mb-3 flex-row items-center">
+                  <Text className="flex-1 pr-4 text-sm font-medium text-gray-600">
+                    Team
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    Q1
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    Q2
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    Q3
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    Q4
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    OT
+                  </Text>
+                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                    T
+                  </Text>
+                </View>
+
+                {/* Home Team Row */}
+                <View className="mb-2 flex-row items-center">
+                  <Text className="flex-1 pr-4 text-sm text-black">
+                    Men's Division Team
+                  </Text>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.q1}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.q2}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.q3}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.q4}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.ot}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-100">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.home.total}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Away Team Row */}
+                <View className="flex-row items-center">
+                  <Text className="flex-1 pr-4 text-sm text-black">
+                    State University
+                  </Text>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.q1}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.q2}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.q3}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.q4}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.ot}
+                    </Text>
+                  </View>
+                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-100">
+                    <Text className="text-lg font-semibold text-gray-600">
+                      {quarterScores.away.total}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        )}
+      </View>
 
-        {/* Quarter Scores Section */}
-        <View className="px-4 py-2">
-          <TouchableOpacity
-            className="flex-row items-center justify-between py-3"
-            onPress={() => setShowQuarterScores(!showQuarterScores)}
+      {/* Tab Navigation */}
+      <View className="flex-row border-b border-gray-200">
+        <TouchableOpacity
+          className={`flex-1 py-4 ${activeTab === 'realtime' ? 'border-b-2 border-red-500' : ''}`}
+          onPress={() => setActiveTab('realtime')}
+        >
+          <Text
+            className={`text-center font-semibold ${activeTab === 'realtime' ? 'text-red-500' : 'text-gray-500'}`}
           >
-            <Text className="text-lg font-semibold text-black">
-              Quarter Scores
-            </Text>
-            <Ionicons
-              name={showQuarterScores ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
-
-          {showQuarterScores && (
-            <View className="mb-4 rounded-lg bg-gray-50 p-4">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ minWidth: 600 }}>
-                  {/* Header Row */}
-                  <View className="mb-3 flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm font-medium text-gray-600">
-                      Team
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q1
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q2
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q3
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q4
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      OT
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      T
-                    </Text>
-                  </View>
-
-                  {/* Home Team Row */}
-                  <View className="mb-2 flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm text-black">
-                      Men's Division Team
-                    </Text>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.q1}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.q2}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.q3}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.q4}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.ot}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-100 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.home.total}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Away Team Row */}
-                  <View className="flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm text-black">
-                      State University
-                    </Text>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.q1}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.q2}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.q3}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.q4}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-50 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.ot}
-                      </Text>
-                    </View>
-                    <View className="h-12 w-20 rounded border border-gray-300 bg-gray-100 items-center justify-center">
-                      <Text className="text-lg font-semibold text-gray-600">
-                        {quarterScores.away.total}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </ScrollView>
-            </View>
-          )}
-        </View>
-
-        {/* Tab Navigation */}
-        <View className="flex-row border-b border-gray-200">
-          <TouchableOpacity
-            className={`flex-1 py-4 ${activeTab === 'realtime' ? 'border-b-2 border-red-500' : ''}`}
-            onPress={() => setActiveTab('realtime')}
+            Real-Time
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`flex-1 py-4 ${activeTab === 'stats' ? 'border-b-2 border-red-500' : ''}`}
+          onPress={() => setActiveTab('stats')}
+        >
+          <Text
+            className={`text-center font-semibold ${activeTab === 'stats' ? 'text-red-500' : 'text-gray-500'}`}
           >
-            <Text
-              className={`text-center font-semibold ${activeTab === 'realtime' ? 'text-red-500' : 'text-gray-500'}`}
+            Stats Sheet
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'realtime' ? (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Player Selection */}
+          <View className="px-4 py-4">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-4"
             >
-              Real-Time
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={`flex-1 py-4 ${activeTab === 'stats' ? 'border-b-2 border-red-500' : ''}`}
-            onPress={() => setActiveTab('stats')}
-          >
-            <Text
-              className={`text-center font-semibold ${activeTab === 'stats' ? 'text-red-500' : 'text-gray-500'}`}
-            >
-              Stats Sheet
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'realtime' ? (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            {/* Player Selection */}
-            <View className="px-4 py-4">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mb-4"
-              >
-                <View className="flex-row space-x-3">
-                  {selectedAthletes.map(athlete => (
-                    <TouchableOpacity
-                      key={athlete.id}
-                      className={`items-center rounded-lg border-2 p-3 ${
-                        selectedPlayerId === athlete.id
-                          ? 'border-red-500 bg-red-50'
-                          : 'border-gray-200 bg-white'
-                      }`}
-                      onPress={() => {
-                        setSelectedPlayerId(athlete.id);
-                        initializePlayerStats(athlete.id);
-                      }}
-                    >
-                      <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-gray-300">
-                        <Text className="font-bold text-gray-600">
-                          {athlete.number}
-                        </Text>
-                      </View>
-                      <Text className="text-center text-sm font-medium text-black">
-                        {athlete.name}
-                      </Text>
-                      <Text className="text-center text-xs text-gray-500">
-                        {athlete.position}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-
-              {/* Export Button */}
-              <TouchableOpacity
-                onPress={handleExport}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3"
-              >
-                <Text className="text-center font-medium text-black">
-                  Export
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Statistics Table */}
-            <View className="px-4 pb-6">
-              <View className="rounded-lg border border-gray-200 bg-white">
-                {selectedPlayerId && (
-                  <View className="border-b border-gray-200 p-4">
-                    <Text className="text-center text-lg font-semibold text-black">
-                      {selectedAthletes.find(a => a.id === selectedPlayerId)?.name}{' '}
-                      - No.{' '}
-                      {
-                        selectedAthletes.find(a => a.id === selectedPlayerId)
-                          ?.number
-                      }
-                    </Text>
-                  </View>
-                )}
-
-                <View className="p-4">
-                  {/* 2-Point Field Goals Card */}
-                  <StatCard
-                    title="2-Point Field Goals"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.twoPointFG
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) => {
-                      if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            twoPointFG: {
-                              ...prev[selectedPlayerId].twoPointFG,
-                              [field]: value
-                            }
-                          }
-                        }));
-                        // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
-                      }
-                    }}
-                  />
-
-                  {/* 3-Point Field Goals Card */}
-                  <StatCard
-                    title="3-Point Field Goals"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.threePointFG
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) => {
-                      if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            threePointFG: {
-                              ...prev[selectedPlayerId].threePointFG,
-                              [field]: value
-                            }
-                          }
-                        }));
-                        // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
-                      }
-                    }}
-                  />
-
-                  {/* Free Throws Card */}
-                  <StatCard
-                    title="Free Throws"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.freeThrows
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) => {
-                      if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            freeThrows: {
-                              ...prev[selectedPlayerId].freeThrows,
-                              [field]: value
-                            }
-                          }
-                        }));
-                        // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
-                      }
-                    }}
-                  />
-
-                  {/* Rebounds Card */}
-                  <StatCard
-                    title="Rebounds"
-                    type="rebounds"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.rebounds
-                        : { offensive: 0, defensive: 0 }
-                    }
-                    onUpdate={(field, value) => {
-                      if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            rebounds: {
-                              ...prev[selectedPlayerId].rebounds,
-                              [field]: value
-                            }
-                          }
-                        }));
-                        // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
-                      }
-                    }}
-                  />
-
-                  {/* Other Stats Card */}
-                  <View className="rounded-lg bg-gray-100 p-4">
-                    <Text className="mb-3 text-lg font-semibold text-black">
-                      Other Stats
-                    </Text>
-
-                    <SimpleStatRow
-                      label="Assists"
-                      value={playerStats[selectedPlayerId]?.assists || 0}
-                      onUpdate={value => {
-                        if (selectedPlayerId) {
-                          setPlayerStats(prev => ({
-                            ...prev,
-                            [selectedPlayerId]: {
-                              ...prev[selectedPlayerId],
-                              assists: value
-                            }
-                          }));
-                          // Trigger auto-save
-                          scheduleAutoSave(selectedPlayerId);
-                        }
-                      }}
-                    />
-
-                    <SimpleStatRow
-                      label="Steals"
-                      value={playerStats[selectedPlayerId]?.steals || 0}
-                      onUpdate={value => {
-                        if (selectedPlayerId) {
-                          console.log('Steals onUpdate called:', {
-                            selectedPlayerId,
-                            newValue: value,
-                            currentValue: playerStats[selectedPlayerId]?.steals || 0,
-                            timestamp: new Date().toISOString()
-                          });
-                          
-                          setPlayerStats(prev => {
-                            const newStats = {
-                              ...prev,
-                              [selectedPlayerId]: {
-                                ...prev[selectedPlayerId],
-                                steals: value
-                              }
-                            };
-                            console.log('Steals state updated:', {
-                              oldValue: prev[selectedPlayerId]?.steals || 0,
-                              newValue: value,
-                              finalState: newStats[selectedPlayerId]
-                            });
-                            return newStats;
-                          });
-                          
-                          // Trigger auto-save
-                          scheduleAutoSave(selectedPlayerId);
-                        }
-                      }}
-                    />
-
-                    <SimpleStatRow
-                      label="Blocks"
-                      value={playerStats[selectedPlayerId]?.blocks || 0}
-                      onUpdate={value => {
-                        if (selectedPlayerId) {
-                          setPlayerStats(prev => ({
-                            ...prev,
-                            [selectedPlayerId]: {
-                              ...prev[selectedPlayerId],
-                              blocks: value
-                            }
-                          }));
-                          // Trigger auto-save
-                          scheduleAutoSave(selectedPlayerId);
-                        }
-                      }}
-                    />
-
-                    <SimpleStatRow
-                      label="Turnovers"
-                      value={playerStats[selectedPlayerId]?.turnovers || 0}
-                      onUpdate={value => {
-                        if (selectedPlayerId) {
-                          setPlayerStats(prev => ({
-                            ...prev,
-                            [selectedPlayerId]: {
-                              ...prev[selectedPlayerId],
-                              turnovers: value
-                            }
-                          }));
-                          // Trigger auto-save
-                          scheduleAutoSave(selectedPlayerId);
-                        }
-                      }}
-                    />
-
-                    <SimpleStatRow
-                      label="Fouls"
-                      value={playerStats[selectedPlayerId]?.fouls || 0}
-                      onUpdate={value => {
-                        if (selectedPlayerId) {
-                          setPlayerStats(prev => ({
-                            ...prev,
-                            [selectedPlayerId]: {
-                              ...prev[selectedPlayerId],
-                              fouls: value
-                            }
-                          }));
-                          // Trigger auto-save
-                          scheduleAutoSave(selectedPlayerId);
-                        }
-                      }}
-                    />
-
-                    {/* Total Points - Calculated Display */}
-                    <View className="flex-row items-center justify-between">
-                      <Text className="font-medium text-black">
-                        Total Points
-                      </Text>
-                      <Text className="text-lg font-bold text-red-500">
-                        {calculateTotalPoints(playerStats[selectedPlayerId])}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            className="flex-1 bg-gray-100"
-            showsVerticalScrollIndicator={false}
-          >
-            <View className="space-y-4 p-4">
-              {/* Athlete Selection */}
-              <View className="mb-4">
-                <AthleteDropdown_StatsForm
-                  athletes={selectedAthletes}
-                  selectedAthlete={selectedStatsAthlete}
-                  onSelectAthlete={handleStatsAthleteSelect}
-                />
-              </View>
-
-              {/* Stats Form */}
-              {selectedStatsAthlete && (
-                <View className="space-y-4">
-                  {/* Shooting Statistics */}
-                  <ShootingStats_StatsForm
-                    totalFieldGoals={
-                      playerStats[selectedStatsAthlete.id]?.totalFieldGoals || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    twoPointFG={
-                      playerStats[selectedStatsAthlete.id]?.twoPointFG || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    threePointFG={
-                      playerStats[selectedStatsAthlete.id]?.threePointFG || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    freeThrows={
-                      playerStats[selectedStatsAthlete.id]?.freeThrows || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    onUpdate={handleShootingStatsUpdate}
-                  />
-
-                  {/* Rebounding Statistics */}
-                  <ReboundingStats_StatsForm
-                    offensive={
-                      playerStats[selectedStatsAthlete.id]?.rebounds
-                        ?.offensive || 0
-                    }
-                    defensive={
-                      playerStats[selectedStatsAthlete.id]?.rebounds
-                        ?.defensive || 0
-                    }
-                    onUpdate={handleReboundingStatsUpdate}
-                  />
-
-                  {/* Other Statistics */}
-                  <OtherStats_StatsForm
-                    assists={playerStats[selectedStatsAthlete.id]?.assists || 0}
-                    steals={playerStats[selectedStatsAthlete.id]?.steals || 0}
-                    blocks={playerStats[selectedStatsAthlete.id]?.blocks || 0}
-                    turnovers={
-                      playerStats[selectedStatsAthlete.id]?.turnovers || 0
-                    }
-                    fouls={playerStats[selectedStatsAthlete.id]?.fouls || 0}
-                    onUpdate={handleOtherStatsUpdate}
-                  />
-
-                  {/* Add Button */}
-                  <TouchableOpacity 
-                    className="flex-row items-center justify-center rounded-lg bg-red-500 px-6 py-4"
+              <View className="flex-row space-x-3">
+                {selectedAthletes.map(athlete => (
+                  <TouchableOpacity
+                    key={athlete.id}
+                    className={`items-center rounded-lg border-2 p-3 ${
+                      selectedPlayerId === athlete.id
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-gray-200 bg-white'
+                    }`}
                     onPress={() => {
-                      if (selectedStatsAthlete && playerStats[selectedStatsAthlete.id]) {
-                        saveStatsToDatabase(selectedStatsAthlete.id, playerStats[selectedStatsAthlete.id]);
-                        Alert.alert('Success', 'Stats saved successfully!');
-                      }
+                      setSelectedPlayerId(athlete.id);
+                      initializePlayerStats(athlete.id);
                     }}
                   >
-                    <Ionicons name="save" size={20} color="white" />
-                    <Text className="ml-2 text-lg font-semibold text-white">
-                      Save Stats
+                    <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-gray-300">
+                      <Text className="font-bold text-gray-600">
+                        {athlete.number}
+                      </Text>
+                    </View>
+                    <Text className="text-center text-sm font-medium text-black">
+                      {athlete.name}
+                    </Text>
+                    <Text className="text-center text-xs text-gray-500">
+                      {athlete.position}
                     </Text>
                   </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Export Button */}
+            <TouchableOpacity
+              onPress={handleExport}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-3"
+            >
+              <Text className="text-center font-medium text-black">Export</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Statistics Table */}
+          <View className="px-4 pb-6">
+            <View className="rounded-lg border border-gray-200 bg-white">
+              {selectedPlayerId && (
+                <View className="border-b border-gray-200 p-4">
+                  <Text className="text-center text-lg font-semibold text-black">
+                    {
+                      selectedAthletes.find(a => a.id === selectedPlayerId)
+                        ?.name
+                    }{' '}
+                    - No.{' '}
+                    {
+                      selectedAthletes.find(a => a.id === selectedPlayerId)
+                        ?.number
+                    }
+                  </Text>
                 </View>
               )}
 
-              {/* Complete Stats Sheet */}
-              <View className="mt-6">
-                <Text className="mb-4 text-lg font-semibold text-black">
-                  Complete Stats Sheet
-                </Text>
-                <View className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  {/* Stats Sheet Header */}
-                  <View className="border-b border-gray-200 bg-gray-100 p-3">
-                    <Text className="text-center font-bold text-black">
-                      BUCAL MEN'S BASKETBALL SEASON 6
-                    </Text>
-                    <Text className="mt-1 text-center text-sm text-gray-600">
-                      {game.gameName}
-                    </Text>
-                    <Text className="text-center text-sm text-gray-600">
-                      {game.date}
-                    </Text>
-                  </View>
+              <View className="p-4">
+                {/* 2-Point Field Goals Card */}
+                <StatCard
+                  title="2-Point Field Goals"
+                  type="shooting"
+                  stats={
+                    selectedPlayerId
+                      ? playerStats[selectedPlayerId]?.twoPointFG
+                      : { made: 0, attempted: 0 }
+                  }
+                  onUpdate={(field, value) => {
+                    if (selectedPlayerId) {
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          twoPointFG: {
+                            ...prev[selectedPlayerId].twoPointFG,
+                            [field]: value
+                          }
+                        }
+                      }));
+                      // Trigger auto-save
+                      scheduleAutoSave(selectedPlayerId);
+                    }
+                  }}
+                />
 
-                  {/* Player Stats Table */}
-                  <View className="p-3">
-                    {selectedAthletes.map(athlete => {
-                      const stats = playerStats[athlete.id];
-                      return (
-                        <View
-                          key={athlete.id}
-                          className="border-b border-gray-100 py-2"
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex-1">
-                              <Text className="font-semibold text-black">
-                                #{athlete.number} {athlete.name}
-                              </Text>
-                              <Text className="text-sm text-gray-500">
-                                {athlete.position}
-                              </Text>
-                            </View>
-                            <View className="flex-row space-x-4">
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  PTS
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {calculateTotalPoints(stats)}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  REB
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {(stats?.rebounds?.offensive || 0) +
-                                    (stats?.rebounds?.defensive || 0)}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  AST
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.assists || 0}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  STL
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.steals || 0}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  BLK
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.blocks || 0}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        </View>
-                      );
-                    })}
+                {/* 3-Point Field Goals Card */}
+                <StatCard
+                  title="3-Point Field Goals"
+                  type="shooting"
+                  stats={
+                    selectedPlayerId
+                      ? playerStats[selectedPlayerId]?.threePointFG
+                      : { made: 0, attempted: 0 }
+                  }
+                  onUpdate={(field, value) => {
+                    if (selectedPlayerId) {
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          threePointFG: {
+                            ...prev[selectedPlayerId].threePointFG,
+                            [field]: value
+                          }
+                        }
+                      }));
+                      // Trigger auto-save
+                      scheduleAutoSave(selectedPlayerId);
+                    }
+                  }}
+                />
+
+                {/* Free Throws Card */}
+                <StatCard
+                  title="Free Throws"
+                  type="shooting"
+                  stats={
+                    selectedPlayerId
+                      ? playerStats[selectedPlayerId]?.freeThrows
+                      : { made: 0, attempted: 0 }
+                  }
+                  onUpdate={(field, value) => {
+                    if (selectedPlayerId) {
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          freeThrows: {
+                            ...prev[selectedPlayerId].freeThrows,
+                            [field]: value
+                          }
+                        }
+                      }));
+                      // Trigger auto-save
+                      scheduleAutoSave(selectedPlayerId);
+                    }
+                  }}
+                />
+
+                {/* Rebounds Card */}
+                <StatCard
+                  title="Rebounds"
+                  type="rebounds"
+                  stats={
+                    selectedPlayerId
+                      ? playerStats[selectedPlayerId]?.rebounds
+                      : { offensive: 0, defensive: 0 }
+                  }
+                  onUpdate={(field, value) => {
+                    if (selectedPlayerId) {
+                      setPlayerStats(prev => ({
+                        ...prev,
+                        [selectedPlayerId]: {
+                          ...prev[selectedPlayerId],
+                          rebounds: {
+                            ...prev[selectedPlayerId].rebounds,
+                            [field]: value
+                          }
+                        }
+                      }));
+                      // Trigger auto-save
+                      scheduleAutoSave(selectedPlayerId);
+                    }
+                  }}
+                />
+
+                {/* Other Stats Card */}
+                <View className="rounded-lg bg-gray-100 p-4">
+                  <Text className="mb-3 text-lg font-semibold text-black">
+                    Other Stats
+                  </Text>
+
+                  <SimpleStatRow
+                    label="Assists"
+                    value={playerStats[selectedPlayerId]?.assists || 0}
+                    onUpdate={value => {
+                      if (selectedPlayerId) {
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            assists: value
+                          }
+                        }));
+                        // Trigger auto-save
+                        scheduleAutoSave(selectedPlayerId);
+                      }
+                    }}
+                  />
+
+                  <SimpleStatRow
+                    label="Steals"
+                    value={playerStats[selectedPlayerId]?.steals || 0}
+                    onUpdate={value => {
+                      if (selectedPlayerId) {
+                        console.log('Steals onUpdate called:', {
+                          selectedPlayerId,
+                          newValue: value,
+                          currentValue:
+                            playerStats[selectedPlayerId]?.steals || 0,
+                          timestamp: new Date().toISOString()
+                        });
+
+                        setPlayerStats(prev => {
+                          const newStats = {
+                            ...prev,
+                            [selectedPlayerId]: {
+                              ...prev[selectedPlayerId],
+                              steals: value
+                            }
+                          };
+                          console.log('Steals state updated:', {
+                            oldValue: prev[selectedPlayerId]?.steals || 0,
+                            newValue: value,
+                            finalState: newStats[selectedPlayerId]
+                          });
+                          return newStats;
+                        });
+
+                        // Trigger auto-save
+                        scheduleAutoSave(selectedPlayerId);
+                      }
+                    }}
+                  />
+
+                  <SimpleStatRow
+                    label="Blocks"
+                    value={playerStats[selectedPlayerId]?.blocks || 0}
+                    onUpdate={value => {
+                      if (selectedPlayerId) {
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            blocks: value
+                          }
+                        }));
+                        // Trigger auto-save
+                        scheduleAutoSave(selectedPlayerId);
+                      }
+                    }}
+                  />
+
+                  <SimpleStatRow
+                    label="Turnovers"
+                    value={playerStats[selectedPlayerId]?.turnovers || 0}
+                    onUpdate={value => {
+                      if (selectedPlayerId) {
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            turnovers: value
+                          }
+                        }));
+                        // Trigger auto-save
+                        scheduleAutoSave(selectedPlayerId);
+                      }
+                    }}
+                  />
+
+                  <SimpleStatRow
+                    label="Fouls"
+                    value={playerStats[selectedPlayerId]?.fouls || 0}
+                    onUpdate={value => {
+                      if (selectedPlayerId) {
+                        setPlayerStats(prev => ({
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...prev[selectedPlayerId],
+                            fouls: value
+                          }
+                        }));
+                        // Trigger auto-save
+                        scheduleAutoSave(selectedPlayerId);
+                      }
+                    }}
+                  />
+
+                  {/* Total Points - Calculated Display */}
+                  <View className="flex-row items-center justify-between">
+                    <Text className="font-medium text-black">Total Points</Text>
+                    <Text className="text-lg font-bold text-red-500">
+                      {calculateTotalPoints(playerStats[selectedPlayerId])}
+                    </Text>
                   </View>
                 </View>
               </View>
             </View>
-          </ScrollView>
-        )}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          className="flex-1 bg-gray-100"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="space-y-4 p-4">
+            {/* Athlete Selection */}
+            <View className="mb-4">
+              <AthleteDropdown_StatsForm
+                athletes={selectedAthletes}
+                selectedAthlete={selectedStatsAthlete}
+                onSelectAthlete={handleStatsAthleteSelect}
+              />
+            </View>
 
-        {/* Bottom Navigation */}
-        <View className="flex-row items-center justify-around border-t border-gray-200 bg-white py-3">
-          <TouchableOpacity className="items-center">
-            <Ionicons name="home-outline" size={24} color="#666" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="shirt-outline" size={24} color="#EC1D25" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="fitness-outline" size={24} color="#666" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="basketball-outline" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+            {/* Stats Form */}
+            {selectedStatsAthlete && (
+              <View className="space-y-4">
+                {/* Shooting Statistics */}
+                <ShootingStats_StatsForm
+                  totalFieldGoals={
+                    playerStats[selectedStatsAthlete.id]?.totalFieldGoals || {
+                      made: 0,
+                      attempted: 0
+                    }
+                  }
+                  twoPointFG={
+                    playerStats[selectedStatsAthlete.id]?.twoPointFG || {
+                      made: 0,
+                      attempted: 0
+                    }
+                  }
+                  threePointFG={
+                    playerStats[selectedStatsAthlete.id]?.threePointFG || {
+                      made: 0,
+                      attempted: 0
+                    }
+                  }
+                  freeThrows={
+                    playerStats[selectedStatsAthlete.id]?.freeThrows || {
+                      made: 0,
+                      attempted: 0
+                    }
+                  }
+                  onUpdate={handleShootingStatsUpdate}
+                />
+
+                {/* Rebounding Statistics */}
+                <ReboundingStats_StatsForm
+                  offensive={
+                    playerStats[selectedStatsAthlete.id]?.rebounds?.offensive ||
+                    0
+                  }
+                  defensive={
+                    playerStats[selectedStatsAthlete.id]?.rebounds?.defensive ||
+                    0
+                  }
+                  onUpdate={handleReboundingStatsUpdate}
+                />
+
+                {/* Other Statistics */}
+                <OtherStats_StatsForm
+                  assists={playerStats[selectedStatsAthlete.id]?.assists || 0}
+                  steals={playerStats[selectedStatsAthlete.id]?.steals || 0}
+                  blocks={playerStats[selectedStatsAthlete.id]?.blocks || 0}
+                  turnovers={
+                    playerStats[selectedStatsAthlete.id]?.turnovers || 0
+                  }
+                  fouls={playerStats[selectedStatsAthlete.id]?.fouls || 0}
+                  onUpdate={handleOtherStatsUpdate}
+                />
+
+                {/* Add Button */}
+                <TouchableOpacity
+                  className="flex-row items-center justify-center rounded-lg bg-red-500 px-6 py-4"
+                  onPress={() => {
+                    if (
+                      selectedStatsAthlete &&
+                      playerStats[selectedStatsAthlete.id]
+                    ) {
+                      saveStatsToDatabase(
+                        selectedStatsAthlete.id,
+                        playerStats[selectedStatsAthlete.id]
+                      );
+                      Alert.alert('Success', 'Stats saved successfully!');
+                    }
+                  }}
+                >
+                  <Ionicons name="save" size={20} color="white" />
+                  <Text className="ml-2 text-lg font-semibold text-white">
+                    Save Stats
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Complete Stats Sheet */}
+            <View className="mt-6">
+              <Text className="mb-4 text-lg font-semibold text-black">
+                Complete Stats Sheet
+              </Text>
+              <View className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                {/* Stats Sheet Header */}
+                <View className="border-b border-gray-200 bg-gray-100 p-3">
+                  <Text className="text-center font-bold text-black">
+                    BUCAL MEN'S BASKETBALL SEASON 6
+                  </Text>
+                  <Text className="mt-1 text-center text-sm text-gray-600">
+                    {game.gameName}
+                  </Text>
+                  <Text className="text-center text-sm text-gray-600">
+                    {game.date}
+                  </Text>
+                </View>
+
+                {/* Player Stats Table */}
+                <View className="p-3">
+                  {selectedAthletes.map(athlete => {
+                    const stats = playerStats[athlete.id];
+                    return (
+                      <View
+                        key={athlete.id}
+                        className="border-b border-gray-100 py-2"
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1">
+                            <Text className="font-semibold text-black">
+                              #{athlete.number} {athlete.name}
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                              {athlete.position}
+                            </Text>
+                          </View>
+                          <View className="flex-row space-x-4">
+                            <View className="items-center">
+                              <Text className="text-xs text-gray-500">PTS</Text>
+                              <Text className="font-bold text-black">
+                                {calculateTotalPoints(stats)}
+                              </Text>
+                            </View>
+                            <View className="items-center">
+                              <Text className="text-xs text-gray-500">REB</Text>
+                              <Text className="font-bold text-black">
+                                {(stats?.rebounds?.offensive || 0) +
+                                  (stats?.rebounds?.defensive || 0)}
+                              </Text>
+                            </View>
+                            <View className="items-center">
+                              <Text className="text-xs text-gray-500">AST</Text>
+                              <Text className="font-bold text-black">
+                                {stats?.assists || 0}
+                              </Text>
+                            </View>
+                            <View className="items-center">
+                              <Text className="text-xs text-gray-500">STL</Text>
+                              <Text className="font-bold text-black">
+                                {stats?.steals || 0}
+                              </Text>
+                            </View>
+                            <View className="items-center">
+                              <Text className="text-xs text-gray-500">BLK</Text>
+                              <Text className="font-bold text-black">
+                                {stats?.blocks || 0}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }

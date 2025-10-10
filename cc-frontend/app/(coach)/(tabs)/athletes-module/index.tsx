@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { FlatList, View, Text, TouchableOpacity, Modal } from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
-import FloatingActionButton from '@/components/buttons/FloatingActionButton';
+import FloatingButton from '@/components/buttons/FloatingButton';
 import GameCard from '@/components/cards/GameCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
@@ -486,12 +487,11 @@ export default function AthleteScreen() {
       </View>
 
       {/* Floating Action Button */}
-      <FloatingActionButton
-        icon={activeTab === 'athletes' ? 'person-add' : 'add'}
+      {/* Floating Button */}
+      <FloatingButton
         onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddGame}
-        color="#FF0000"
-        size="medium"
-        position="bottom-right"
+        icon="add"
+        IconComponent={FontAwesome6}
       />
 
       {/* Batch Selection Modal */}

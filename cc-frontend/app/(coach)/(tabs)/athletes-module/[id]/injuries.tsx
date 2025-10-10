@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import FloatingActionButton from '@/components/buttons/FloatingActionButton';
-import Header from '@/components/headers/Header';
+import FloatingButton from '@/components/buttons/FloatingButton';
+import { useEffect } from 'react';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_ATHLETES = {
@@ -150,6 +151,7 @@ function InjuryCard({
 export default function InjuriesScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
 
   // Get athlete data - in the future this will be fetched from Supabase
   const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
@@ -179,63 +181,52 @@ export default function InjuriesScreen() {
 
   if (!athlete) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Athlete not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Athlete not found
+        </Text>
+      </View>
     );
   }
 
+  useEffect(() => {
+    setTitle('Injury Records');
+  });
+
   return (
     <View className="flex-1">
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        {/* Header */}
-        <Header
-          title="Injury Records"
-          showBack={true}
-          showNotifications={false}
-          showMenu={false}
-          onBackPress={handleBackPress}
-        />
+      {/* Scrollable Content */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Athlete Profile Section */}
+        <View className="items-center px-4 py-4 sm:py-6">
+          <Text className="mb-1 text-center text-xl font-bold text-black sm:text-2xl">
+            {athlete.name}
+          </Text>
+          <Text className="text-center text-base text-gray-600 sm:text-lg">
+            {athlete.position}
+          </Text>
+        </View>
 
-        {/* Scrollable Content */}
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {/* Athlete Profile Section */}
-          <View className="items-center px-4 py-4 sm:py-6">
-            <Text className="mb-1 text-center text-xl font-bold text-black sm:text-2xl">
-              {athlete.name}
-            </Text>
-            <Text className="text-center text-base text-gray-600 sm:text-lg">
-              {athlete.position}
-            </Text>
-          </View>
+        {/* Injury Categories List */}
+        <View className="px-4 pb-20">
+          {injuries.map((injury, index) => (
+            <InjuryCard
+              key={index}
+              type={injury.type}
+              icon={injury.icon}
+              incidents={injury.incidents}
+              color={injury.color}
+              onPress={() => handleInjuryPress(injury.type)}
+            />
+          ))}
+        </View>
+      </ScrollView>
 
-          {/* Injury Categories List */}
-          <View className="px-4 pb-20">
-            {injuries.map((injury, index) => (
-              <InjuryCard
-                key={index}
-                type={injury.type}
-                icon={injury.icon}
-                incidents={injury.incidents}
-                color={injury.color}
-                onPress={() => handleInjuryPress(injury.type)}
-              />
-            ))}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* Floating Action Button */}
-      <FloatingActionButton
-        icon="add"
+      {/* Floating Button */}
+      <FloatingButton
         onPress={handleAddInjury}
-        color="#FF0000"
-        size="medium"
-        position="bottom-right"
+        icon="add"
+        IconComponent={FontAwesome6}
       />
     </View>
   );

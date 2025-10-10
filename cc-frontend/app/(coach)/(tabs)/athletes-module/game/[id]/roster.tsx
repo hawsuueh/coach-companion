@@ -9,11 +9,10 @@ import {
   Alert,
   Modal
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import StartRecordingButton from '@/components/buttons/StartRecordingButton';
-import Header from '@/components/headers/Header';
 import RosterCard from '@/components/cards/RosterCard';
 import supabase from '@/config/supabaseClient';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Database interfaces
 interface DatabaseAthlete {
@@ -139,6 +138,12 @@ export default function GameRosterScreen() {
     null
   );
   const [showBatchModal, setShowBatchModal] = useState(false);
+
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Team Roster');
+  }, [setTitle]);
 
   // Fetch game data from database
   const fetchGame = async () => {
@@ -351,195 +356,178 @@ export default function GameRosterScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Loading roster...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Loading roster...
+        </Text>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center px-4">
-          <Text className="mb-4 text-center text-lg font-semibold text-red-500">
-            {error}
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              setError(null);
-              setLoading(true);
-              // Reload data
-              if (id) {
-                Promise.all([
-                  fetchGame(),
-                  fetchAvailableAthletes(),
-                  fetchRoster()
-                ]).finally(() => setLoading(false));
-              }
-            }}
-            className="rounded-lg bg-red-500 px-4 py-2"
-          >
-            <Text className="font-semibold text-white">Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center px-4">
+        <Text className="mb-4 text-center text-lg font-semibold text-red-500">
+          {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            // Reload data
+            if (id) {
+              Promise.all([
+                fetchGame(),
+                fetchAvailableAthletes(),
+                fetchRoster()
+              ]).finally(() => setLoading(false));
+            }
+          }}
+          className="rounded-lg bg-red-500 px-4 py-2"
+        >
+          <Text className="font-semibold text-white">Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   if (!game) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Game not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Game not found
+        </Text>
+      </View>
     );
   }
 
   return (
     <View className="flex-1">
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        {/* Header */}
-        <Header
-          title="Team Roster"
-          showBack={true}
-          showNotifications={false}
-          showMenu={false}
-          onBackPress={handleBackPress}
-        />
+      {/* Scrollable Content */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Game Info Section */}
+        <View className="items-center px-4 py-4">
+          <Text className="mb-1 text-center text-xl font-bold text-black">
+            {game.gameName}
+          </Text>
+          <Text className="text-center text-base text-gray-600">
+            {game.date}
+          </Text>
+        </View>
 
-        {/* Scrollable Content */}
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {/* Game Info Section */}
-          <View className="items-center px-4 py-4">
-            <Text className="mb-1 text-center text-xl font-bold text-black">
-              {game.gameName}
-            </Text>
-            <Text className="text-center text-base text-gray-600">
-              {game.date}
-            </Text>
-          </View>
-
-          {/* Athlete Selection Section */}
-          <View className="px-4 pb-4">
-            <View className="rounded-xl bg-gray-100 p-4">
-              <View className="mb-3 flex-row items-center justify-between">
-                <Text className="text-base font-semibold text-black">
-                  Select Athletes for Lineup
+        {/* Athlete Selection Section */}
+        <View className="px-4 pb-4">
+          <View className="rounded-xl bg-gray-100 p-4">
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-base font-semibold text-black">
+                Select Athletes for Lineup
+              </Text>
+              {selectedBatch && (
+                <View className="rounded-lg bg-red-50 px-2 py-1">
+                  <Text className="text-xs text-red-600">
+                    Batch {selectedBatch.batch_no}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3"
+                onPress={() => setShowDropdown(!showDropdown)}
+              >
+                <Text className="text-gray-500">
+                  {selectedAthleteId
+                    ? availableAthletes.find(a => a.id === selectedAthleteId)
+                        ?.name
+                    : 'Select an athlete'}
                 </Text>
-                {selectedBatch && (
-                  <View className="rounded-lg bg-red-50 px-2 py-1">
-                    <Text className="text-xs text-red-600">
-                      Batch {selectedBatch.batch_no}
+              </TouchableOpacity>
+              <Ionicons
+                name={showDropdown ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#666"
+                style={{ marginLeft: 8 }}
+              />
+              <TouchableOpacity
+                className="ml-2 rounded-lg bg-gray-500 p-2"
+                onPress={() => setShowBatchModal(true)}
+              >
+                <Ionicons name="funnel" size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="ml-2 rounded-lg bg-red-500 px-4 py-3"
+                onPress={handleAddAthlete}
+              >
+                <Text className="font-semibold text-white">Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Dropdown */}
+            {showDropdown && (
+              <View className="mt-2 rounded-lg border border-gray-300 bg-white">
+                {availableAthletesFiltered.map(athlete => (
+                  <TouchableOpacity
+                    key={athlete.id}
+                    className="border-b border-gray-100 px-3 py-3"
+                    onPress={() => {
+                      setSelectedAthleteId(athlete.id);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    <Text className="text-black">{athlete.name}</Text>
+                    <Text className="text-sm text-gray-500">
+                      No. {athlete.number} - {athlete.position}
                     </Text>
-                  </View>
-                )}
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View className="flex-row items-center">
-                <TouchableOpacity
-                  className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-3"
-                  onPress={() => setShowDropdown(!showDropdown)}
-                >
-                  <Text className="text-gray-500">
-                    {selectedAthleteId
-                      ? availableAthletes.find(a => a.id === selectedAthleteId)
-                          ?.name
-                      : 'Select an athlete'}
-                  </Text>
-                </TouchableOpacity>
-                <Ionicons
-                  name={showDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#666"
-                  style={{ marginLeft: 8 }}
-                />
-                <TouchableOpacity
-                  className="ml-2 rounded-lg bg-gray-500 p-2"
-                  onPress={() => setShowBatchModal(true)}
-                >
-                  <Ionicons name="funnel" size={20} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="ml-2 rounded-lg bg-red-500 px-4 py-3"
-                  onPress={handleAddAthlete}
-                >
-                  <Text className="font-semibold text-white">Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Dropdown */}
-              {showDropdown && (
-                <View className="mt-2 rounded-lg border border-gray-300 bg-white">
-                  {availableAthletesFiltered.map(athlete => (
-                    <TouchableOpacity
-                      key={athlete.id}
-                      className="border-b border-gray-100 px-3 py-3"
-                      onPress={() => {
-                        setSelectedAthleteId(athlete.id);
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <Text className="text-black">{athlete.name}</Text>
-                      <Text className="text-sm text-gray-500">
-                        No. {athlete.number} - {athlete.position}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
+            )}
           </View>
+        </View>
 
-          {/* Current Lineup Section */}
-          <View className="px-4 pb-6">
-            <View className="rounded-xl bg-white p-4">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-lg font-semibold text-black">
-                  CURRENT LINEUP
-                </Text>
-                <Text className="text-sm font-medium text-red-500">
-                  {rosterAthletes.length} Athletes
+        {/* Current Lineup Section */}
+        <View className="px-4 pb-6">
+          <View className="rounded-xl bg-white p-4">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-black">
+                CURRENT LINEUP
+              </Text>
+              <Text className="text-sm font-medium text-red-500">
+                {rosterAthletes.length} Athletes
+              </Text>
+            </View>
+
+            {/* Selected Athletes List */}
+            {rosterAthletes.length > 0 ? (
+              <View>
+                {rosterAthletes.map(athlete => (
+                  <RosterCard
+                    key={athlete.id}
+                    playerNumber={athlete.number}
+                    playerName={athlete.name}
+                    position={athlete.position}
+                    isSelected={true}
+                    onPress={() => handleAthleteToggle(athlete.id)}
+                    onRemove={() => handleRemoveAthlete(athlete.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <View className="items-center py-8">
+                <Ionicons name="people-outline" size={48} color="#ccc" />
+                <Text className="mt-2 text-gray-500">
+                  No athletes selected for this game
                 </Text>
               </View>
-
-              {/* Selected Athletes List */}
-              {rosterAthletes.length > 0 ? (
-                <View>
-                  {rosterAthletes.map(athlete => (
-                    <RosterCard
-                      key={athlete.id}
-                      playerNumber={athlete.number}
-                      playerName={athlete.name}
-                      position={athlete.position}
-                      isSelected={true}
-                      onPress={() => handleAthleteToggle(athlete.id)}
-                      onRemove={() => handleRemoveAthlete(athlete.id)}
-                    />
-                  ))}
-                </View>
-              ) : (
-                <View className="items-center py-8">
-                  <Ionicons name="people-outline" size={48} color="#ccc" />
-                  <Text className="mt-2 text-gray-500">
-                    No athletes selected for this game
-                  </Text>
-                </View>
-              )}
-            </View>
+            )}
           </View>
+        </View>
 
-          {/* Start Recording Button */}
-          <View className="px-4 pb-20">
-            <StartRecordingButton onPress={handleStartRecording} />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+        {/* Start Recording Button */}
+        <View className="px-4 pb-20">
+          <StartRecordingButton onPress={handleStartRecording} />
+        </View>
+      </ScrollView>
 
       {/* Batch Selection Modal */}
       <Modal

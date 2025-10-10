@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Header from '@/components/headers/Header';
+import { useEffect } from 'react';
+import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_ATHLETES = {
@@ -103,6 +103,7 @@ function StatRow({
 export default function GameRecordsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
 
   // Get athlete data - in the future this will be fetched from Supabase
   const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
@@ -122,106 +123,97 @@ export default function GameRecordsScreen() {
 
   if (!athlete) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Athlete not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Athlete not found
+        </Text>
+      </View>
     );
   }
 
+  useEffect(() => {
+    setTitle('Game Records');
+  });
+
   return (
     <View className="flex-1">
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        {/* Header */}
-        <Header
-          title="Game Report"
-          showBack={true}
-          showNotifications={false}
-          showMenu={false}
-          onBackPress={handleBackPress}
-        />
-
-        <ScrollView
-          className="flex-1"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* Player Information Section */}
+        <View
+          className="mx-4 mt-4 rounded-xl bg-white p-6"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3.84,
+            elevation: 5
+          }}
         >
-          {/* Player Information Section */}
-          <View
-            className="mx-4 mt-4 rounded-xl bg-white p-6"
-            style={{
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3.84,
-              elevation: 5
-            }}
-          >
-            <View className="items-center">
-              <View className="mb-4 h-24 w-24 items-center justify-center rounded-full bg-gray-200">
-                <Ionicons name="person" size={48} color="#666" />
-              </View>
-              <Text className="mb-1 text-2xl font-bold text-black">
-                {athlete.name}
-              </Text>
-              <Text className="text-lg text-gray-600">{athlete.position}</Text>
+          <View className="items-center">
+            <View className="mb-4 h-24 w-24 items-center justify-center rounded-full bg-gray-200">
+              <Ionicons name="person" size={48} color="#666" />
             </View>
+            <Text className="mb-1 text-2xl font-bold text-black">
+              {athlete.name}
+            </Text>
+            <Text className="text-lg text-gray-600">{athlete.position}</Text>
+          </View>
+        </View>
+
+        {/* Game Statistics Section */}
+        <View
+          className="mx-4 mt-4 rounded-xl bg-white"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3.84,
+            elevation: 5
+          }}
+        >
+          <View className="border-b border-gray-100 px-4 py-4">
+            <Text className="text-lg font-semibold text-black">
+              Game 1 Statistics
+            </Text>
           </View>
 
-          {/* Game Statistics Section */}
-          <View
-            className="mx-4 mt-4 rounded-xl bg-white"
-            style={{
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3.84,
-              elevation: 5
-            }}
-          >
-            <View className="border-b border-gray-100 px-4 py-4">
-              <Text className="text-lg font-semibold text-black">
-                Game 1 Statistics
-              </Text>
-            </View>
+          <StatRow
+            label="Total Field Goal"
+            value={`${gameStats.totalFieldGoal.percentage.toFixed(2)}%`}
+            percentage={gameStats.totalFieldGoal.percentage}
+            made={gameStats.totalFieldGoal.made}
+            attempted={gameStats.totalFieldGoal.attempted}
+            progressColor="#FF6B6B"
+          />
 
-            <StatRow
-              label="Total Field Goal"
-              value={`${gameStats.totalFieldGoal.percentage.toFixed(2)}%`}
-              percentage={gameStats.totalFieldGoal.percentage}
-              made={gameStats.totalFieldGoal.made}
-              attempted={gameStats.totalFieldGoal.attempted}
-              progressColor="#FF6B6B"
-            />
+          <StatRow
+            label="2PTS Field Goal"
+            value={`${gameStats.twoPointFieldGoal.percentage.toFixed(2)}%`}
+            percentage={gameStats.twoPointFieldGoal.percentage}
+            made={gameStats.twoPointFieldGoal.made}
+            attempted={gameStats.twoPointFieldGoal.attempted}
+            progressColor="#FFA500"
+          />
 
-            <StatRow
-              label="2PTS Field Goal"
-              value={`${gameStats.twoPointFieldGoal.percentage.toFixed(2)}%`}
-              percentage={gameStats.twoPointFieldGoal.percentage}
-              made={gameStats.twoPointFieldGoal.made}
-              attempted={gameStats.twoPointFieldGoal.attempted}
-              progressColor="#FFA500"
-            />
+          <StatRow
+            label="3PTS Field Goal"
+            value={`${gameStats.threePointFieldGoal.percentage.toFixed(2)}%`}
+            percentage={gameStats.threePointFieldGoal.percentage}
+            made={gameStats.threePointFieldGoal.made}
+            attempted={gameStats.threePointFieldGoal.attempted}
+            progressColor="#4CAF50"
+          />
 
-            <StatRow
-              label="3PTS Field Goal"
-              value={`${gameStats.threePointFieldGoal.percentage.toFixed(2)}%`}
-              percentage={gameStats.threePointFieldGoal.percentage}
-              made={gameStats.threePointFieldGoal.made}
-              attempted={gameStats.threePointFieldGoal.attempted}
-              progressColor="#4CAF50"
-            />
-
-            <StatRow label="Total Points" value={gameStats.totalPoints} />
-            <StatRow label="Assist" value={gameStats.assist} />
-            <StatRow label="Steal" value={gameStats.steal} />
-            <StatRow label="Block" value={gameStats.block} />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+          <StatRow label="Total Points" value={gameStats.totalPoints} />
+          <StatRow label="Assist" value={gameStats.assist} />
+          <StatRow label="Steal" value={gameStats.steal} />
+          <StatRow label="Block" value={gameStats.block} />
+        </View>
+      </ScrollView>
     </View>
   );
 }

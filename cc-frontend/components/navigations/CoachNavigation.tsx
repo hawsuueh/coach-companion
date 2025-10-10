@@ -7,28 +7,33 @@ type Tab = {
   name: string;
   icon: string;
   route: string;
+  matchPrefix?: string; // new optional field for prefix matching
 };
 
 const TABS: Tab[] = [
   {
     name: 'home',
     icon: 'home',
-    route: '/(tabs)/home'
+    route: '/(tabs)/home',
+    matchPrefix: '/home'
   },
   {
     name: 'athletes',
     icon: 'account-group',
-    route: '/(tabs)/athletes-module'
+    route: '/(tabs)/athletes-module',
+    matchPrefix: '/athletes-module'
   },
   {
     name: 'training',
     icon: 'arm-flex',
-    route: '/(tabs)/training-module/training'
+    route: '/(tabs)/training-module/training',
+    matchPrefix: '/training-module'
   },
   {
     name: 'drills',
     icon: 'basketball',
-    route: '/(tabs)/drills-module'
+    route: '/(tabs)/drills-module',
+    matchPrefix: '/drills-module'
   }
 ];
 
@@ -36,18 +41,17 @@ const CoachNavigation: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  console.log('Current pathname:', pathname);
+  const normalizePath = (path: string) => path.replace('/(tabs)', '');
 
   return (
     <View style={styles.container}>
       {TABS.map((tab, index) => {
-        const normalizePath = (path: string) => path.replace('/(tabs)', '');
         const currentPath = normalizePath(pathname);
-        const tabPath = normalizePath(tab.route.replace(/\/$/, ''));
-        const isActive =
-          tab.name === 'training'
-            ? currentPath.startsWith('/training-module/')
-            : currentPath === tabPath;
+        const tabPrefix = tab.matchPrefix || normalizePath(tab.route);
+
+        // ✅ Active if current path starts with the module prefix
+        const isActive = currentPath.startsWith(tabPrefix);
+
         return (
           <TouchableOpacity
             key={index}
@@ -68,14 +72,6 @@ const CoachNavigation: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: '#ffffff',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000
-  },
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -86,10 +82,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2
-    },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 5

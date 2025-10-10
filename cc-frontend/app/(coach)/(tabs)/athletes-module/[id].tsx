@@ -21,13 +21,14 @@ const MOCK_ATHLETES = {
 export default function AthleteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Athlete Menu');
+  });
 
   // Get athlete data - in the future this will be fetched from Supabase
   const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
-
-  const handleBackPress = () => {
-    router.back();
-  };
 
   const handleAttributesPress = () => {
     console.log('Attributes pressed for athlete:', athlete?.name);
@@ -66,9 +67,7 @@ export default function AthleteDetailScreen() {
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-      {/* Header */}
-
+    <View className="flex-1">
       {/* Athlete Profile Section */}
       <View className="items-center px-4 py-8">
         {/* Athlete Photo Placeholder */}
