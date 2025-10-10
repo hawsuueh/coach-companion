@@ -1,3 +1,4 @@
+/////////////////////////////// START OF IMPORTS /////////////
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -17,75 +18,83 @@ import ReboundingStats_StatsForm from '../../../../../../components/cards/Reboun
 import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 import supabase from '../../../../../../config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
+////////////////////////////// END OF IMPORTS ////////////////
 
+/////////////////////////////// START OF INTERFACES /////////////
 // Database interfaces
 interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
+  athlete_no: number; // ex: 1
+  first_name: string | null; // ex: "John"
+  middle_name: string | null; // ex: "Paul"
+  last_name: string | null; // ex: "Doe"
+  position: string | null; // ex: "Point Guard"
+  player_no: number | null; // ex: 23
 }
 
 interface DatabaseGame {
-  game_no: number;
-  date: string | null;
-  time: string | null;
-  season_no: number | null;
-  player_name: string | null;
-  opponent_name: string | null;
+  game_no: number; // ex: 1
+  date: string | null; // ex: "2024-01-15"
+  time: string | null; // ex: "18:00:00"
+  season_no: number | null; // ex: 6
+  player_name: string | null; // ex: "Men's Division Team"
+  opponent_name: string | null; // ex: "State University"
 }
 
+// This is the raw database interface for athlete_game
 interface DatabaseAthleteGame {
-  athlete_game_no: number;
-  athlete_no: number;
-  game_no: number;
-  quarter_no: number | null;
-  points: number | null;
-  field_goals_made: number | null;
-  field_goals_attempted: number | null;
-  two_point_made: number | null;
-  two_point_attempted: number | null;
-  three_point_made: number | null;
-  three_point_attempted: number | null;
-  free_throws_made: number | null;
-  free_throws_attempted: number | null;
-  assists: number | null;
-  offensive_rebounds: number | null;
-  defensive_rebounds: number | null;
-  steals: number | null;
-  blocks: number | null;
-  turnovers: number | null;
-  fouls: number | null;
+  athlete_game_no: number; // ex: 1
+  athlete_no: number; // ex: 1
+  game_no: number; // ex: 1
+  quarter_no: number | null; // ex: 1
+  points: number | null; // ex: 15
+  field_goals_made: number | null; // ex: 6
+  field_goals_attempted: number | null; // ex: 12
+  two_point_made: number | null; // ex: 4
+  two_point_attempted: number | null; // ex: 8
+  three_point_made: number | null; // ex: 2
+  three_point_attempted: number | null; // ex: 4
+  free_throws_made: number | null; // ex: 1
+  free_throws_attempted: number | null; // ex: 2
+  assists: number | null; // ex: 3
+  offensive_rebounds: number | null; // ex: 2
+  defensive_rebounds: number | null; // ex: 5
+  steals: number | null; // ex: 2
+  blocks: number | null; // ex: 1
+  turnovers: number | null; // ex: 2
+  fouls: number | null; // ex: 3
 }
 
+// UI-friendly version of DatabaseAthlete - restructured for better organization
 interface Athlete {
-  id: string;
-  number: string;
-  name: string;
-  position: string;
+  id: string; // ex: "1"
+  number: string; // ex: "23"
+  name: string; // ex: "John Paul Doe"
+  position: string; // ex: "Point Guard"
 }
 
+// UI-friendly version of DatabaseGame - restructured for better organization
 interface Game {
-  id: string;
-  gameName: string;
-  date: string;
+  id: string; // ex: "1"
+  gameName: string; // ex: "Men's Division Team vs State University"
+  date: string; // ex: "1/15/2024 6:00 PM"
 }
 
+// UI-friendly version of DatabaseAthleteGame - restructured for better organization
 interface PlayerStats {
-  totalFieldGoals: { made: number; attempted: number };
-  twoPointFG: { made: number; attempted: number };
-  threePointFG: { made: number; attempted: number };
-  freeThrows: { made: number; attempted: number };
-  rebounds: { offensive: number; defensive: number };
-  assists: number;
-  steals: number;
-  blocks: number;
-  turnovers: number;
-  fouls: number;
+  totalFieldGoals: { made: number; attempted: number }; // ex: { made: 6, attempted: 12 }
+  twoPointFG: { made: number; attempted: number }; // ex: { made: 4, attempted: 8 } - from two_point_made/attempted
+  threePointFG: { made: number; attempted: number }; // ex: { made: 2, attempted: 4 } - from three_point_made/attempted
+  freeThrows: { made: number; attempted: number }; // ex: { made: 1, attempted: 2 } - from free_throws_made/attempted
+  rebounds: { offensive: number; defensive: number }; // ex: { offensive: 2, defensive: 5 } - from offensive_rebounds/defensive_rebounds
+  assists: number; // ex: 3
+  steals: number; // ex: 2
+  blocks: number; // ex: 1
+  turnovers: number; // ex: 2
+  fouls: number; // ex: 3
 }
+////////////////////////////// END OF INTERFACES ////////////////
 
+/////////////////////////////// START OF HELPER FUNCTIONS /////////////
 // Helper function to transform database athlete to UI athlete
 const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
   const fullName = [
@@ -128,10 +137,16 @@ const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
     date: formattedDate
   };
 };
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
+
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function GameRecordingScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+  
   const [activeTab, setActiveTab] = useState<'realtime' | 'stats'>('realtime');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedStatsAthlete, setSelectedStatsAthlete] = useState<{
@@ -159,12 +174,9 @@ export default function GameRecordingScreen() {
   // Auto-save functionality
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSavesRef = useRef<Set<string>>(new Set());
-  const { setTitle } = useHeader();
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
-  useEffect(() => {
-    setTitle('Game Recording');
-  });
-
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
   // Fetch game data from database
   const fetchGame = async () => {
     try {
@@ -274,143 +286,6 @@ export default function GameRecordingScreen() {
     }
   };
 
-  // Load all data on component mount
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-
-      await Promise.all([fetchGame(), fetchRosterAthletes(), fetchGameStats()]);
-
-      setLoading(false);
-    };
-
-    if (id && typeof id === 'string') {
-      loadData();
-    }
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [id]);
-
-  // Calculate total points for a player
-  const calculateTotalPoints = (stats: PlayerStats | undefined) => {
-    if (!stats) return 0;
-    const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
-    const threePointPoints = (stats.threePointFG?.made || 0) * 3;
-    const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
-    return twoPointPoints + threePointPoints + freeThrowPoints;
-  };
-
-  // Update quarter scores automatically - show total points for now
-  const updateQuarterScores = () => {
-    const totalPoints = Object.values(playerStats).reduce(
-      (sum, stats) => sum + calculateTotalPoints(stats),
-      0
-    );
-
-    setQuarterScores(prev => ({
-      ...prev,
-      home: {
-        q1: totalPoints, // Show total in Q1 for now
-        q2: 0,
-        q3: 0,
-        q4: 0,
-        ot: 0,
-        total: totalPoints
-      }
-    }));
-  };
-
-  // Update quarter scores whenever player stats change
-  useEffect(() => {
-    updateQuarterScores();
-  }, [playerStats]);
-
-  // Initialize player stats if not exists
-  const initializePlayerStats = (playerId: string) => {
-    if (!playerStats[playerId]) {
-      setPlayerStats(prev => ({
-        ...prev,
-        [playerId]: {
-          totalFieldGoals: { made: 0, attempted: 0 },
-          twoPointFG: { made: 0, attempted: 0 },
-          threePointFG: { made: 0, attempted: 0 },
-          freeThrows: { made: 0, attempted: 0 },
-          rebounds: { offensive: 0, defensive: 0 },
-          assists: 0,
-          steals: 0,
-          blocks: 0,
-          turnovers: 0,
-          fouls: 0
-        }
-      }));
-    }
-  };
-
-  const handleBackPress = () => {
-    router.back();
-  };
-
-  const handleReset = () => {
-    Alert.alert(
-      'Reset Game Stats',
-      'Are you sure you want to reset all player statistics?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => setPlayerStats({})
-        }
-      ]
-    );
-  };
-
-  const handleExport = () => {
-    Alert.alert(
-      'Export Stats',
-      'Export functionality will be implemented soon!'
-    );
-  };
-
-  // Smart auto-save function with debouncing
-  const scheduleAutoSave = useCallback((athleteId: string) => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Add to pending saves
-    pendingSavesRef.current.add(athleteId);
-
-    // Set new timeout for 1.5 seconds
-    saveTimeoutRef.current = setTimeout(async () => {
-      const athletesToSave = Array.from(pendingSavesRef.current);
-      pendingSavesRef.current.clear();
-
-      // Save all pending athletes - get fresh state at save time
-      for (const athleteId of athletesToSave) {
-        // Get the current state at save time, not when scheduled
-        setPlayerStats(currentStats => {
-          if (currentStats[athleteId]) {
-            console.log('Auto-save capturing fresh state:', {
-              athleteId,
-              steals: currentStats[athleteId].steals,
-              timestamp: new Date().toISOString()
-            });
-            saveStatsToDatabase(athleteId, currentStats[athleteId]);
-          }
-          return currentStats; // Don't change state, just capture it
-        });
-      }
-    }, 1500); // 1.5 second delay
-  }, []); // Remove playerStats dependency to avoid stale closures
-
   // Save stats to database
   const saveStatsToDatabase = async (athleteId: string, stats: PlayerStats) => {
     try {
@@ -488,6 +363,158 @@ export default function GameRecordingScreen() {
       console.error('Error saving stats:', err);
       Alert.alert('Error', 'Failed to save stats to database');
     }
+  };
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
+  // Calculate total points for a player
+  const calculateTotalPoints = (stats: PlayerStats | undefined) => {
+    if (!stats) return 0;
+    const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
+    const threePointPoints = (stats.threePointFG?.made || 0) * 3;
+    const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
+    return twoPointPoints + threePointPoints + freeThrowPoints;
+  };
+
+  // Update quarter scores automatically - show total points for now
+  const updateQuarterScores = () => {
+    const totalPoints = Object.values(playerStats).reduce(
+      (sum, stats) => sum + calculateTotalPoints(stats),
+      0
+    );
+
+    setQuarterScores(prev => ({
+      ...prev,
+      home: {
+        q1: totalPoints, // Show total in Q1 for now
+        q2: 0,
+        q3: 0,
+        q4: 0,
+        ot: 0,
+        total: totalPoints
+      }
+    }));
+  };
+
+  // Initialize player stats if not exists
+  const initializePlayerStats = (playerId: string) => {
+    if (!playerStats[playerId]) {
+      setPlayerStats(prev => ({
+        ...prev,
+        [playerId]: {
+          totalFieldGoals: { made: 0, attempted: 0 },
+          twoPointFG: { made: 0, attempted: 0 },
+          threePointFG: { made: 0, attempted: 0 },
+          freeThrows: { made: 0, attempted: 0 },
+          rebounds: { offensive: 0, defensive: 0 },
+          assists: 0,
+          steals: 0,
+          blocks: 0,
+          turnovers: 0,
+          fouls: 0
+        }
+      }));
+    }
+  };
+
+  // Smart auto-save function with debouncing
+  const scheduleAutoSave = useCallback((athleteId: string) => {
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Add to pending saves
+    pendingSavesRef.current.add(athleteId);
+
+    // Set new timeout for 1.5 seconds
+    saveTimeoutRef.current = setTimeout(async () => {
+      const athletesToSave = Array.from(pendingSavesRef.current);
+      pendingSavesRef.current.clear();
+
+      // Save all pending athletes - get fresh state at save time
+      for (const athleteId of athletesToSave) {
+        // Get the current state at save time, not when scheduled
+        setPlayerStats(currentStats => {
+          if (currentStats[athleteId]) {
+            console.log('Auto-save capturing fresh state:', {
+              athleteId,
+              steals: currentStats[athleteId].steals,
+              timestamp: new Date().toISOString()
+            });
+            saveStatsToDatabase(athleteId, currentStats[athleteId]);
+          }
+          return currentStats; // Don't change state, just capture it
+        });
+      }
+    }, 1500); // 1.5 second delay
+  }, []); // Remove playerStats dependency to avoid stale closures
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
+  useEffect(() => {
+    setTitle('Game Recording');
+  });
+
+  // Load all data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      await Promise.all([fetchGame(), fetchRosterAthletes(), fetchGameStats()]);
+
+      setLoading(false);
+    };
+
+    if (id && typeof id === 'string') {
+      loadData();
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [id]);
+
+  // Update quarter scores whenever player stats change
+  useEffect(() => {
+    updateQuarterScores();
+  }, [playerStats]);
+  ////////////////////////////// END OF USE EFFECTS ////////////////
+
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
+  const handleBackPress = () => {
+    router.back();
+  };
+
+  const handleReset = () => {
+    Alert.alert(
+      'Reset Game Stats',
+      'Are you sure you want to reset all player statistics?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => setPlayerStats({})
+        }
+      ]
+    );
+  };
+
+  const handleExport = () => {
+    Alert.alert(
+      'Export Stats',
+      'Export functionality will be implemented soon!'
+    );
+  };
+
+  // Quarter selector handler
+  const handleQuarterChange = (quarter: number) => {
+    setCurrentQuarter(quarter);
   };
 
   // Stats form handlers
@@ -575,12 +602,9 @@ export default function GameRecordingScreen() {
     // Trigger auto-save
     scheduleAutoSave(selectedStatsAthlete.id);
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
-  // Quarter selector handler
-  const handleQuarterChange = (quarter: number) => {
-    setCurrentQuarter(quarter);
-  };
-
+  /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -626,7 +650,9 @@ export default function GameRecordingScreen() {
       </View>
     );
   }
+  ////////////////////////////// END OF LOADING AND ERROR STATES ////////////////
 
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1 bg-white">
       <View>
@@ -1296,4 +1322,6 @@ export default function GameRecordingScreen() {
       )}
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////

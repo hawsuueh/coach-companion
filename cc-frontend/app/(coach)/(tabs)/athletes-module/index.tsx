@@ -1,3 +1,4 @@
+/////////////////////////////// START OF IMPORTS /////////////
 import { useRouter } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -8,7 +9,9 @@ import GameCard from '@/components/cards/GameCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
 import supabase from '@/config/supabaseClient';
+////////////////////////////// END OF IMPORTS ////////////////
 
+/////////////////////////////// START OF INTERFACES /////////////
 interface Athlete {
   id: string;
   number: string;
@@ -45,7 +48,9 @@ interface DatabaseGame {
   player_name: string | null;
   opponent_name: string | null;
 }
+////////////////////////////// END OF INTERFACES ////////////////
 
+/////////////////////////////// START OF HELPER FUNCTIONS /////////////
 // Helper function to transform database athlete to UI athlete
 const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
   const fullName = [
@@ -89,8 +94,12 @@ const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
     date: formattedDate
   };
 };
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
+
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function AthleteScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,7 +117,9 @@ export default function AthleteScreen() {
     { id: 'athletes', label: 'Athletes' },
     { id: 'games', label: 'Games' }
   ];
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
   // Helper function to determine current batch based on today's date
   const getCurrentBatch = (batches: Batch[]): Batch | null => {
     const today = new Date();
@@ -127,7 +138,9 @@ export default function AthleteScreen() {
       }) || null
     );
   };
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
   // Fetch batches from database
   const fetchBatches = async () => {
     try {
@@ -179,6 +192,60 @@ export default function AthleteScreen() {
     }
   };
 
+  // Function to refresh athlete data
+  const refreshAthletes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (selectedBatch) {
+        // Fetch athletes for selected batch using athlete_batch junction table
+        const { data, error: fetchError } = await supabase
+          .from('athlete_batch')
+          .select(
+            `
+            Athlete!inner(*)
+          `
+          )
+          .eq('batch_no', selectedBatch.batch_no);
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (data) {
+          const athletes = data
+            .map((item: any) => item.Athlete)
+            .filter(Boolean);
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
+        }
+      } else {
+        // If no batch selected, fetch all athletes
+        const { data, error: fetchError } = await supabase
+          .from('Athlete')
+          .select('*')
+          .order('athlete_no', { ascending: true });
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (data) {
+          const transformedAthletes = data.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing athletes:', err);
+      setError('Failed to refresh athletes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
   // Fetch athletes from database with batch filtering
   useEffect(() => {
     const fetchAthletes = async () => {
@@ -241,59 +308,9 @@ export default function AthleteScreen() {
     fetchBatches();
     fetchGames();
   }, []);
+  ////////////////////////////// END OF USE EFFECTS ////////////////
 
-  // Function to refresh athlete data
-  const refreshAthletes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (selectedBatch) {
-        // Fetch athletes for selected batch using athlete_batch junction table
-        const { data, error: fetchError } = await supabase
-          .from('athlete_batch')
-          .select(
-            `
-            Athlete!inner(*)
-          `
-          )
-          .eq('batch_no', selectedBatch.batch_no);
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const athletes = data
-            .map((item: any) => item.Athlete)
-            .filter(Boolean);
-          const transformedAthletes = athletes.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
-      } else {
-        // If no batch selected, fetch all athletes
-        const { data, error: fetchError } = await supabase
-          .from('Athlete')
-          .select('*')
-          .order('athlete_no', { ascending: true });
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const transformedAthletes = data.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
-      }
-    } catch (err) {
-      console.error('Error refreshing athletes:', err);
-      setError('Failed to refresh athletes. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleNotificationPress = () => {
     console.log('Notification pressed');
   };
@@ -334,7 +351,9 @@ export default function AthleteScreen() {
       `/(coach)/(tabs)/athletes-module/game/${game.id}/roster` as any
     );
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
+  /////////////////////////////// START OF FILTER LOGIC /////////////
   const filteredAthletes = athletes.filter(
     athlete =>
       athlete.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -347,7 +366,9 @@ export default function AthleteScreen() {
       game.gameName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       game.date.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  ////////////////////////////// END OF FILTER LOGIC ////////////////
 
+  /////////////////////////////// START OF RENDER FUNCTIONS /////////////
   const renderAthleteCard = ({ item }: { item: Athlete }) => (
     <AthleteCard
       playerNumber={item.number}
@@ -364,7 +385,9 @@ export default function AthleteScreen() {
       onPress={() => handleGamePress(item)}
     />
   );
+  ////////////////////////////// END OF RENDER FUNCTIONS ////////////////
 
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1" style={{ position: 'relative' }}>
       {/* Tab Navigation - Using reusable SubTab component */}
@@ -572,4 +595,6 @@ export default function AthleteScreen() {
       </Modal>
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////
