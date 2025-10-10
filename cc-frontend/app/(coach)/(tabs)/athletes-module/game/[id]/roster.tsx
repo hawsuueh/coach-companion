@@ -143,7 +143,7 @@ export default function GameRosterScreen() {
 
   useEffect(() => {
     setTitle('Team Roster');
-  }, [setTitle]);
+  });
 
   // Fetch game data from database
   const fetchGame = async () => {

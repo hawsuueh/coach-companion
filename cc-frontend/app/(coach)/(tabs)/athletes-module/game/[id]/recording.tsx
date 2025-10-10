@@ -163,7 +163,7 @@ export default function GameRecordingScreen() {
 
   useEffect(() => {
     setTitle('Game Recording');
-  }, [setTitle]);
+  });
 
   // Fetch game data from database
   const fetchGame = async () => {
