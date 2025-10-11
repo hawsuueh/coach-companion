@@ -107,7 +107,7 @@ export default function EditTrainingModal() {
       </ScrollView>
       <View className="absolute bottom-0 left-0 right-0 items-center justify-center bg-primary pt-4">
         <MainButton
-          text="Generate"
+          text="Save Changes"
           width="50%"
           height={40}
           onPress={() => console.log('Button pressed!')}
