@@ -18,7 +18,7 @@ export default function FloatingButton({
 }: FloatingButtonProps) {
   return (
     <TouchableOpacity
-      className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-xl bg-accent shadow-lg"
+      className="absolute bottom-10 right-5 h-14 w-14 items-center justify-center rounded-xl bg-accent shadow-lg"
       onPress={onPress}
     >
       <IconComponent name={icon} size={size} color={color} />

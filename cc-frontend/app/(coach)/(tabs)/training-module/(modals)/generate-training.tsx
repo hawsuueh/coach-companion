@@ -29,7 +29,7 @@ export default function GenerateTrainingModal() {
 
   useEffect(() => {
     setTitle('Generate Training');
-  }, [setTitle]);
+  });
 
   return (
     <View className="mb-4 mt-4 flex-1 bg-primary">
