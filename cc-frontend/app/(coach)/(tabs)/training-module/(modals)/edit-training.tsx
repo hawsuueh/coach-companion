@@ -3,17 +3,19 @@ import { View, Text, ScrollView } from 'react-native';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import TextInput from '@/components/training-module/inputs/TextInput';
 import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelectDropdown';
-import MultiDateInput from '@/components/training-module/inputs/MultiDateInput';
-import MultiSelectCalendar from '@/components/training-module/inputs/MultiSelectCalendar';
+import DateInput from '@/components/training-module/inputs/DateInput';
+import SingleSelectCalendar from '@/components/training-module/inputs/SingleSelectCalendar';
 import TimeInput from '@/components/training-module/inputs/TimeInput';
 import MainButton from '@/components/training-module/buttons/MainButton';
 
 export default function EditTrainingModal() {
   const { setTitle } = useHeader();
+  const [isLoading, setIsLoading] = useState(true);
+
   const [trainingName, setTrainingName] = useState('');
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
-  const [dates, setDates] = useState<string[]>([]);
-  const [showCalendar, setShowCalendar] = useState(false); // 👈 toggle state
+  const [date, setDate] = useState<string | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [duration, setDuration] = useState('');
 
@@ -27,16 +29,47 @@ export default function EditTrainingModal() {
     { label: '7 Lee, James', value: '3' }
   ];
 
+  // 🧠 Simulated "database" data
+  const dummyTrainingData = {
+    id: 1,
+    name: 'Explosive Power Training',
+    athletes: ['1', '2', '3'],
+    date: '2025-10-20',
+    start_time: '08:30',
+    duration: '1h 30m'
+  };
+
   useEffect(() => {
     setTitle('Edit Training');
   });
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setTrainingName(dummyTrainingData.name);
+      setSelectedAthletes(dummyTrainingData.athletes);
+      setDate(dummyTrainingData.date);
+      setStartTime(dummyTrainingData.start_time);
+      setDuration(dummyTrainingData.duration);
+
+      setIsLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-h2">Loading training...</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="mb-4 mt-4 flex-1 bg-primary">
-      {/* Scrollable form content */}
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 40 }} // so last field doesn’t get hidden behind button
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Training Name */}
@@ -58,31 +91,22 @@ export default function EditTrainingModal() {
           />
         </View>
 
-        {/* Date Input */}
-        <View className="px-6">
-          <MultiDateInput
-            title="Select Dates"
+        {/* Date Input (toggle calendar) */}
+        <View className="mb-2 px-6">
+          <DateInput
+            date={date}
             onPress={() => setShowCalendar(prev => !prev)}
           />
         </View>
 
-        {/* Selected Dates */}
-        {dates.length > 0 && (
-          <View className="mb-4 mt-4 flex-row flex-wrap px-6">
-            {dates.map(d => (
-              <Text key={d} className="mr-2 text-black">
-                {d}
-              </Text>
-            ))}
-          </View>
-        )}
-
         {/* Calendar */}
         {showCalendar && (
           <View className="mb-4">
-            <MultiSelectCalendar
-              initialDates={dates}
-              onChange={selected => setDates(selected)}
+            <SingleSelectCalendar
+              initialDate={date || undefined}
+              onChange={selected => {
+                setDate(selected || null);
+              }}
             />
           </View>
         )}
@@ -96,6 +120,7 @@ export default function EditTrainingModal() {
             onChange={setStartTime}
           />
         </View>
+
         <View className="mb-4 px-6">
           <TimeInput
             label="Duration"
@@ -105,12 +130,22 @@ export default function EditTrainingModal() {
           />
         </View>
       </ScrollView>
+
+      {/* Save Button */}
       <View className="absolute bottom-0 left-0 right-0 items-center justify-center bg-primary pt-4">
         <MainButton
           text="Save Changes"
           width="50%"
           height={40}
-          onPress={() => console.log('Button pressed!')}
+          onPress={() =>
+            console.log('Updated values:', {
+              trainingName,
+              selectedAthletes,
+              date,
+              startTime,
+              duration
+            })
+          }
         />
       </View>
     </View>

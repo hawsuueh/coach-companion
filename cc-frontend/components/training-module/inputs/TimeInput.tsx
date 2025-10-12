@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -22,12 +22,22 @@ export default function TimeInput({
 
   const togglePicker = () => setShowPicker(prev => !prev);
 
+  // 🧠 Prefill internal state when value changes
+  useEffect(() => {
+    if (mode === 'duration' && value) {
+      // Example format: "1h 30m"
+      const match = value.match(/(\d+)h\s*(\d+)?m?/);
+      if (match) {
+        setTempHours(parseInt(match[1] || '0', 10));
+        setTempMinutes(parseInt(match[2] || '0', 10));
+      }
+    }
+  }, [value, mode]);
+
   // Handle time picker change
   const onTimeChange = (_: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
     if (selectedDate) {
-      const hours = selectedDate.getHours();
-      const minutes = selectedDate.getMinutes();
       const formatted = selectedDate.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
@@ -45,13 +55,17 @@ export default function TimeInput({
 
   return (
     <View>
-      {/* Input Field */}
       <TouchableOpacity
         onPress={togglePicker}
         className="flex-row items-center justify-between rounded-xl bg-white px-3 py-4"
         style={{ borderWidth: 0.5 }}
       >
-        <Text className="text-body1" style={{ color: '#00000080' }}>
+        <Text
+          className="text-body1"
+          style={{
+            color: value ? '#000000' : '#00000080' // black if value exists, gray if placeholder
+          }}
+        >
           {value || `Select ${mode}`}
         </Text>
         <FontAwesome6 name="clock" size={24} color="black" />
@@ -60,7 +74,7 @@ export default function TimeInput({
       {/* TIME PICKER */}
       {showPicker && mode === 'time' && (
         <DateTimePicker
-          value={new Date()}
+          value={parseTimeValue(value)}
           mode="time"
           is24Hour={false}
           display="default"
@@ -68,7 +82,7 @@ export default function TimeInput({
         />
       )}
 
-      {/* DURATION PICKER (Custom Modal) */}
+      {/* DURATION PICKER */}
       {showPicker && mode === 'duration' && (
         <Modal transparent animationType="fade" visible={showPicker}>
           <View className="flex-1 items-center justify-center bg-black/40">
@@ -138,4 +152,14 @@ export default function TimeInput({
       )}
     </View>
   );
+}
+
+// 🧩 Helper function to parse "08:30" or similar into Date object
+function parseTimeValue(value: string) {
+  if (!value) return new Date();
+  const [hours, minutes] = value.split(':').map(v => parseInt(v, 10));
+  const date = new Date();
+  if (!isNaN(hours)) date.setHours(hours);
+  if (!isNaN(minutes)) date.setMinutes(minutes);
+  return date;
 }

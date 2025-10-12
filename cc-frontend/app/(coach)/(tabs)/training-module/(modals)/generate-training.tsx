@@ -3,13 +3,15 @@ import { View, Text, ScrollView } from 'react-native';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import TextInput from '@/components/training-module/inputs/TextInput';
 import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelectDropdown';
-import MultiDateInput from '@/components/training-module/inputs/MultiDateInput';
+import DateInput from '@/components/training-module/inputs/DateInput';
 import MultiSelectCalendar from '@/components/training-module/inputs/MultiSelectCalendar';
 import TimeInput from '@/components/training-module/inputs/TimeInput';
 import MainButton from '@/components/training-module/buttons/MainButton';
+import { useRouter } from 'expo-router';
 
 export default function GenerateTrainingModal() {
   const { setTitle } = useHeader();
+  const router = useRouter();
   const [trainingName, setTrainingName] = useState('');
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
   const [dates, setDates] = useState<string[]>([]);
@@ -60,22 +62,11 @@ export default function GenerateTrainingModal() {
 
         {/* Date Input */}
         <View className="px-6">
-          <MultiDateInput
-            title="Select Dates"
+          <DateInput
+            dates={dates}
             onPress={() => setShowCalendar(prev => !prev)}
           />
         </View>
-
-        {/* Selected Dates */}
-        {dates.length > 0 && (
-          <View className="mb-4 mt-4 flex-row flex-wrap px-6">
-            {dates.map(d => (
-              <Text key={d} className="mr-2 text-black">
-                {d}
-              </Text>
-            ))}
-          </View>
-        )}
 
         {/* Calendar */}
         {showCalendar && (
@@ -110,7 +101,7 @@ export default function GenerateTrainingModal() {
           text="Generate"
           width="50%"
           height={40}
-          onPress={() => console.log('Button pressed!')}
+          onPress={() => router.back()}
         />
       </View>
     </View>
