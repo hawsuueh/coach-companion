@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, FlatList, Text } from 'react-native';
+import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
@@ -7,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function Tracking() {
   const [searchText, setSearchText] = useState('');
+  const router = useRouter();
 
   const handleAthletePress = () => {
     console.log('Athlete button pressed');
@@ -16,6 +18,10 @@ export default function Tracking() {
     console.log('Filter button pressed');
   };
 
+  const handleTrainingPress = (trainingId: string) => {
+    router.push(`/training-module/tracking/${trainingId}` as Href);
+  };
+
   const handleFloatingPress = () => {
     console.log('Floating button pressed');
   };
@@ -23,32 +29,32 @@ export default function Tracking() {
   // Sample data (replace with actual data later)
   const trainings = [
     {
-      id: '1',
+      trainingId: '1',
       trainingName: 'Core Strength Training',
       dateTime: 'Sept 15, 2025 - 7:00 AM'
     },
     {
-      id: '2',
+      trainingId: '2',
       trainingName: 'Upper Body Strength',
       dateTime: 'Sept 16, 2025 - 5:00 PM'
     },
     {
-      id: '3',
+      trainingId: '3',
       trainingName: 'Explosive Power Workout',
       dateTime: 'Sept 17, 2025 - 6:30 AM'
     },
     {
-      id: '4',
+      trainingId: '4',
       trainingName: 'Core Strength Training',
       dateTime: 'Sept 15, 2025 - 7:00 AM'
     },
     {
-      id: '5',
+      trainingId: '5',
       trainingName: 'Upper Body Strength',
       dateTime: 'Sept 16, 2025 - 5:00 PM'
     },
     {
-      id: '6',
+      trainingId: '6',
       trainingName: 'Explosive Power Workout',
       dateTime: 'Sept 17, 2025 - 6:30 AM'
     }
@@ -82,12 +88,12 @@ export default function Tracking() {
       {/* Trainings List */}
       <FlatList
         data={filteredTrainings}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.trainingId}
         renderItem={({ item }) => (
           <List1
             title={item.trainingName}
             subtitle={item.dateTime}
-            onPress={() => console.log(`Pressed ${item.trainingName}`)}
+            onPress={() => handleTrainingPress(item.trainingId)}
             onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
           />
         )}
