@@ -21,7 +21,7 @@ export default function TrainingTracking() {
       trackingId: '1',
       athleteId: '1',
       number: '23',
-      name: 'John Doe',
+      name: 'Doe, John',
       position: 'Guard',
       status: 'assigned'
     },
@@ -29,7 +29,7 @@ export default function TrainingTracking() {
       trackingId: '2',
       athleteId: '2',
       number: '10',
-      name: 'Alex Smith',
+      name: 'Smith, Alex',
       position: 'Forward',
       status: 'assigned'
     },
@@ -37,7 +37,7 @@ export default function TrainingTracking() {
       trackingId: '3',
       athleteId: '3',
       number: '7',
-      name: 'James Lee',
+      name: 'Lee, James',
       position: 'Center',
       status: 'done'
     },
@@ -45,7 +45,7 @@ export default function TrainingTracking() {
       trackingId: '4',
       athleteId: '4',
       number: '15',
-      name: 'Michael Cruz',
+      name: 'Cruz, Michael',
       position: 'Guard',
       status: 'exempted'
     }
@@ -61,14 +61,14 @@ export default function TrainingTracking() {
       .filter(a => a.status === status)
       .map(a => ({
         id: a.trackingId,
-        contentTitle: `${a.number} ${a.name}`,
+        contentTitle: `${a.number}   ${a.name}`,
         contentRightText: a.position
       }));
 
   return (
     <View className="flex-1 bg-primary">
       {/* Training Card */}
-      <View className="mb-4 mt-4">
+      <View className="mb-10 mt-10">
         <TrainingCard
           name={training.name}
           date={training.date}

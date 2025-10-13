@@ -49,28 +49,22 @@ export default function DropdownList({
 
       {/* Dropdown content */}
       {isOpen && (
-        <View className="px-4 py-2">
+        <View className="px-5 py-2">
           {data.length > 0 ? (
             <FlatList
               data={data}
               keyExtractor={(_, index) => index.toString()}
               renderItem={({ item }) => (
                 <View className="flex-row justify-between py-1">
-                  <Text className="text-base text-black">
-                    {item.contentTitle}
-                  </Text>
+                  <Text className="text-label2">{item.contentTitle}</Text>
                   {item.contentRightText && (
-                    <Text className="text-base text-gray-600">
-                      {item.contentRightText}
-                    </Text>
+                    <Text className="text-label2">{item.contentRightText}</Text>
                   )}
                 </View>
               )}
             />
           ) : (
-            <Text className="py-2 text-sm italic text-gray-500">
-              No records found.
-            </Text>
+            <Text className="text-label4">No records found.</Text>
           )}
         </View>
       )}

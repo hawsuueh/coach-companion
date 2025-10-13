@@ -26,6 +26,9 @@
   .text-label3 {
     @apply font-inter-light text-[12px] leading-[1.2] tracking-[0.2px];
   }
+  .text-label4 {
+    @apply font-inter-light text-[14px] italic leading-[1.2] tracking-[0.2px];
+  }
 
   /* Body */
   .text-body1 {
