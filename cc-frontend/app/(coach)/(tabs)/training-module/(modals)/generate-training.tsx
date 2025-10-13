@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import TextInput from '@/components/training-module/inputs/TextInput';
 import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelectDropdown';
@@ -14,19 +15,29 @@ export default function GenerateTrainingModal() {
   const router = useRouter();
   const [trainingName, setTrainingName] = useState('');
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
+  const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const [dates, setDates] = useState<string[]>([]);
   const [showCalendar, setShowCalendar] = useState(false); // 👈 toggle state
   const [startTime, setStartTime] = useState('');
   const [duration, setDuration] = useState('');
 
-  const handleSelectChange = (values: string[]) => {
+  const handleAthleteSelectChange = (values: string[]) => {
     setSelectedAthletes(values);
   };
 
-  const sampleDropdownData = [
+  const handleEquipmentSelectChange = (values: string[]) => {
+    setSelectedEquipments(values);
+  };
+
+  const sampleAthleteData = [
     { label: '23 Doe, John', value: '1' },
     { label: '10 Smith, Alex', value: '2' },
     { label: '7 Lee, James', value: '3' }
+  ];
+  const sampleEquipmentData = [
+    { label: 'Bodyweight', value: '1' },
+    { label: 'Barbels', value: '2' },
+    { label: 'Smith Machine', value: '3' }
   ];
 
   useEffect(() => {
@@ -53,10 +64,23 @@ export default function GenerateTrainingModal() {
         {/* Athletes */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
-            data={sampleDropdownData}
+            data={sampleAthleteData}
             value={selectedAthletes}
-            onChange={handleSelectChange}
+            IconComponent={Ionicons}
+            icon="people-sharp"
+            onChange={handleAthleteSelectChange}
             placeholder="Select athletes"
+          />
+        </View>
+        {/* Equipments */}
+        <View className="mb-4 px-6">
+          <MultiSelectDropdown
+            data={sampleEquipmentData}
+            value={selectedEquipments}
+            IconComponent={Ionicons}
+            icon="barbell-outline"
+            onChange={handleEquipmentSelectChange}
+            placeholder="Select equipments"
           />
         </View>
 

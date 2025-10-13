@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MultiSelect } from 'react-native-element-dropdown';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 type MultiSelectDropdownProps = {
   data: { label: string; value: string }[];
   value: string[]; // selected IDs
+  IconComponent: React.ComponentType<any>;
+  icon: string;
   onChange: (values: string[]) => void;
   placeholder?: string;
   containerClassName?: string;
@@ -14,6 +15,8 @@ type MultiSelectDropdownProps = {
 const MultiSelectDropdown = ({
   data,
   value,
+  IconComponent,
+  icon,
   onChange,
   placeholder = 'Select item',
   containerClassName = ''
@@ -34,10 +37,10 @@ const MultiSelectDropdown = ({
         value={value}
         onChange={onChange}
         renderRightIcon={() => (
-          <Ionicons
+          <IconComponent
             style={styles.icon}
             color="black"
-            name="people-sharp"
+            name={icon}
             size={24}
           />
         )}
