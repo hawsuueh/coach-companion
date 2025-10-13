@@ -11,7 +11,7 @@ export default function Tracking() {
   const router = useRouter();
 
   const handleAthletePress = () => {
-    console.log('Athlete button pressed');
+    router.push(`/training-module/tracking/athlete-tracking` as Href);
   };
 
   const handleFilterPress = () => {
@@ -20,10 +20,6 @@ export default function Tracking() {
 
   const handleTrainingPress = (trainingId: string) => {
     router.push(`/training-module/tracking/${trainingId}` as Href);
-  };
-
-  const handleFloatingPress = () => {
-    console.log('Floating button pressed');
   };
 
   // Sample data (replace with actual data later)

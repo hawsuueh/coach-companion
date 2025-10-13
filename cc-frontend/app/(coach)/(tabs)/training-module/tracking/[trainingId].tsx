@@ -53,7 +53,7 @@ export default function TrainingTracking() {
 
   useEffect(() => {
     setTitle('Training Tracking');
-  }, []);
+  });
 
   // Helper function to format dropdown data
   const formatData = (status: string) =>
