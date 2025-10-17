@@ -1,3 +1,4 @@
+/////////////////////////////// START OF IMPORTS /////////////
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,52 +14,58 @@ import StartRecordingButton from '@/components/buttons/StartRecordingButton';
 import RosterCard from '@/components/cards/RosterCard';
 import supabase from '@/config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
+////////////////////////////// END OF IMPORTS //////////////////////////////////////////////////////////
 
+/////////////////////////////// START OF INTERFACES ////////////////////////////////////////////
 // Database interfaces
 interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
+  athlete_no: number; // ex: 1
+  first_name: string | null; // ex: "John"
+  middle_name: string | null; // ex: "Paul"
+  last_name: string | null; // ex: "Doe"
+  position: string | null; // ex: "Point Guard"
+  player_no: number | null; // ex: 23
 }
 
 interface DatabaseGame {
-  game_no: number;
-  date: string | null;
-  time: string | null;
-  season_no: number | null;
-  player_name: string | null;
-  opponent_name: string | null;
+  game_no: number; // ex: 1
+  date: string | null; // ex: "2024-01-15"
+  time: string | null; // ex: "18:00:00"
+  season_no: number | null; // ex: 6
+  player_name: string | null; // ex: "Men's Division Team"
+  opponent_name: string | null; // ex: "State University"
 }
 
 interface DatabaseBatch {
-  batch_no: number;
-  start_date: string | null;
-  end_date: string | null;
+  batch_no: number; // ex: 1
+  start_date: string | null; // ex: "2024-01-01"
+  end_date: string | null; // ex: "2024-12-31"
 }
 
 interface DatabaseRoster {
-  roster_no: number;
-  game_no: number;
-  athlete_no: number;
-  created_at: string;
+  roster_no: number; // ex: 1
+  game_no: number; // ex: 1
+  athlete_no: number; // ex: 1
+  created_at: string; // ex: "2024-01-15T10:30:00Z"
 }
 
+// UI-friendly version of DatabaseAthlete - restructured for better organization
 interface Athlete {
-  id: string;
-  number: string;
-  name: string;
-  position: string;
+  id: string; // ex: "1"
+  number: string; // ex: "23"
+  name: string; // ex: "John Paul Doe"
+  position: string; // ex: "Point Guard"
 }
 
+// UI-friendly version of DatabaseGame - restructured for better organization
 interface Game {
-  id: string;
-  gameName: string;
-  date: string;
+  id: string; // ex: "1"
+  gameName: string; // ex: "Men's Division Team vs State University"
+  date: string; // ex: "1/15/2024 6:00 PM"
 }
+////////////////////////////// END OF INTERFACES ////////////////
 
+/////////////////////////////// START OF HELPER FUNCTIONS /////////////
 // Helper function to transform database athlete to UI athlete
 const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
   const fullName = [
@@ -120,31 +127,34 @@ const getCurrentBatch = (batches: DatabaseBatch[]): DatabaseBatch | null => {
     }) || null
   );
 };
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
-// Mock data removed - now using real database data
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function GameRosterScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+  
+  // UI state
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  
+  // Data state
   const [game, setGame] = useState<Game | null>(null);
   const [availableAthletes, setAvailableAthletes] = useState<Athlete[]>([]);
   const [rosterAthletes, setRosterAthletes] = useState<Athlete[]>([]);
+  const [batches, setBatches] = useState<DatabaseBatch[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<DatabaseBatch | null>(null);
+  
+  // Loading and error state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [batches, setBatches] = useState<DatabaseBatch[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<DatabaseBatch | null>(
-    null
-  );
-  const [showBatchModal, setShowBatchModal] = useState(false);
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
-  const { setTitle } = useHeader();
-
-  useEffect(() => {
-    setTitle('Team Roster');
-  });
-
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
   // Fetch game data from database
   const fetchGame = async () => {
     try {
@@ -251,6 +261,12 @@ export default function GameRosterScreen() {
       setError('Failed to load roster');
     }
   };
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
+  useEffect(() => {
+    setTitle('Team Roster');
+  });
 
   // Load all data on component mount
   useEffect(() => {
@@ -274,7 +290,9 @@ export default function GameRosterScreen() {
       fetchAvailableAthletes(selectedBatch.batch_no);
     }
   }, [selectedBatch]);
+  ////////////////////////////// END OF USE EFFECTS ////////////////
 
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleBackPress = () => {
     router.back();
   };
@@ -347,13 +365,17 @@ export default function GameRosterScreen() {
       }
     }
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
   // Filter available athletes (exclude those already on roster)
   const availableAthletesFiltered = availableAthletes.filter(
     athlete =>
       !rosterAthletes.some(rosterAthlete => rosterAthlete.id === athlete.id)
   );
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
+  /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -400,7 +422,9 @@ export default function GameRosterScreen() {
       </View>
     );
   }
+  ////////////////////////////// END OF LOADING AND ERROR STATES ////////////////
 
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1">
       {/* Scrollable Content */}
@@ -591,4 +615,6 @@ export default function GameRosterScreen() {
       </Modal>
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////

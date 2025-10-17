@@ -146,7 +146,6 @@ export default function GameRecordingScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { setTitle } = useHeader();
-  
   const [activeTab, setActiveTab] = useState<'realtime' | 'stats'>('realtime');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedStatsAthlete, setSelectedStatsAthlete] = useState<{
@@ -201,16 +200,17 @@ export default function GameRecordingScreen() {
   };
 
   // Fetch roster athletes for this game
+  // Whatever game_no you select → get all athletes in that game's roster
   const fetchRosterAthletes = async () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('Roster')
         .select(
           `
-          Athlete!inner(*)
+          Athlete!inner(*) // Select the Athlete table and inner join it with the Roster table
         `
         )
-        .eq('game_no', id);
+        .eq('game_no', id); // join where the game_no is the same as the id
 
       if (fetchError) {
         throw fetchError;
