@@ -92,6 +92,56 @@ interface PlayerStats {
   turnovers: number; // ex: 2
   fouls: number; // ex: 3
 }
+
+type PlayerQuarterStats = Record<number, PlayerStats>;
+
+const createEmptyPlayerStats = (): PlayerStats => ({
+  totalFieldGoals: { made: 0, attempted: 0 },
+  twoPointFG: { made: 0, attempted: 0 },
+  threePointFG: { made: 0, attempted: 0 },
+  freeThrows: { made: 0, attempted: 0 },
+  rebounds: { offensive: 0, defensive: 0 },
+  assists: 0,
+  steals: 0,
+  blocks: 0,
+  turnovers: 0,
+  fouls: 0
+});
+
+const calculateTotalPoints = (stats: PlayerStats | undefined) => {
+  if (!stats) return 0;
+  const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
+  const threePointPoints = (stats.threePointFG?.made || 0) * 3;
+  const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
+  return twoPointPoints + threePointPoints + freeThrowPoints;
+};
+
+const calculateTotalPointsForPlayer = (
+  statsByQuarter: PlayerQuarterStats | undefined
+): number => {
+  if (!statsByQuarter) {
+    return 0;
+  }
+
+  return Object.values(statsByQuarter).reduce(
+    (sum, stats) => sum + calculateTotalPoints(stats),
+    0
+  );
+};
+
+const aggregateNumberStat = (
+  statsByQuarter: PlayerQuarterStats | undefined,
+  selector: (stats: PlayerStats) => number
+): number => {
+  if (!statsByQuarter) {
+    return 0;
+  }
+
+  return Object.values(statsByQuarter).reduce(
+    (sum, stats) => sum + selector(stats),
+    0
+  );
+};
 ////////////////////////////// END OF INTERFACES ////////////////
 
 /////////////////////////////// START OF HELPER FUNCTIONS /////////////
@@ -154,9 +204,9 @@ export default function GameRecordingScreen() {
     name: string;
     position: string;
   } | null>(null);
-  const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>(
-    {}
-  );
+  const [playerStats, setPlayerStats] = useState<
+    Record<string, PlayerQuarterStats>
+  >({});
   const [showQuarterScores, setShowQuarterScores] = useState(true);
   const [quarterScores, setQuarterScores] = useState({
     home: { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, total: 0 },
@@ -241,26 +291,24 @@ export default function GameRecordingScreen() {
 
       if (data && data.length > 0) {
         // Transform database stats to UI format
-        const statsMap: Record<string, PlayerStats> = {};
+        const statsMap: Record<string, PlayerQuarterStats> = {};
 
         data.forEach((stat: DatabaseAthleteGame) => {
           const athleteId = stat.athlete_no.toString();
+          const quarterNo = stat.quarter_no ? Number(stat.quarter_no) : 1;
+
           if (!statsMap[athleteId]) {
-            statsMap[athleteId] = {
-              totalFieldGoals: { made: 0, attempted: 0 },
-              twoPointFG: { made: 0, attempted: 0 },
-              threePointFG: { made: 0, attempted: 0 },
-              freeThrows: { made: 0, attempted: 0 },
-              rebounds: { offensive: 0, defensive: 0 },
-              assists: 0,
-              steals: 0,
-              blocks: 0,
-              turnovers: 0,
-              fouls: 0
-            };
+            statsMap[athleteId] = {};
           }
 
-          const currentStats = statsMap[athleteId];
+          if (!statsMap[athleteId][quarterNo]) {
+            statsMap[athleteId][quarterNo] = createEmptyPlayerStats();
+          }
+
+          const currentStats = statsMap[athleteId][quarterNo];
+          currentStats.totalFieldGoals.made += stat.field_goals_made || 0;
+          currentStats.totalFieldGoals.attempted +=
+            stat.field_goals_attempted || 0;
           currentStats.twoPointFG.made += stat.two_point_made || 0;
           currentStats.twoPointFG.attempted += stat.two_point_attempted || 0;
           currentStats.threePointFG.made += stat.three_point_made || 0;
@@ -278,7 +326,7 @@ export default function GameRecordingScreen() {
         });
 
         setPlayerStats(statsMap);
-        console.log('Loaded stats from database:', statsMap); // Debug log
+        console.log('Loaded per-quarter stats from database:', statsMap); // Debug log
       }
     } catch (err) {
       console.error('Error fetching game stats:', err);
@@ -287,7 +335,8 @@ export default function GameRecordingScreen() {
   };
 
   // Save stats to database
-  const saveStatsToDatabase = async (athleteId: string, stats: PlayerStats) => {
+  const saveStatsToDatabase = useCallback(
+    async (athleteId: string, quarter: number, stats: PlayerStats) => {
     try {
       if (!id || typeof id !== 'string') return;
 
@@ -298,7 +347,7 @@ export default function GameRecordingScreen() {
       const statsData = {
         athlete_no: parseInt(athleteId),
         game_no: parseInt(id),
-        quarter_no: currentQuarter, // Use current quarter
+        quarter_no: quarter,
         points: totalPoints,
         field_goals_made:
           (stats.twoPointFG.made || 0) + (stats.threePointFG.made || 0),
@@ -322,7 +371,7 @@ export default function GameRecordingScreen() {
 
       console.log('Saving stats to database:', {
         athleteId,
-        currentQuarter,
+        quarter,
         statsData,
         originalStats: stats
       });
@@ -333,7 +382,7 @@ export default function GameRecordingScreen() {
         .select('athlete_game_no')
         .eq('athlete_no', parseInt(athleteId))
         .eq('game_no', parseInt(id))
-        .eq('quarter_no', currentQuarter)
+        .eq('quarter_no', quarter)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
@@ -363,69 +412,91 @@ export default function GameRecordingScreen() {
       console.error('Error saving stats:', err);
       Alert.alert('Error', 'Failed to save stats to database');
     }
-  };
+  }, [id]);
   ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
 
   /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
-  // Calculate total points for a player
-  const calculateTotalPoints = (stats: PlayerStats | undefined) => {
-    if (!stats) return 0;
-    const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
-    const threePointPoints = (stats.threePointFG?.made || 0) * 3;
-    const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
-    return twoPointPoints + threePointPoints + freeThrowPoints;
-  };
-
-  // Update quarter scores automatically - show total points for now
+  // Update quarter scores automatically using per-quarter stats
   const updateQuarterScores = () => {
-    const totalPoints = Object.values(playerStats).reduce(
-      (sum, stats) => sum + calculateTotalPoints(stats),
-      0
-    );
+    const homeScores = {
+      q1: 0,
+      q2: 0,
+      q3: 0,
+      q4: 0,
+      ot: 0,
+      total: 0
+    };
+
+    Object.values(playerStats).forEach(athleteQuarterStats => {
+      Object.entries(athleteQuarterStats).forEach(([quarterKey, stats]) => {
+        const quarterNumber = Number(quarterKey);
+        const points = calculateTotalPoints(stats);
+
+        switch (quarterNumber) {
+          case 1:
+            homeScores.q1 += points;
+            break;
+          case 2:
+            homeScores.q2 += points;
+            break;
+          case 3:
+            homeScores.q3 += points;
+            break;
+          case 4:
+            homeScores.q4 += points;
+            break;
+          default:
+            homeScores.ot += points;
+            break;
+        }
+      });
+    });
+
+    homeScores.total =
+      homeScores.q1 +
+      homeScores.q2 +
+      homeScores.q3 +
+      homeScores.q4 +
+      homeScores.ot;
 
     setQuarterScores(prev => ({
-      ...prev,
-      home: {
-        q1: totalPoints, // Show total in Q1 for now
-        q2: 0,
-        q3: 0,
-        q4: 0,
-        ot: 0,
-        total: totalPoints
-      }
+      home: homeScores,
+      away: prev.away
     }));
   };
 
   // Initialize player stats if not exists
-  const initializePlayerStats = (playerId: string) => {
-    if (!playerStats[playerId]) {
-      setPlayerStats(prev => ({
+  const ensureQuarterStats = (playerId: string, quarter: number) => {
+    setPlayerStats(prev => {
+      const existingAthleteStats = prev[playerId];
+      const quarterExists = existingAthleteStats?.[quarter];
+
+      if (quarterExists) {
+        return prev;
+      }
+
+      const updatedAthleteStats: PlayerQuarterStats = {
+        ...(existingAthleteStats || {}),
+        [quarter]: createEmptyPlayerStats()
+      };
+
+      return {
         ...prev,
-        [playerId]: {
-          totalFieldGoals: { made: 0, attempted: 0 },
-          twoPointFG: { made: 0, attempted: 0 },
-          threePointFG: { made: 0, attempted: 0 },
-          freeThrows: { made: 0, attempted: 0 },
-          rebounds: { offensive: 0, defensive: 0 },
-          assists: 0,
-          steals: 0,
-          blocks: 0,
-          turnovers: 0,
-          fouls: 0
-        }
-      }));
-    }
+        [playerId]: updatedAthleteStats
+      };
+    });
   };
 
   // Smart auto-save function with debouncing
-  const scheduleAutoSave = useCallback((athleteId: string) => {
+  const scheduleAutoSave = useCallback(
+    (athleteId: string, quarter: number) => {
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     // Add to pending saves
-    pendingSavesRef.current.add(athleteId);
+    pendingSavesRef.current.add(`${athleteId}::${quarter}`);
 
     // Set new timeout for 1.5 seconds
     saveTimeoutRef.current = setTimeout(async () => {
@@ -433,22 +504,30 @@ export default function GameRecordingScreen() {
       pendingSavesRef.current.clear();
 
       // Save all pending athletes - get fresh state at save time
-      for (const athleteId of athletesToSave) {
+      for (const athleteKey of athletesToSave) {
+        const [idPart, quarterPart] = athleteKey.split('::');
+        const parsedQuarter = Number(quarterPart);
+        if (!idPart || Number.isNaN(parsedQuarter)) {
+          continue;
+        }
+
         // Get the current state at save time, not when scheduled
         setPlayerStats(currentStats => {
-          if (currentStats[athleteId]) {
+          const statsForQuarter = currentStats[idPart]?.[parsedQuarter];
+          if (statsForQuarter) {
             console.log('Auto-save capturing fresh state:', {
-              athleteId,
-              steals: currentStats[athleteId].steals,
+              athleteId: idPart,
+              quarter: parsedQuarter,
+              steals: statsForQuarter.steals,
               timestamp: new Date().toISOString()
             });
-            saveStatsToDatabase(athleteId, currentStats[athleteId]);
+            saveStatsToDatabase(idPart, parsedQuarter, statsForQuarter);
           }
           return currentStats; // Don't change state, just capture it
         });
       }
     }, 1500); // 1.5 second delay
-  }, []); // Remove playerStats dependency to avoid stale closures
+  }, [saveStatsToDatabase]); // Remove playerStats dependency to avoid stale closures
   ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
   /////////////////////////////// START OF USE EFFECTS /////////////
@@ -515,6 +594,12 @@ export default function GameRecordingScreen() {
   // Quarter selector handler
   const handleQuarterChange = (quarter: number) => {
     setCurrentQuarter(quarter);
+    if (selectedPlayerId) {
+      ensureQuarterStats(selectedPlayerId, quarter);
+    }
+    if (selectedStatsAthlete) {
+      ensureQuarterStats(selectedStatsAthlete.id, quarter);
+    }
   };
 
   // Stats form handlers
@@ -525,7 +610,7 @@ export default function GameRecordingScreen() {
     position: string;
   }) => {
     setSelectedStatsAthlete(athlete);
-    initializePlayerStats(athlete.id);
+    ensureQuarterStats(athlete.id, currentQuarter);
   };
 
   const handleShootingStatsUpdate = (
@@ -535,33 +620,37 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        [statType === 'total'
-          ? 'totalFieldGoals'
-          : statType === 'twoPoint'
-            ? 'twoPointFG'
-            : statType === 'threePoint'
-              ? 'threePointFG'
-              : 'freeThrows']: {
-          ...prev[selectedStatsAthlete.id][
-            statType === 'total'
-              ? 'totalFieldGoals'
-              : statType === 'twoPoint'
-                ? 'twoPointFG'
-                : statType === 'threePoint'
-                  ? 'threePointFG'
-                  : 'freeThrows'
-          ],
-          [field]: value
+    const statKey: 'totalFieldGoals' | 'twoPointFG' | 'threePointFG' | 'freeThrows' =
+      statType === 'total'
+        ? 'totalFieldGoals'
+        : statType === 'twoPoint'
+          ? 'twoPointFG'
+          : statType === 'threePoint'
+            ? 'threePointFG'
+            : 'freeThrows';
+
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [statKey]: {
+              ...currentQuarterStats[statKey],
+              [field]: value
+            }
+          }
         }
-      }
-    }));
+      };
+    });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleReboundingStatsUpdate = (
@@ -570,19 +659,28 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        rebounds: {
-          ...prev[selectedStatsAthlete.id].rebounds,
-          [field]: value
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            rebounds: {
+              ...currentQuarterStats.rebounds,
+              [field]: value
+            }
+          }
         }
-      }
-    }));
+      };
+    });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleOtherStatsUpdate = (
@@ -591,16 +689,25 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        [field]: value
-      }
-    }));
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [field]: value
+          }
+        }
+      };
+    });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
   ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
@@ -841,7 +948,7 @@ export default function GameRecordingScreen() {
                     }`}
                     onPress={() => {
                       setSelectedPlayerId(athlete.id);
-                      initializePlayerStats(athlete.id);
+                      ensureQuarterStats(athlete.id, currentQuarter);
                     }}
                   >
                     <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-gray-300">
@@ -895,23 +1002,33 @@ export default function GameRecordingScreen() {
                   type="shooting"
                   stats={
                     selectedPlayerId
-                      ? playerStats[selectedPlayerId]?.twoPointFG
+                      ? playerStats[selectedPlayerId]?.[currentQuarter]?.twoPointFG
                       : { made: 0, attempted: 0 }
                   }
                   onUpdate={(field, value) => {
                     if (selectedPlayerId) {
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          twoPointFG: {
-                            ...prev[selectedPlayerId].twoPointFG,
-                            [field]: value
+                      setPlayerStats(prev => {
+                        const athleteStats = prev[selectedPlayerId] ?? {};
+                        const currentQuarterStats =
+                          athleteStats[currentQuarter] ??
+                          createEmptyPlayerStats();
+
+                        return {
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...athleteStats,
+                            [currentQuarter]: {
+                              ...currentQuarterStats,
+                              twoPointFG: {
+                                ...currentQuarterStats.twoPointFG,
+                                [field]: value
+                              }
+                            }
                           }
-                        }
-                      }));
+                        };
+                      });
                       // Trigger auto-save
-                      scheduleAutoSave(selectedPlayerId);
+                      scheduleAutoSave(selectedPlayerId, currentQuarter);
                     }
                   }}
                 />
@@ -922,23 +1039,33 @@ export default function GameRecordingScreen() {
                   type="shooting"
                   stats={
                     selectedPlayerId
-                      ? playerStats[selectedPlayerId]?.threePointFG
+                      ? playerStats[selectedPlayerId]?.[currentQuarter]?.threePointFG
                       : { made: 0, attempted: 0 }
                   }
                   onUpdate={(field, value) => {
                     if (selectedPlayerId) {
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          threePointFG: {
-                            ...prev[selectedPlayerId].threePointFG,
-                            [field]: value
+                      setPlayerStats(prev => {
+                        const athleteStats = prev[selectedPlayerId] ?? {};
+                        const currentQuarterStats =
+                          athleteStats[currentQuarter] ??
+                          createEmptyPlayerStats();
+
+                        return {
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...athleteStats,
+                            [currentQuarter]: {
+                              ...currentQuarterStats,
+                              threePointFG: {
+                                ...currentQuarterStats.threePointFG,
+                                [field]: value
+                              }
+                            }
                           }
-                        }
-                      }));
+                        };
+                      });
                       // Trigger auto-save
-                      scheduleAutoSave(selectedPlayerId);
+                      scheduleAutoSave(selectedPlayerId, currentQuarter);
                     }
                   }}
                 />
@@ -949,23 +1076,33 @@ export default function GameRecordingScreen() {
                   type="shooting"
                   stats={
                     selectedPlayerId
-                      ? playerStats[selectedPlayerId]?.freeThrows
+                      ? playerStats[selectedPlayerId]?.[currentQuarter]?.freeThrows
                       : { made: 0, attempted: 0 }
                   }
                   onUpdate={(field, value) => {
                     if (selectedPlayerId) {
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          freeThrows: {
-                            ...prev[selectedPlayerId].freeThrows,
-                            [field]: value
+                      setPlayerStats(prev => {
+                        const athleteStats = prev[selectedPlayerId] ?? {};
+                        const currentQuarterStats =
+                          athleteStats[currentQuarter] ??
+                          createEmptyPlayerStats();
+
+                        return {
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...athleteStats,
+                            [currentQuarter]: {
+                              ...currentQuarterStats,
+                              freeThrows: {
+                                ...currentQuarterStats.freeThrows,
+                                [field]: value
+                              }
+                            }
                           }
-                        }
-                      }));
+                        };
+                      });
                       // Trigger auto-save
-                      scheduleAutoSave(selectedPlayerId);
+                      scheduleAutoSave(selectedPlayerId, currentQuarter);
                     }
                   }}
                 />
@@ -976,23 +1113,33 @@ export default function GameRecordingScreen() {
                   type="rebounds"
                   stats={
                     selectedPlayerId
-                      ? playerStats[selectedPlayerId]?.rebounds
+                      ? playerStats[selectedPlayerId]?.[currentQuarter]?.rebounds
                       : { offensive: 0, defensive: 0 }
                   }
                   onUpdate={(field, value) => {
                     if (selectedPlayerId) {
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          rebounds: {
-                            ...prev[selectedPlayerId].rebounds,
-                            [field]: value
+                      setPlayerStats(prev => {
+                        const athleteStats = prev[selectedPlayerId] ?? {};
+                        const currentQuarterStats =
+                          athleteStats[currentQuarter] ??
+                          createEmptyPlayerStats();
+
+                        return {
+                          ...prev,
+                          [selectedPlayerId]: {
+                            ...athleteStats,
+                            [currentQuarter]: {
+                              ...currentQuarterStats,
+                              rebounds: {
+                                ...currentQuarterStats.rebounds,
+                                [field]: value
+                              }
+                            }
                           }
-                        }
-                      }));
+                        };
+                      });
                       // Trigger auto-save
-                      scheduleAutoSave(selectedPlayerId);
+                      scheduleAutoSave(selectedPlayerId, currentQuarter);
                     }
                   }}
                 />
@@ -1005,45 +1152,68 @@ export default function GameRecordingScreen() {
 
                   <SimpleStatRow
                     label="Assists"
-                    value={playerStats[selectedPlayerId]?.assists || 0}
+                    value={
+                      playerStats[selectedPlayerId]?.[currentQuarter]?.assists || 0
+                    }
                     onUpdate={value => {
                       if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            assists: value
-                          }
-                        }));
+                        setPlayerStats(prev => {
+                          const athleteStats = prev[selectedPlayerId] ?? {};
+                          const currentQuarterStats =
+                            athleteStats[currentQuarter] ??
+                            createEmptyPlayerStats();
+
+                          return {
+                            ...prev,
+                            [selectedPlayerId]: {
+                              ...athleteStats,
+                              [currentQuarter]: {
+                                ...currentQuarterStats,
+                                assists: value
+                              }
+                            }
+                          };
+                        });
                         // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
+                        scheduleAutoSave(selectedPlayerId, currentQuarter);
                       }
                     }}
                   />
 
                   <SimpleStatRow
                     label="Steals"
-                    value={playerStats[selectedPlayerId]?.steals || 0}
+                    value={
+                      playerStats[selectedPlayerId]?.[currentQuarter]?.steals || 0
+                    }
                     onUpdate={value => {
                       if (selectedPlayerId) {
                         console.log('Steals onUpdate called:', {
                           selectedPlayerId,
                           newValue: value,
                           currentValue:
-                            playerStats[selectedPlayerId]?.steals || 0,
+                            playerStats[selectedPlayerId]?.[currentQuarter]?.steals || 0,
                           timestamp: new Date().toISOString()
                         });
 
                         setPlayerStats(prev => {
+                          const athleteStats = prev[selectedPlayerId] ?? {};
+                          const currentQuarterStats =
+                            athleteStats[currentQuarter] ??
+                            createEmptyPlayerStats();
+
                           const newStats = {
                             ...prev,
                             [selectedPlayerId]: {
-                              ...prev[selectedPlayerId],
-                              steals: value
+                              ...athleteStats,
+                              [currentQuarter]: {
+                                ...currentQuarterStats,
+                                steals: value
+                              }
                             }
                           };
                           console.log('Steals state updated:', {
-                            oldValue: prev[selectedPlayerId]?.steals || 0,
+                            oldValue:
+                              prev[selectedPlayerId]?.[currentQuarter]?.steals || 0,
                             newValue: value,
                             finalState: newStats[selectedPlayerId]
                           });
@@ -1051,61 +1221,98 @@ export default function GameRecordingScreen() {
                         });
 
                         // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
+                        scheduleAutoSave(selectedPlayerId, currentQuarter);
                       }
                     }}
                   />
 
                   <SimpleStatRow
                     label="Blocks"
-                    value={playerStats[selectedPlayerId]?.blocks || 0}
+                    value={
+                      playerStats[selectedPlayerId]?.[currentQuarter]?.blocks || 0
+                    }
                     onUpdate={value => {
                       if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            blocks: value
-                          }
-                        }));
+                        setPlayerStats(prev => {
+                          const athleteStats = prev[selectedPlayerId] ?? {};
+                          const currentQuarterStats =
+                            athleteStats[currentQuarter] ??
+                            createEmptyPlayerStats();
+
+                          return {
+                            ...prev,
+                            [selectedPlayerId]: {
+                              ...athleteStats,
+                              [currentQuarter]: {
+                                ...currentQuarterStats,
+                                blocks: value
+                              }
+                            }
+                          };
+                        });
                         // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
+                        scheduleAutoSave(selectedPlayerId, currentQuarter);
                       }
                     }}
                   />
 
                   <SimpleStatRow
                     label="Turnovers"
-                    value={playerStats[selectedPlayerId]?.turnovers || 0}
+                    value={
+                      playerStats[selectedPlayerId]?.[currentQuarter]?.turnovers ||
+                      0
+                    }
                     onUpdate={value => {
                       if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            turnovers: value
-                          }
-                        }));
+                        setPlayerStats(prev => {
+                          const athleteStats = prev[selectedPlayerId] ?? {};
+                          const currentQuarterStats =
+                            athleteStats[currentQuarter] ??
+                            createEmptyPlayerStats();
+
+                          return {
+                            ...prev,
+                            [selectedPlayerId]: {
+                              ...athleteStats,
+                              [currentQuarter]: {
+                                ...currentQuarterStats,
+                                turnovers: value
+                              }
+                            }
+                          };
+                        });
                         // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
+                        scheduleAutoSave(selectedPlayerId, currentQuarter);
                       }
                     }}
                   />
 
                   <SimpleStatRow
                     label="Fouls"
-                    value={playerStats[selectedPlayerId]?.fouls || 0}
+                    value={
+                      playerStats[selectedPlayerId]?.[currentQuarter]?.fouls || 0
+                    }
                     onUpdate={value => {
                       if (selectedPlayerId) {
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            fouls: value
-                          }
-                        }));
+                        setPlayerStats(prev => {
+                          const athleteStats = prev[selectedPlayerId] ?? {};
+                          const currentQuarterStats =
+                            athleteStats[currentQuarter] ??
+                            createEmptyPlayerStats();
+
+                          return {
+                            ...prev,
+                            [selectedPlayerId]: {
+                              ...athleteStats,
+                              [currentQuarter]: {
+                                ...currentQuarterStats,
+                                fouls: value
+                              }
+                            }
+                          };
+                        });
                         // Trigger auto-save
-                        scheduleAutoSave(selectedPlayerId);
+                        scheduleAutoSave(selectedPlayerId, currentQuarter);
                       }
                     }}
                   />
@@ -1114,7 +1321,9 @@ export default function GameRecordingScreen() {
                   <View className="flex-row items-center justify-between">
                     <Text className="font-medium text-black">Total Points</Text>
                     <Text className="text-lg font-bold text-red-500">
-                      {calculateTotalPoints(playerStats[selectedPlayerId])}
+                      {calculateTotalPoints(
+                        playerStats[selectedPlayerId]?.[currentQuarter]
+                      )}
                     </Text>
                   </View>
                 </View>
@@ -1143,28 +1352,20 @@ export default function GameRecordingScreen() {
                 {/* Shooting Statistics */}
                 <ShootingStats_StatsForm
                   totalFieldGoals={
-                    playerStats[selectedStatsAthlete.id]?.totalFieldGoals || {
-                      made: 0,
-                      attempted: 0
-                    }
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]
+                      ?.totalFieldGoals || { made: 0, attempted: 0 }
                   }
                   twoPointFG={
-                    playerStats[selectedStatsAthlete.id]?.twoPointFG || {
-                      made: 0,
-                      attempted: 0
-                    }
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]
+                      ?.twoPointFG || { made: 0, attempted: 0 }
                   }
                   threePointFG={
-                    playerStats[selectedStatsAthlete.id]?.threePointFG || {
-                      made: 0,
-                      attempted: 0
-                    }
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]
+                      ?.threePointFG || { made: 0, attempted: 0 }
                   }
                   freeThrows={
-                    playerStats[selectedStatsAthlete.id]?.freeThrows || {
-                      made: 0,
-                      attempted: 0
-                    }
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.freeThrows ||
+                    { made: 0, attempted: 0 }
                   }
                   onUpdate={handleShootingStatsUpdate}
                 />
@@ -1172,25 +1373,33 @@ export default function GameRecordingScreen() {
                 {/* Rebounding Statistics */}
                 <ReboundingStats_StatsForm
                   offensive={
-                    playerStats[selectedStatsAthlete.id]?.rebounds?.offensive ||
-                    0
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.rebounds
+                      ?.offensive || 0
                   }
                   defensive={
-                    playerStats[selectedStatsAthlete.id]?.rebounds?.defensive ||
-                    0
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.rebounds
+                      ?.defensive || 0
                   }
                   onUpdate={handleReboundingStatsUpdate}
                 />
 
                 {/* Other Statistics */}
                 <OtherStats_StatsForm
-                  assists={playerStats[selectedStatsAthlete.id]?.assists || 0}
-                  steals={playerStats[selectedStatsAthlete.id]?.steals || 0}
-                  blocks={playerStats[selectedStatsAthlete.id]?.blocks || 0}
-                  turnovers={
-                    playerStats[selectedStatsAthlete.id]?.turnovers || 0
+                  assists={
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.assists || 0
                   }
-                  fouls={playerStats[selectedStatsAthlete.id]?.fouls || 0}
+                  steals={
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.steals || 0
+                  }
+                  blocks={
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.blocks || 0
+                  }
+                  turnovers={
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.turnovers || 0
+                  }
+                  fouls={
+                    playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.fouls || 0
+                  }
                   onUpdate={handleOtherStatsUpdate}
                 />
 
@@ -1200,11 +1409,12 @@ export default function GameRecordingScreen() {
                   onPress={() => {
                     if (
                       selectedStatsAthlete &&
-                      playerStats[selectedStatsAthlete.id]
+                      playerStats[selectedStatsAthlete.id]?.[currentQuarter]
                     ) {
                       saveStatsToDatabase(
                         selectedStatsAthlete.id,
-                        playerStats[selectedStatsAthlete.id]
+                        currentQuarter,
+                        playerStats[selectedStatsAthlete.id][currentQuarter]
                       );
                       Alert.alert('Success', 'Stats saved successfully!');
                     }
@@ -1240,7 +1450,31 @@ export default function GameRecordingScreen() {
                 {/* Player Stats Table */}
                 <View className="p-3">
                   {selectedAthletes.map(athlete => {
-                    const stats = playerStats[athlete.id];
+                    const statsByQuarter = playerStats[athlete.id];
+                    const totalPoints = calculateTotalPointsForPlayer(
+                      statsByQuarter
+                    );
+                    const offensiveRebounds = aggregateNumberStat(
+                      statsByQuarter,
+                      stats => stats.rebounds?.offensive || 0
+                    );
+                    const defensiveRebounds = aggregateNumberStat(
+                      statsByQuarter,
+                      stats => stats.rebounds?.defensive || 0
+                    );
+                    const totalRebounds = offensiveRebounds + defensiveRebounds;
+                    const assists = aggregateNumberStat(
+                      statsByQuarter,
+                      stats => stats.assists || 0
+                    );
+                    const steals = aggregateNumberStat(
+                      statsByQuarter,
+                      stats => stats.steals || 0
+                    );
+                    const blocks = aggregateNumberStat(
+                      statsByQuarter,
+                      stats => stats.blocks || 0
+                    );
                     return (
                       <View
                         key={athlete.id}
@@ -1259,32 +1493,31 @@ export default function GameRecordingScreen() {
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">PTS</Text>
                               <Text className="font-bold text-black">
-                                {calculateTotalPoints(stats)}
+                                {totalPoints}
                               </Text>
                             </View>
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">REB</Text>
                               <Text className="font-bold text-black">
-                                {(stats?.rebounds?.offensive || 0) +
-                                  (stats?.rebounds?.defensive || 0)}
+                                {totalRebounds}
                               </Text>
                             </View>
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">AST</Text>
                               <Text className="font-bold text-black">
-                                {stats?.assists || 0}
+                                {assists}
                               </Text>
                             </View>
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">STL</Text>
                               <Text className="font-bold text-black">
-                                {stats?.steals || 0}
+                                {steals}
                               </Text>
                             </View>
                             <View className="items-center">
                               <Text className="text-xs text-gray-500">BLK</Text>
                               <Text className="font-bold text-black">
-                                {stats?.blocks || 0}
+                                {blocks}
                               </Text>
                             </View>
                           </View>
