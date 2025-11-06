@@ -5,61 +5,119 @@ import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AttributesCard from '@/components/cards/AttributesCard';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import supabase from '@/config/supabaseClient';
+import React from 'react';
 
-// Mock data - in the future this will come from Supabase
-const MOCK_ATHLETES = {
-  '1': { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  '2': { id: '2', number: '7', name: 'Mike Johnson', position: 'Midfielder' },
-  '3': { id: '3', number: '23', name: 'David Wilson', position: 'Defender' },
-  '4': { id: '4', number: '1', name: 'Tom Brown', position: 'Goalkeeper' },
-  '5': { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },
-  '6': { id: '6', number: '4', name: 'Chris Miller', position: 'Defender' },
-  '7': { id: '7', number: '8', name: 'Ryan Taylor', position: 'Midfielder' },
-  '8': { id: '8', number: '11', name: 'Kevin Lee', position: 'Forward' }
-};
+interface Athlete {
+  id: string;
+  number: string;
+  name: string;
+  position: string;
+}
 
 export default function AthleteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { setTitle } = useHeader();
 
+  const [athlete, setAthlete] = React.useState<Athlete | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+
+  const fetchAthlete = async () => {
+    setLoading(true);
+    setError(null);
+    if (!id || typeof id !== 'string') {
+      setError('Invalid athlete ID.');
+      setAthlete(null);
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('Athlete')
+        .select('*')
+        .eq('athlete_no', id)
+        .maybeSingle();
+      if (fetchError) {
+        throw fetchError;
+      }
+      if (!data) {
+        setAthlete(null);
+      } else {
+        // transformDatabaseAthlete function copy from module
+        const fullName = [
+          data.first_name,
+          data.middle_name,
+          data.last_name,
+        ]
+          .filter(name => name && name.trim() !== '')
+          .join(' ');
+        setAthlete({
+          id: data.athlete_no.toString(),
+          number: data.player_no?.toString() || '0',
+          name: fullName || 'Unknown Player',
+          position: data.position || 'Unknown',
+        });
+      }
+    } catch (err) {
+      setError('Failed to load athlete.');
+      setAthlete(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   useEffect(() => {
     setTitle('Athlete Menu');
-  });
+  }, [setTitle]);
 
-  // Get athlete data - in the future this will be fetched from Supabase
-  const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
+  useEffect(() => {
+    
+    fetchAthlete();
+  }, [id]);
 
   const handleAttributesPress = () => {
-    console.log('Attributes pressed for athlete:', athlete?.name);
-    // Navigate to attributes detail screen
+    if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/attributes` as any
     );
   };
 
   const handleInjuryRecordsPress = () => {
-    console.log('Injury Records pressed for athlete:', athlete?.name);
-    // Navigate to injury records screen
+    if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/injuries` as any
     );
   };
 
   const handleGameRecordsPress = () => {
-    console.log('Game Records pressed for athlete:', athlete?.name);
-    // Navigate to game records screen
+    if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/game-records` as any
     );
   };
 
-  if (!athlete) {
+  if (loading) {
     return (
       <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
         <View className="flex-1 items-center justify-center">
           <Text className="text-lg font-semibold text-gray-500">
-            Athlete not found
+            Loading athlete details...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !athlete) {
+    return (
+      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-lg font-semibold text-gray-500">
+            {error || 'Athlete not found'}
           </Text>
         </View>
       </SafeAreaView>

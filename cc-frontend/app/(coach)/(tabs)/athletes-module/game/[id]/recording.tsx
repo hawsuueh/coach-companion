@@ -660,158 +660,136 @@ export default function GameRecordingScreen() {
           {game.gameName}
         </Text>
       </View>
-      <View className="mb-1 items-end p-2">
-        <TouchableOpacity
-          onPress={handleReset}
-          className="rounded bg-black px-3 py-1"
-        >
-          <Text className="font-medium text-white">Reset</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Quarter Selector */}
       <View className="border-b border-gray-200 px-4 py-3">
-        <Text className="mb-2 text-center text-sm font-medium text-gray-600">
-          Recording for Quarter:
-        </Text>
-        <View className="flex-row justify-center space-x-2">
-          {[1, 2, 3, 4].map(quarter => (
-            <TouchableOpacity
-              key={quarter}
-              onPress={() => handleQuarterChange(quarter)}
-              className={`rounded-lg px-4 py-2 ${
-                currentQuarter === quarter ? 'bg-red-500' : 'bg-gray-200'
-              }`}
-            >
-              <Text
-                className={`font-semibold ${
-                  currentQuarter === quarter ? 'text-white' : 'text-gray-700'
-                }`}
-              >
-                Q{quarter}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 flex-row items-center">
+            <Text className="mr-3 text-sm font-medium text-gray-700">
+              Quarter:
+            </Text>
+            <View className="flex-row space-x-1.5">
+              {[1, 2, 3, 4].map(quarter => (
+                <TouchableOpacity
+                  key={quarter}
+                  onPress={() => handleQuarterChange(quarter)}
+                  className={`rounded-lg px-3 py-1.5 ${
+                    currentQuarter === quarter ? 'bg-red-500' : 'bg-gray-100'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${
+                      currentQuarter === quarter ? 'text-white' : 'text-gray-700'
+                    }`}
+                  >
+                    Q{quarter}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={handleReset}
+            className="ml-3 rounded-lg bg-gray-900 px-3 py-1.5"
+          >
+            <Text className="text-sm font-medium text-white">Reset</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Quarter Scores Section */}
       <View className="px-4 py-2">
         <TouchableOpacity
-          className="flex-row items-center justify-between py-3"
+          className="flex-row items-center justify-between py-2"
           onPress={() => setShowQuarterScores(!showQuarterScores)}
         >
-          <Text className="text-lg font-semibold text-black">
+          <Text className="text-base font-semibold text-black">
             Quarter Scores
           </Text>
           <Ionicons
             name={showQuarterScores ? 'chevron-up' : 'chevron-down'}
-            size={20}
+            size={18}
             color="#666"
           />
         </TouchableOpacity>
 
         {showQuarterScores && (
-          <View className="mb-4 rounded-lg bg-gray-50 p-4">
+          <View className="mb-3 py-1">
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ minWidth: 600 }}>
+              <View style={{ minWidth: 400 }}>
                 {/* Header Row */}
-                <View className="mb-3 flex-row items-center">
-                  <Text className="flex-1 pr-4 text-sm font-medium text-gray-600">
+                <View className="mb-1 flex-row items-center">
+                  <Text className="flex-1 pr-2 text-xs font-medium text-gray-600">
                     Team
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     Q1
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     Q2
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     Q3
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     Q4
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     OT
                   </Text>
-                  <Text className="w-20 text-center text-sm font-medium text-gray-600">
+                  <Text className="w-12 text-center text-xs font-medium text-gray-600">
                     T
                   </Text>
                 </View>
 
                 {/* Home Team Row */}
-                <View className="mb-2 flex-row items-center">
-                  <Text className="flex-1 pr-4 text-sm text-black">
+                <View className="mb-1 flex-row items-center">
+                  <Text className="flex-1 pr-2 text-xs text-black">
                     Men's Division Team
                   </Text>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.q1}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.q2}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.q3}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.q4}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.ot}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-100">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.home.total}
-                    </Text>
-                  </View>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.home.q1}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.home.q2}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.home.q3}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.home.q4}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.home.ot}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-semibold text-gray-900">
+                    {quarterScores.home.total}
+                  </Text>
                 </View>
 
                 {/* Away Team Row */}
                 <View className="flex-row items-center">
-                  <Text className="flex-1 pr-4 text-sm text-black">
+                  <Text className="flex-1 pr-2 text-xs text-black">
                     State University
                   </Text>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.q1}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.q2}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.q3}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.q4}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.ot}
-                    </Text>
-                  </View>
-                  <View className="h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-100">
-                    <Text className="text-lg font-semibold text-gray-600">
-                      {quarterScores.away.total}
-                    </Text>
-                  </View>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.away.q1}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.away.q2}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.away.q3}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.away.q4}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-medium text-gray-700">
+                    {quarterScores.away.ot}
+                  </Text>
+                  <Text className="w-12 text-center text-sm font-semibold text-gray-900">
+                    {quarterScores.away.total}
+                  </Text>
                 </View>
               </View>
             </ScrollView>

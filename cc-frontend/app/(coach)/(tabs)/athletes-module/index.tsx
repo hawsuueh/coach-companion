@@ -308,7 +308,7 @@ export default function AthleteScreen() {
     fetchBatches();
     fetchGames();
   }, []);
-  ////////////////////////////// END OF USE EFFECTS ////////////////
+  ////////////////////////////// END OF USE EFFECTS ///////////////////////
 
   /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleNotificationPress = () => {
@@ -324,6 +324,8 @@ export default function AthleteScreen() {
     setShowBatchModal(false);
   };
 
+
+  // When one of the athlete card is pressed, navigate to the athlete detail screen
   const handleAthletePress = (athlete: Athlete) => {
     console.log('Athlete pressed:', athlete.name);
     // Navigate to athlete detail screen
