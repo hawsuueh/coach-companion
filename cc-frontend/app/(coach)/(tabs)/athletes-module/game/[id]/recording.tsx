@@ -8,8 +8,12 @@ import {
   TouchableOpacity,
   View,
   Alert,
-  TextInput
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import StatCard from '../../../../../../components/cards/StatCard';
 import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
 import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
@@ -18,6 +22,10 @@ import ReboundingStats_StatsForm from '../../../../../../components/cards/Reboun
 import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 import supabase from '../../../../../../config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import {
+  PlayerExportRow,
+  renderGameStatsHtml
+} from '@/utils/export/renderGameStatsHtml';
 ////////////////////////////// END OF IMPORTS ////////////////
 
 /////////////////////////////// START OF INTERFACES /////////////
@@ -77,10 +85,13 @@ interface Game {
   id: string; // ex: "1"
   gameName: string; // ex: "Men's Division Team vs State University"
   date: string; // ex: "1/15/2024 6:00 PM"
+  teamName: string;
+  opponentName: string;
+  seasonLabel?: string;
 }
 
 // UI-friendly version of DatabaseAthleteGame - restructured for better organization
-interface PlayerStats {
+interface PlayerStats { // Think of PlayerStats as an object with numbers like points, rebounds, etc.
   totalFieldGoals: { made: number; attempted: number }; // ex: { made: 6, attempted: 12 }
   twoPointFG: { made: number; attempted: number }; // ex: { made: 4, attempted: 8 } - from two_point_made/attempted
   threePointFG: { made: number; attempted: number }; // ex: { made: 2, attempted: 4 } - from three_point_made/attempted
@@ -93,7 +104,13 @@ interface PlayerStats {
   fouls: number; // ex: 3
 }
 
-type PlayerQuarterStats = Record<number, PlayerStats>;
+type PlayerQuarterStats = Record<number, PlayerStats>; 
+// Purpose: The Record<number, PlayerStats> type is useful for creating an object with known key-value pairs where the keys are of type number and the values are of type PlayerStats. It helps to define the shape of an object clearly and concisely.
+// Example: const myObject: Record<number, PlayerStats> = { 1: { made: 1, attempted: 2 }, 2: { made: 3, attempted: 4 } };
+
+
+
+
 
 const createEmptyPlayerStats = (): PlayerStats => ({
   totalFieldGoals: { made: 0, attempted: 0 },
@@ -108,7 +125,7 @@ const createEmptyPlayerStats = (): PlayerStats => ({
   fouls: 0
 });
 
-const calculateTotalPoints = (stats: PlayerStats | undefined) => {
+const calculateTotalPoints = (stats: PlayerStats | undefined) => { // "stats:" is like the parameter name 
   if (!stats) return 0;
   const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
   const threePointPoints = (stats.threePointFG?.made || 0) * 3;
@@ -141,6 +158,33 @@ const aggregateNumberStat = (
     (sum, stats) => sum + selector(stats),
     0
   );
+};
+
+const aggregateShootingTotals = (
+  statsByQuarter: PlayerQuarterStats | undefined,
+  accessor: (stats: PlayerStats) => { made: number; attempted: number }
+) => {
+  let made = 0;
+  let attempted = 0;
+
+  if (statsByQuarter) {
+    Object.values(statsByQuarter).forEach(stats => {
+      const segment = accessor(stats);
+      made += segment.made || 0;
+      attempted += segment.attempted || 0;
+    });
+  }
+
+  return { made, attempted };
+};
+
+const formatPercentage = (made: number, attempted: number) => {
+  if (!attempted) {
+    return '0%';
+  }
+
+  const percentage = (made / attempted) * 100;
+  return `${percentage.toFixed(1)}%`;
 };
 ////////////////////////////// END OF INTERFACES ////////////////
 
@@ -180,11 +224,15 @@ const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
   const playerTeam = dbGame.player_name || 'Your Team';
   const opponentTeam = dbGame.opponent_name || 'TBD';
   const gameName = `${playerTeam} vs ${opponentTeam}`;
+  const seasonLabel = dbGame.season_no ? `Season ${dbGame.season_no}` : undefined;
 
   return {
     id: dbGame.game_no.toString(),
     gameName: gameName,
-    date: formattedDate
+    date: formattedDate,
+    teamName: playerTeam,
+    opponentName: opponentTeam,
+    seasonLabel
   };
 };
 ////////////////////////////// END OF HELPER FUNCTIONS ////////////////
@@ -207,12 +255,18 @@ export default function GameRecordingScreen() {
   const [playerStats, setPlayerStats] = useState<
     Record<string, PlayerQuarterStats>
   >({});
+
+  // Purpose: The Record<K, T> type is useful for creating an object with known key-value pairs where the keys are of type K and the values are of type T. It helps to define the shape of an object clearly and concisely.
+  // Example: const myObject: Record<string, number> = { 'key1': 1, 'key2': 2, 'key3': 3 };
+
+
   const [showQuarterScores, setShowQuarterScores] = useState(true);
   const [quarterScores, setQuarterScores] = useState({
     home: { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, total: 0 },
     away: { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, total: 0 }
   });
   const [currentQuarter, setCurrentQuarter] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   // Real data states
   const [game, setGame] = useState<Game | null>(null);
@@ -466,13 +520,14 @@ export default function GameRecordingScreen() {
   };
 
   // Initialize player stats if not exists
+  // this is to make the players in the playerStats object have a default value of 0 for all stats
   const ensureQuarterStats = (playerId: string, quarter: number) => {
-    setPlayerStats(prev => {
-      const existingAthleteStats = prev[playerId];
+    setPlayerStats(currentState => {
+      const existingAthleteStats = currentState[playerId];
       const quarterExists = existingAthleteStats?.[quarter];
 
       if (quarterExists) {
-        return prev;
+        return currentState;
       }
 
       const updatedAthleteStats: PlayerQuarterStats = {
@@ -481,7 +536,7 @@ export default function GameRecordingScreen() {
       };
 
       return {
-        ...prev,
+        ...currentState,
         [playerId]: updatedAthleteStats
       };
     });
@@ -584,12 +639,213 @@ export default function GameRecordingScreen() {
     );
   };
 
-  const handleExport = () => {
-    Alert.alert(
-      'Export Stats',
-      'Export functionality will be implemented soon!'
-    );
-  };
+  const handleExport = useCallback(async () => {
+    if (!game) {
+      Alert.alert('Export Unavailable', 'Game details are still loading.');
+      return;
+    }
+
+    if (selectedAthletes.length === 0) {
+      Alert.alert('No Roster', 'Add athletes to the roster before exporting.');
+      return;
+    }
+
+    try {
+      setExporting(true);
+
+      const sortedAthletes = [...selectedAthletes].sort((a, b) => {
+        const aNumber = parseInt(a.number, 10);
+        const bNumber = parseInt(b.number, 10);
+        if (Number.isNaN(aNumber) || Number.isNaN(bNumber)) {
+          return a.name.localeCompare(b.name);
+        }
+        return aNumber - bNumber;
+      });
+
+      const playersForExport: PlayerExportRow[] = sortedAthletes.map(athlete => {
+        const statsByQuarter = playerStats[athlete.id];
+        const fieldGoals = aggregateShootingTotals(
+          statsByQuarter,
+          stats => stats.totalFieldGoals
+        );
+        const twoPoint = aggregateShootingTotals(
+          statsByQuarter,
+          stats => stats.twoPointFG
+        );
+        const threePoint = aggregateShootingTotals(
+          statsByQuarter,
+          stats => stats.threePointFG
+        );
+        const freeThrows = aggregateShootingTotals(
+          statsByQuarter,
+          stats => stats.freeThrows
+        );
+
+        const offensiveRebounds = aggregateNumberStat(
+          statsByQuarter,
+          stats => stats.rebounds?.offensive || 0
+        );
+        const defensiveRebounds = aggregateNumberStat(
+          statsByQuarter,
+          stats => stats.rebounds?.defensive || 0
+        );
+        const assists = aggregateNumberStat(statsByQuarter, stats => stats.assists || 0);
+        const steals = aggregateNumberStat(statsByQuarter, stats => stats.steals || 0);
+        const blocks = aggregateNumberStat(statsByQuarter, stats => stats.blocks || 0);
+        const turnovers = aggregateNumberStat(
+          statsByQuarter,
+          stats => stats.turnovers || 0
+        );
+        const fouls = aggregateNumberStat(statsByQuarter, stats => stats.fouls || 0);
+        const totalPoints = calculateTotalPointsForPlayer(statsByQuarter);
+
+        return {
+          jerseyNumber: athlete.number || '-',
+          name: athlete.name,
+          position: athlete.position,
+          fieldGoals: {
+            made: fieldGoals.made,
+            attempted: fieldGoals.attempted,
+            percentage: formatPercentage(fieldGoals.made, fieldGoals.attempted)
+          },
+          twoPoint: {
+            made: twoPoint.made,
+            attempted: twoPoint.attempted,
+            percentage: formatPercentage(twoPoint.made, twoPoint.attempted)
+          },
+          threePoint: {
+            made: threePoint.made,
+            attempted: threePoint.attempted,
+            percentage: formatPercentage(threePoint.made, threePoint.attempted)
+          },
+          freeThrows: {
+            made: freeThrows.made,
+            attempted: freeThrows.attempted,
+            percentage: formatPercentage(freeThrows.made, freeThrows.attempted)
+          },
+          rebounds: {
+            offensive: offensiveRebounds,
+            defensive: defensiveRebounds,
+            total: offensiveRebounds + defensiveRebounds
+          },
+          assists,
+          steals,
+          blocks,
+          turnovers,
+          fouls,
+          points: totalPoints
+        };
+      });
+
+      const totals = playersForExport.reduce(
+        (acc, player) => {
+          acc.fieldGoals.made += player.fieldGoals.made;
+          acc.fieldGoals.attempted += player.fieldGoals.attempted;
+          acc.twoPoint.made += player.twoPoint.made;
+          acc.twoPoint.attempted += player.twoPoint.attempted;
+          acc.threePoint.made += player.threePoint.made;
+          acc.threePoint.attempted += player.threePoint.attempted;
+          acc.freeThrows.made += player.freeThrows.made;
+          acc.freeThrows.attempted += player.freeThrows.attempted;
+          acc.rebounds.offensive += player.rebounds.offensive;
+          acc.rebounds.defensive += player.rebounds.defensive;
+          acc.rebounds.total += player.rebounds.total;
+          acc.assists += player.assists;
+          acc.steals += player.steals;
+          acc.blocks += player.blocks;
+          acc.turnovers += player.turnovers;
+          acc.fouls += player.fouls;
+          acc.points += player.points;
+          return acc;
+        },
+        {
+          fieldGoals: { made: 0, attempted: 0, percentage: '0%' },
+          twoPoint: { made: 0, attempted: 0, percentage: '0%' },
+          threePoint: { made: 0, attempted: 0, percentage: '0%' },
+          freeThrows: { made: 0, attempted: 0, percentage: '0%' },
+          rebounds: { offensive: 0, defensive: 0, total: 0 },
+          assists: 0,
+          steals: 0,
+          blocks: 0,
+          turnovers: 0,
+          fouls: 0,
+          points: 0
+        }
+      );
+
+      totals.fieldGoals.percentage = formatPercentage(
+        totals.fieldGoals.made,
+        totals.fieldGoals.attempted
+      );
+      totals.twoPoint.percentage = formatPercentage(
+        totals.twoPoint.made,
+        totals.twoPoint.attempted
+      );
+      totals.threePoint.percentage = formatPercentage(
+        totals.threePoint.made,
+        totals.threePoint.attempted
+      );
+      totals.freeThrows.percentage = formatPercentage(
+        totals.freeThrows.made,
+        totals.freeThrows.attempted
+      );
+
+      const html = renderGameStatsHtml({
+        metadata: {
+          gameName: game.gameName,
+          teamName: game.teamName,
+          opponentName: game.opponentName,
+          date: game.date,
+          seasonLabel: game.seasonLabel
+        },
+        quarterSummary: quarterScores.home,
+        players: playersForExport,
+        totals
+      });
+
+      const { uri } = await Print.printToFileAsync({ html });
+
+      const safeTeam = game.teamName.replace(/[^a-z0-9]+/gi, '_');
+      const safeOpponent = game.opponentName.replace(/[^a-z0-9]+/gi, '_');
+      const timestamp = new Date().toISOString().split('T')[0];
+      const fileName = `${safeTeam}_vs_${safeOpponent}_${timestamp}.pdf`;
+      const destinationUri = `${FileSystem.documentDirectory}${fileName}`;
+
+      try {
+        const existing = await FileSystem.getInfoAsync(destinationUri);
+        if (existing.exists) {
+          await FileSystem.deleteAsync(destinationUri, { idempotent: true });
+        }
+      } catch (fileErr) {
+        console.warn('Unable to check existing export file:', fileErr);
+      }
+
+      await FileSystem.copyAsync({ from: uri, to: destinationUri });
+
+      const sharingAvailable = await Sharing.isAvailableAsync();
+      if (sharingAvailable) {
+        await Sharing.shareAsync(destinationUri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf'
+        });
+      } else {
+        Alert.alert(
+          'PDF Saved',
+          `The stat sheet was saved to the app documents folder:\n${destinationUri}`
+        );
+      }
+    } catch (err) {
+      console.error('Error exporting stats:', err);
+      Alert.alert('Export Failed', 'Something went wrong while generating the PDF.');
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    game,
+    playerStats,
+    quarterScores.home,
+    selectedAthletes
+  ]);
 
   // Quarter selector handler
   const handleQuarterChange = (quarter: number) => {
@@ -970,9 +1226,23 @@ export default function GameRecordingScreen() {
             {/* Export Button */}
             <TouchableOpacity
               onPress={handleExport}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-3"
+              disabled={exporting}
+              className={`rounded-lg border border-gray-300 px-4 py-3 ${
+                exporting ? 'bg-gray-200' : 'bg-white'
+              }`}
             >
-              <Text className="text-center font-medium text-black">Export</Text>
+              {exporting ? (
+                <View className="flex-row items-center justify-center">
+                  <ActivityIndicator size="small" color="#DC2626" />
+                  <Text className="ml-2 text-center font-medium text-gray-600">
+                    Generating PDF...
+                  </Text>
+                </View>
+              ) : (
+                <Text className="text-center font-medium text-black">
+                  Export PDF
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
