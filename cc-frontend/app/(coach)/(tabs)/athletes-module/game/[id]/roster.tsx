@@ -141,6 +141,7 @@ export default function GameRosterScreen() {
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   
   // Data state
   const [game, setGame] = useState<Game | null>(null);
@@ -192,6 +193,14 @@ export default function GameRosterScreen() {
 
       if (batches) {
         setBatches(batches);
+        
+        // Handle empty batches array
+        if (batches.length === 0) {
+          setSelectedBatch(null);
+          setError('No batches available. Please create a batch first.');
+          return;
+        }
+        
         // Auto-select current batch if available, otherwise select first batch
         const currentBatch = getCurrentBatch(batches);
         setSelectedBatch(currentBatch || batches[0] || null);
@@ -309,35 +318,80 @@ export default function GameRosterScreen() {
   };
 
   const handleRemoveAthlete = async (athleteId: string) => {
-    try {
-      const { error } = await supabase
-        .from('Roster')
-        .delete()
-        .eq('game_no', id && typeof id === 'string' ? parseInt(id) : 0)
-        .eq('athlete_no', parseInt(athleteId));
+    // Get athlete name for confirmation dialog
+    const athlete = rosterAthletes.find(a => a.id === athleteId);
+    const athleteName = athlete?.name || 'this athlete';
 
-      if (error) {
-        throw error;
-      }
+    // Show confirmation dialog
+    Alert.alert(
+      'Remove Athlete',
+      `Are you sure you want to remove ${athleteName} from the roster?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('Roster')
+                .delete()
+                .eq('game_no', id && typeof id === 'string' ? parseInt(id) : 0)
+                .eq('athlete_no', parseInt(athleteId));
 
-      // Update local state
-      setRosterAthletes(prev =>
-        prev.filter(athlete => athlete.id !== athleteId)
-      );
-      console.log('Athlete removed from roster successfully');
-    } catch (err) {
-      console.error('Error removing athlete from roster:', err);
-      Alert.alert('Error', 'Failed to remove athlete from roster');
-    }
+              if (error) {
+                throw error;
+              }
+
+              // Update local state
+              setRosterAthletes(prev =>
+                prev.filter(athlete => athlete.id !== athleteId)
+              );
+              console.log('Athlete removed from roster successfully');
+            } catch (err) {
+              console.error('Error removing athlete from roster:', err);
+              Alert.alert('Error', 'Failed to remove athlete from roster');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleStartRecording = () => {
+    // Validate roster is not empty
+    if (rosterAthletes.length === 0) {
+      Alert.alert(
+        'No Athletes Selected',
+        'Please add at least one athlete to the roster before starting recording.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     console.log('Start recording for game:', game?.gameName);
     router.push(`/athletes-module/game/${id}/recording`);
   };
 
   const handleAddAthlete = async () => {
-    if (selectedAthleteId && id && typeof id === 'string') {
+    // Validate selection
+    if (!selectedAthleteId) {
+      Alert.alert('No Athlete Selected', 'Please select an athlete from the dropdown first');
+      return;
+    }
+
+    // Check if already in roster (immediate feedback)
+    const alreadyInRoster = rosterAthletes.some(a => a.id === selectedAthleteId);
+    if (alreadyInRoster) {
+      Alert.alert('Already Added', 'This athlete is already on the roster');
+      return;
+    }
+
+    if (id && typeof id === 'string') {
+      setIsAdding(true); // Disable button during operation
       try {
         const { error } = await supabase.from('Roster').insert({
           game_no: parseInt(id),
@@ -345,6 +399,11 @@ export default function GameRosterScreen() {
         });
 
         if (error) {
+          // Handle unique constraint violation gracefully
+          if (error.code === '23505') {
+            Alert.alert('Already Added', 'This athlete is already on the roster');
+            return;
+          }
           throw error;
         }
 
@@ -362,6 +421,8 @@ export default function GameRosterScreen() {
       } catch (err) {
         console.error('Error adding athlete to roster:', err);
         Alert.alert('Error', 'Failed to add athlete to roster');
+      } finally {
+        setIsAdding(false); // Re-enable button
       }
     }
   };
@@ -396,11 +457,11 @@ export default function GameRosterScreen() {
           onPress={() => {
             setError(null);
             setLoading(true);
-            // Reload data
+            // Reload all data (including batches)
             if (id) {
               Promise.all([
                 fetchGame(),
-                fetchAvailableAthletes(),
+                fetchBatches(),
                 fetchRoster()
               ]).finally(() => setLoading(false));
             }
@@ -479,31 +540,42 @@ export default function GameRosterScreen() {
                 <Ionicons name="funnel" size={20} color="white" />
               </TouchableOpacity>
               <TouchableOpacity
-                className="ml-2 rounded-lg bg-red-500 px-4 py-3"
+                className={`ml-2 rounded-lg px-4 py-3 ${isAdding ? 'bg-gray-400' : 'bg-red-500'}`}
                 onPress={handleAddAthlete}
+                disabled={isAdding}
               >
-                <Text className="font-semibold text-white">Add</Text>
+                <Text className="font-semibold text-white">
+                  {isAdding ? 'Adding...' : 'Add'}
+                </Text>
               </TouchableOpacity>
             </View>
 
             {/* Dropdown */}
             {showDropdown && (
               <View className="mt-2 rounded-lg border border-gray-300 bg-white">
-                {availableAthletesFiltered.map(athlete => (
-                  <TouchableOpacity
-                    key={athlete.id}
-                    className="border-b border-gray-100 px-3 py-3"
-                    onPress={() => {
-                      setSelectedAthleteId(athlete.id);
-                      setShowDropdown(false);
-                    }}
-                  >
-                    <Text className="text-black">{athlete.name}</Text>
-                    <Text className="text-sm text-gray-500">
-                      No. {athlete.number} - {athlete.position}
+                {availableAthletesFiltered.length > 0 ? (
+                  availableAthletesFiltered.map(athlete => (
+                    <TouchableOpacity
+                      key={athlete.id}
+                      className="border-b border-gray-100 px-3 py-3"
+                      onPress={() => {
+                        setSelectedAthleteId(athlete.id);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <Text className="text-black">{athlete.name}</Text>
+                      <Text className="text-sm text-gray-500">
+                        No. {athlete.number} - {athlete.position}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View className="px-3 py-6">
+                    <Text className="text-center text-gray-500">
+                      All available athletes have been added to the roster
                     </Text>
-                  </TouchableOpacity>
-                ))}
+                  </View>
+                )}
               </View>
             )}
           </View>
