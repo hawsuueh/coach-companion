@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import StartRecordingButton from '@/components/buttons/StartRecordingButton';
 import RosterCard from '@/components/cards/RosterCard';
+import GameHeader from '@/components/game/GameHeader';
+import LoadingScreen from '@/components/common/LoadingScreen';
+import ErrorScreen from '@/components/common/ErrorScreen';
 import supabase from '@/config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
 ////////////////////////////// END OF IMPORTS //////////////////////////////////////////////////////////
@@ -438,39 +441,26 @@ export default function GameRosterScreen() {
 
   /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
   if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-lg font-semibold text-gray-500">
-          Loading roster...
-        </Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading roster..." />;
   }
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center px-4">
-        <Text className="mb-4 text-center text-lg font-semibold text-red-500">
-          {error}
-        </Text>
-        <TouchableOpacity
-          onPress={() => {
-            setError(null);
-            setLoading(true);
-            // Reload all data (including batches)
-            if (id) {
-              Promise.all([
-                fetchGame(),
-                fetchBatches(),
-                fetchRoster()
-              ]).finally(() => setLoading(false));
-            }
-          }}
-          className="rounded-lg bg-red-500 px-4 py-2"
-        >
-          <Text className="font-semibold text-white">Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorScreen
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+          // Reload all data (including batches)
+          if (id) {
+            Promise.all([
+              fetchGame(),
+              fetchBatches(),
+              fetchRoster()
+            ]).finally(() => setLoading(false));
+          }
+        }}
+      />
     );
   }
 
@@ -491,14 +481,7 @@ export default function GameRosterScreen() {
       {/* Scrollable Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Game Info Section */}
-        <View className="items-center px-4 py-4">
-          <Text className="mb-1 text-center text-xl font-bold text-black">
-            {game.gameName}
-          </Text>
-          <Text className="text-center text-base text-gray-600">
-            {game.date}
-          </Text>
-        </View>
+        <GameHeader gameName={game.gameName} date={game.date} />
 
         {/* Athlete Selection Section */}
         <View className="px-4 pb-4">
