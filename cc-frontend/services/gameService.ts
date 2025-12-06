@@ -15,6 +15,9 @@ export interface Game {
   id: string;
   gameName: string;
   date: string;
+  teamName: string;
+  opponentName: string;
+  seasonLabel?: string;
 }
 
 /**
@@ -39,11 +42,15 @@ export const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
   const playerTeam = dbGame.player_name || 'Your Team';
   const opponentTeam = dbGame.opponent_name || 'TBD';
   const gameName = `${playerTeam} vs ${opponentTeam}`;
+  const seasonLabel = dbGame.season_no ? `Season ${dbGame.season_no}` : undefined;
 
   return {
     id: dbGame.game_no.toString(),
     gameName: gameName,
-    date: formattedDate
+    date: formattedDate,
+    teamName: playerTeam,
+    opponentName: opponentTeam,
+    seasonLabel
   };
 };
 
@@ -137,5 +144,54 @@ export const getGamesByBatch = async (batchNo: number): Promise<DatabaseGame[]> 
   } catch (error) {
     console.error('Error in getGamesByBatch:', error);
     return [];
+  }
+};
+
+/**
+ * Get a game by ID and validate it belongs to the coach's batch
+ * @param gameNo - Game number
+ * @param coachNo - Coach number for validation
+ * @returns Game object or null if not found or doesn't belong to coach
+ */
+export const getGameByIdWithBatchValidation = async (
+  gameNo: number,
+  coachNo: number
+): Promise<DatabaseGame | null> => {
+  try {
+    // First get the game
+    const { data: gameData, error: gameError } = await supabase
+      .from('Game')
+      .select('*')
+      .eq('game_no', gameNo)
+      .single();
+
+    if (gameError) {
+      console.error('Error fetching game:', gameError);
+      return null;
+    }
+
+    if (!gameData || !gameData.batch_no) {
+      console.error('Game does not belong to any batch');
+      return null;
+    }
+
+    // Validate that the batch belongs to this coach
+    const { data: batchData, error: batchError } = await supabase
+      .from('Batch')
+      .select('coach_no')
+      .eq('batch_no', gameData.batch_no)
+      .eq('coach_no', coachNo)
+      .single();
+
+    if (batchError || !batchData) {
+      console.error('Game does not belong to coach batches');
+      return null;
+    }
+
+    // Game is valid, return it
+    return gameData;
+  } catch (error) {
+    console.error('Error in getGameByIdWithBatchValidation:', error);
+    return null;
   }
 };

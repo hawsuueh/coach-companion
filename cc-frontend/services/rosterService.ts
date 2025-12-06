@@ -7,6 +7,15 @@ export interface RosterEntry {
   athlete_no: number;
 }
 
+export interface DatabaseAthlete {
+  athlete_no: number;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  position: string | null;
+  player_no: number | null;
+}
+
 export interface AthleteGameStats {
   athlete_game_no: number;
   game_no: number;
@@ -197,5 +206,94 @@ export const insertAthleteGameStats = async (
   } catch (error) {
     console.error('Error in insertAthleteGameStats:', error);
     return false;
+  }
+};
+
+/**
+ * Get roster with full athlete details for a specific game
+ * @param gameNo - Game number
+ * @returns Array of athletes in the roster or empty array
+ */
+export const getRosterWithAthletes = async (gameNo: number): Promise<DatabaseAthlete[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('Roster')
+      .select(`
+        Athlete!inner(*)
+      `)
+      .eq('game_no', gameNo);
+
+    if (error) {
+      console.error('Error fetching roster with athletes:', error);
+      throw error;
+    }
+
+    if (data) {
+      const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
+      return athletes;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error in getRosterWithAthletes:', error);
+    return [];
+  }
+};
+
+/**
+ * Remove an athlete from a game roster by game number and athlete number
+ * @param gameNo - Game number
+ * @param athleteNo - Athlete number
+ * @returns Success boolean
+ */
+export const removeAthleteFromRoster = async (
+  gameNo: number,
+  athleteNo: number
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('Roster')
+      .delete()
+      .eq('game_no', gameNo)
+      .eq('athlete_no', athleteNo);
+
+    if (error) {
+      console.error('Error removing athlete from roster:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in removeAthleteFromRoster:', error);
+    return false;
+  }
+};
+
+/**
+ * Add a player to a game roster with duplicate checking
+ * @param gameNo - Game number
+ * @param athleteNo - Athlete number
+ * @returns Object with success status and error code if applicable
+ */
+export const addAthleteToRosterWithValidation = async (
+  gameNo: number,
+  athleteNo: number
+): Promise<{ success: boolean; errorCode?: string }> => {
+  try {
+    const { error } = await supabase.from('Roster').insert({
+      game_no: gameNo,
+      athlete_no: athleteNo
+    });
+
+    if (error) {
+      console.error('Error adding athlete to roster:', error);
+      // Return the error code for handling (e.g., '23505' for unique constraint violation)
+      return { success: false, errorCode: error.code };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in addAthleteToRosterWithValidation:', error);
+    return { success: false };
   }
 };

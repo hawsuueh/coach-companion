@@ -30,77 +30,22 @@ import LoadingScreen from '../../../../../../components/common/LoadingScreen';
 import ErrorScreen from '../../../../../../components/common/ErrorScreen';
 import ExportButton from '../../../../../../components/buttons/ExportButton';
 import QuarterScoresCollapsible from '../../../../../../components/game/QuarterScoresCollapsible';
-import supabase from '../../../../../../config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   PlayerExportRow,
   renderGameStatsHtml
 } from '@/utils/export/renderGameStatsHtml';
+// Service imports
+import { getGameByIdWithBatchValidation, transformDatabaseGame, type DatabaseGame, type Game } from '@/services/gameService';
+import { transformDatabaseAthlete, type DatabaseAthlete, type Athlete } from '@/services/athleteService';
+import { getRosterWithAthletes } from '@/services/rosterService';
+import { getAthleteGameStatsByGame, upsertAthleteGameStats, type DatabaseAthleteGame } from '@/services/statsService';
 ////////////////////////////// END OF IMPORTS ////////////////
 
+
 /////////////////////////////// START OF INTERFACES /////////////
-// Database interfaces
-interface DatabaseAthlete {
-  athlete_no: number; // ex: 1
-  first_name: string | null; // ex: "John"
-  middle_name: string | null; // ex: "Paul"
-  last_name: string | null; // ex: "Doe"
-  position: string | null; // ex: "Point Guard"
-  player_no: number | null; // ex: 23
-}
-
-interface DatabaseGame {
-  game_no: number; // ex: 1
-  date: string | null; // ex: "2024-01-15"
-  time: string | null; // ex: "18:00:00"
-  season_no: number | null; // ex: 6
-  player_name: string | null; // ex: "Men's Division Team"
-  opponent_name: string | null; // ex: "State University"
-  batch_no: number | null; // ex: 1 - FK to Batch table
-}
-
-// This is the raw database interface for athlete_game
-interface DatabaseAthleteGame {
-  athlete_game_no: number; // ex: 1
-  athlete_no: number; // ex: 1
-  game_no: number; // ex: 1
-  quarter_no: number | null; // ex: 1
-  points: number | null; // ex: 15
-  field_goals_made: number | null; // ex: 6
-  field_goals_attempted: number | null; // ex: 12
-  two_point_made: number | null; // ex: 4
-  two_point_attempted: number | null; // ex: 8
-  three_point_made: number | null; // ex: 2
-  three_point_attempted: number | null; // ex: 4
-  free_throws_made: number | null; // ex: 1
-  free_throws_attempted: number | null; // ex: 2
-  assists: number | null; // ex: 3
-  offensive_rebounds: number | null; // ex: 2
-  defensive_rebounds: number | null; // ex: 5
-  steals: number | null; // ex: 2
-  blocks: number | null; // ex: 1
-  turnovers: number | null; // ex: 2
-  fouls: number | null; // ex: 3
-}
-
-// UI-friendly version of DatabaseAthlete - restructured for better organization
-interface Athlete {
-  id: string; // ex: "1"
-  number: string; // ex: "23"
-  name: string; // ex: "John Paul Doe"
-  position: string; // ex: "Point Guard"
-}
-
-// UI-friendly version of DatabaseGame - restructured for better organization
-interface Game {
-  id: string; // ex: "1"
-  gameName: string; // ex: "Men's Division Team vs State University"
-  date: string; // ex: "1/15/2024 6:00 PM"
-  teamName: string;
-  opponentName: string;
-  seasonLabel?: string;
-}
+// Using imported types from services for Database interfaces and helper functions
 
 // UI-friendly version of DatabaseAthleteGame - restructured for better organization
 interface PlayerStats { // Think of PlayerStats as an object with numbers like points, rebounds, etc.
@@ -199,54 +144,8 @@ const formatPercentage = (made: number, attempted: number) => {
 };
 ////////////////////////////// END OF INTERFACES ////////////////
 
-/////////////////////////////// START OF HELPER FUNCTIONS /////////////
-// Helper function to transform database athlete to UI athlete
-const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
-  const fullName = [
-    dbAthlete.first_name,
-    dbAthlete.middle_name,
-    dbAthlete.last_name
-  ]
-    .filter(name => name && name.trim() !== '')
-    .join(' ');
-
-  return {
-    id: dbAthlete.athlete_no.toString(),
-    number: dbAthlete.player_no?.toString() || '0',
-    name: fullName || 'Unknown Player',
-    position: dbAthlete.position || 'Unknown'
-  };
-};
-
-// Helper function to transform database game to UI game
-const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
-  const gameDate = dbGame.date
-    ? new Date(dbGame.date).toLocaleDateString()
-    : 'TBD';
-  const gameTime = dbGame.time
-    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '';
-
-  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
-
-  const playerTeam = dbGame.player_name || 'Your Team';
-  const opponentTeam = dbGame.opponent_name || 'TBD';
-  const gameName = `${playerTeam} vs ${opponentTeam}`;
-  const seasonLabel = dbGame.season_no ? `Season ${dbGame.season_no}` : undefined;
-
-  return {
-    id: dbGame.game_no.toString(),
-    gameName: gameName,
-    date: formattedDate,
-    teamName: playerTeam,
-    opponentName: opponentTeam,
-    seasonLabel
-  };
-};
 ////////////////////////////// END OF HELPER FUNCTIONS ////////////////
+
 
 /////////////////////////////// START OF MAIN COMPONENT /////////////
 
@@ -300,32 +199,10 @@ export default function GameRecordingScreen() {
         return;
       }
 
-      // First get the game
-      const { data: gameData, error: fetchError } = await supabase
-        .from('Game')
-        .select('*')
-        .eq('game_no', id)
-        .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (!gameData || !gameData.batch_no) {
-        setError('Game does not belong to any batch');
-        return;
-      }
-
-      // Validate that the batch belongs to this coach
-      const { data: batchData, error: batchError } = await supabase
-        .from('Batch')
-        .select('coach_no')
-        .eq('batch_no', gameData.batch_no)
-        .eq('coach_no', coachNo)
-        .single();
-
-      if (batchError || !batchData) {
-        setError('Game does not belong to your batches');
+      const gameData = await getGameByIdWithBatchValidation(Number(id), coachNo);
+      
+      if (!gameData) {
+        setError('Game not found or does not belong to your batches');
         return;
       }
 
@@ -342,24 +219,9 @@ export default function GameRecordingScreen() {
   // Whatever game_no you select → get all athletes in that game's roster
   const fetchRosterAthletes = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Roster')
-        .select(
-          `
-          Athlete!inner(*) // Select the Athlete table and inner join it with the Roster table
-        `
-        )
-        .eq('game_no', id); // join where the game_no is the same as the id
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setSelectedAthletes(transformedAthletes);
-      }
+      const athletes = await getRosterWithAthletes(Number(id));
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setSelectedAthletes(transformedAthletes);
     } catch (err) {
       console.error('Error fetching roster athletes:', err);
       setError('Failed to load roster athletes');
@@ -369,91 +231,31 @@ export default function GameRecordingScreen() {
   // Fetch existing game stats for athletes
   const fetchGameStats = async () => {
     try {
-      const { data, error } = await supabase // take note that the "data" is an array of RECORDS from the SUPABASE
-        .from('athlete_game')
-        .select('*')
-        .eq('game_no', id); // this id represent the id of the game in the database
-
-      if (error) {
-        throw error;
-      }
+      const data = await getAthleteGameStatsByGame(Number(id));
 
       if (data && data.length > 0) {
         // Transform database stats to UI format
-
-       
-        
         const athleteStatsContainer: Record<string, PlayerQuarterStats> = {};
-        // TypeScript type definition - Says "this will be an object with:"
-       // Keys: strings (player IDs like "5", "7") <- this is the key of the object
-       //Values: PlayerQuarterStats objects (which are Record<number, PlayerStats>) <- this is the value of the object
 
         data.forEach((stat: DatabaseAthleteGame) => {
-          const athleteId = stat.athlete_no.toString(); //  this is the part where we extract the "STAT_ATHLETE_NO" from the supabase 'athlete_game' -> convert it to string -> becomes "athleteId" Ex. "5"
-          const quarterNo = stat.quarter_no ? Number(stat.quarter_no) : 1; // this is the part where we extract the "STAT_QUARTER_NO" from the supabase 'athlete_game' -> convert it to number -> becomes "quarterNo" Ex. 1
+          const athleteId = stat.athlete_no.toString();
+          const quarterNo = stat.quarter_no ? Number(stat.quarter_no) : 1;
 
-         // NOTES:
-        // Step-by-Step for each item in the data array:
-
-        // Iteration 1: stat = { athlete_no: 5, quarter_no: 1, assists: 3, ... }
-        // Extract: athleteId = "5", quarterNo = 1
-        // Create container for player 5 if needed
-        // Create quarter 1 for player 5 if needed
-        // Add the stats: assists: 3, etc.
-
-        // Iteration 2: stat = { athlete_no: 5, quarter_no: 2, assists: 5, ... }
-        // Extract: athleteId = "5", quarterNo = 2
-        // Player 5 already exists (from iteration 1)
-        // Create quarter 2 for player 5
-
-        // Iteration 3: stat = { athlete_no: 7, quarter_no: 1, assists: 2, ... }
-        // Extract: athleteId = "7", quarterNo = 1
-        // Create container for player 7
-        // Create quarter 1 for player 7
-        // Add the stats: assists: 2, etc.
-
-
-          // Before: athleteStatsContainer = {}
-          // After:  athleteStatsContainer = { "5": {} }  ← Now player 5 has a spot!
-          if (!athleteStatsContainer[athleteId]) { // This line is NOT checking Supabase. It's checking the local container (athleteStatsContainer) you're building if this player ID has a data or entry stats for this GAME NO. 
-            athleteStatsContainer[athleteId] = {}; // IF no, create this structure: { "5": {} }
+          if (!athleteStatsContainer[athleteId]) {
+            athleteStatsContainer[athleteId] = {};
           }
 
-
-          // NOTES: example iteration 1:
-          // Iteration 1: Player 5, Quarter 1
-          // athleteStatsContainer["5"] exists? NO → Create it!
-          // athleteStatsContainer = { "5": {} }
-
-
-          // Iteration 2: Player 5, Quarter 2  
-          // athleteStatsContainer["5"] exists? YES → Skip this, don't create again!
-          // athleteStatsContainer = { "5": { 1: {...} } }  // Already has player 5
-
-          // Iteration 3: Player 7, Quarter 1
-          // athleteStatsContainer["7"] exists? NO → Create it!
-          // athleteStatsContainer = { "5": {...}, "7": {} }
-
-
-
-          // Before: athleteStatsContainer = { "5": {} }
-          // After:  athleteStatsContainer = { "5": { 2: { assists: 0, steals: 0, ... } } }
-          if (!athleteStatsContainer[athleteId][quarterNo]) { // checks if this player 5 have a data or entry stats for this QUARTER NO (5). 
+          if (!athleteStatsContainer[athleteId][quarterNo]) {
             athleteStatsContainer[athleteId][quarterNo] = createEmptyPlayerStats();
           }
 
-
-          // NOTES:
-          // Then after all the checking and creating the structure, we can now add the stats with the actual data from the supabase 'athlete_game' table
           const currentStats = athleteStatsContainer[athleteId][quarterNo];
           currentStats.totalFieldGoals.made += stat.field_goals_made || 0;
-          currentStats.totalFieldGoals.attempted +=
-            stat.field_goals_attempted || 0;
+          currentStats.totalFieldGoals.attempted += stat.field_goals_attempted || 0;
           currentStats.twoPointFG.made += stat.two_point_made || 0;
           currentStats.twoPointFG.attempted += stat.two_point_attempted || 0;
           currentStats.threePointFG.made += stat.three_point_made || 0;
-          currentStats.threePointFG.attempted +=
-            stat.three_point_attempted || 0;
+          currentStats.threePointFG.attempted += stat.three_point_attempted || 0;
           currentStats.freeThrows.made += stat.free_throws_made || 0;
           currentStats.freeThrows.attempted += stat.free_throws_attempted || 0;
           currentStats.rebounds.offensive += stat.offensive_rebounds || 0;
@@ -466,28 +268,7 @@ export default function GameRecordingScreen() {
         });
 
         setPlayerStats(athleteStatsContainer);
-        console.log('Loaded per-quarter stats from database:', athleteStatsContainer); // Debug log
-
-
-        //NOTES:
-        // BEFORE (raw data from Supabase athlete_game table):
-        // [
-        //   {
-        //     athlete_game_no: 1,
-        //     athlete_no: 5, <- this becomes the key "5" in the playerStats object
-        //     game_no: 1,
-        //     quarter_no: 2, <- this becomes the key "2" in the playerStats object
-        //     ...
-        //   },
-        // ]
-        // AFTER (transformed or organized data in the playerStats object):
-        // {
-        //   "5": { 
-        //     2: { assists: 0, steals: 0, ... }
-        //   }
-        // }
-
-
+        console.log('Loaded per-quarter stats from database:', athleteStatsContainer);
       }
     } catch (err) {
       console.error('Error fetching game stats:', err);
@@ -506,9 +287,6 @@ export default function GameRecordingScreen() {
 
       // Prepare data for database
       const statsData = {
-        athlete_no: parseInt(athleteId),
-        game_no: parseInt(id),
-        quarter_no: quarter,
         points: totalPoints,
         field_goals_made:
           (stats.twoPointFG.made || 0) + (stats.threePointFG.made || 0),
@@ -537,35 +315,15 @@ export default function GameRecordingScreen() {
         originalStats: stats
       });
 
-      // Check if stats already exist for this athlete/game combination
-      const { data: existingStats, error: checkError } = await supabase
-        .from('athlete_game')
-        .select('athlete_game_no')
-        .eq('athlete_no', parseInt(athleteId))
-        .eq('game_no', parseInt(id))
-        .eq('quarter_no', quarter)
-        .single();
+      const success = await upsertAthleteGameStats(
+        parseInt(athleteId),
+        parseInt(id),
+        quarter,
+        statsData
+      );
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is expected if no stats exist
-        throw checkError;
-      }
-
-      if (existingStats) {
-        // Update existing stats
-        const { error: updateError } = await supabase
-          .from('athlete_game')
-          .update(statsData)
-          .eq('athlete_game_no', existingStats.athlete_game_no);
-
-        if (updateError) throw updateError;
-      } else {
-        // Insert new stats
-        const { error: insertError } = await supabase
-          .from('athlete_game')
-          .insert(statsData);
-
-        if (insertError) throw insertError;
+      if (!success) {
+        throw new Error('Failed to save stats');
       }
 
       console.log('Stats saved successfully for athlete:', athleteId);

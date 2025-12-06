@@ -15,38 +15,21 @@ import RosterCard from '@/components/cards/RosterCard';
 import GameHeader from '@/components/game/GameHeader';
 import LoadingScreen from '@/components/common/LoadingScreen';
 import ErrorScreen from '@/components/common/ErrorScreen';
-import supabase from '@/config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
+// Service imports
+import { getGameById, transformDatabaseGame, type DatabaseGame, type Game } from '@/services/gameService';
+import { getBatchesByCoach, getCurrentBatch, type Batch } from '@/services/batchService';
+import { getAthletesByBatch, transformDatabaseAthlete, type DatabaseAthlete, type Athlete } from '@/services/athleteService';
+import { getRosterWithAthletes, removeAthleteFromRoster, addAthleteToRosterWithValidation } from '@/services/rosterService';
 ////////////////////////////// END OF IMPORTS //////////////////////////////////////////////////////////
 
+
+
 /////////////////////////////// START OF INTERFACES ////////////////////////////////////////////
-// Database interfaces
-interface DatabaseAthlete {
-  athlete_no: number; // ex: 1
-  first_name: string | null; // ex: "John"
-  middle_name: string | null; // ex: "Paul"
-  last_name: string | null; // ex: "Doe"
-  position: string | null; // ex: "Point Guard"
-  player_no: number | null; // ex: 23
-}
-
-interface DatabaseGame {
-  game_no: number; // ex: 1
-  date: string | null; // ex: "2024-01-15"
-  time: string | null; // ex: "18:00:00"
-  season_no: number | null; // ex: 6
-  player_name: string | null; // ex: "Men's Division Team"
-  opponent_name: string | null; // ex: "State University"
-  batch_no: number | null; // ex: 1 - FK to Batch table
-}
-
-interface DatabaseBatch {
-  batch_no: number; // ex: 1
-  start_date: string | null; // ex: "2024-01-01"
-  end_date: string | null; // ex: "2024-12-31"
-  coach_no: number | null; // ex: 1 - FK to Coach table
-}
+// Database interfaces - using imported types from services
+// Local interface for Batch (using imported type)
+interface DatabaseBatch extends Batch {}
 
 interface DatabaseRoster {
   roster_no: number; // ex: 1
@@ -54,86 +37,10 @@ interface DatabaseRoster {
   athlete_no: number; // ex: 1
   created_at: string; // ex: "2024-01-15T10:30:00Z"
 }
-
-// UI-friendly version of DatabaseAthlete - restructured for better organization
-interface Athlete {
-  id: string; // ex: "1"
-  number: string; // ex: "23"
-  name: string; // ex: "John Paul Doe"
-  position: string; // ex: "Point Guard"
-}
-
-// UI-friendly version of DatabaseGame - restructured for better organization
-interface Game {
-  id: string; // ex: "1"
-  gameName: string; // ex: "Men's Division Team vs State University"
-  date: string; // ex: "1/15/2024 6:00 PM"
-}
 ////////////////////////////// END OF INTERFACES ////////////////
 
-/////////////////////////////// START OF HELPER FUNCTIONS /////////////
-// Helper function to transform database athlete to UI athlete
-const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
-  const fullName = [
-    dbAthlete.first_name,
-    dbAthlete.middle_name,
-    dbAthlete.last_name
-  ]
-    .filter(name => name && name.trim() !== '')
-    .join(' ');
-
-  return {
-    id: dbAthlete.athlete_no.toString(),
-    number: dbAthlete.player_no?.toString() || '0',
-    name: fullName || 'Unknown Player',
-    position: dbAthlete.position || 'Unknown'
-  };
-};
-
-// Helper function to transform database game to UI game
-const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
-  const gameDate = dbGame.date
-    ? new Date(dbGame.date).toLocaleDateString()
-    : 'TBD';
-  const gameTime = dbGame.time
-    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '';
-
-  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
-
-  const playerTeam = dbGame.player_name || 'Your Team';
-  const opponentTeam = dbGame.opponent_name || 'TBD';
-  const gameName = `${playerTeam} vs ${opponentTeam}`;
-
-  return {
-    id: dbGame.game_no.toString(),
-    gameName: gameName,
-    date: formattedDate
-  };
-};
-
-// Helper function to determine current batch based on today's date
-const getCurrentBatch = (batches: DatabaseBatch[]): DatabaseBatch | null => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return (
-    batches.find(batch => {
-      if (!batch.start_date || !batch.end_date) return false;
-
-      const startDate = new Date(batch.start_date);
-      const endDate = new Date(batch.end_date);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
-
-      return today >= startDate && today <= endDate;
-    }) || null
-  );
-};
 ////////////////////////////// END OF HELPER FUNCTIONS ////////////////
+
 
 /////////////////////////////// START OF MAIN COMPONENT /////////////
 
@@ -166,19 +73,12 @@ export default function GameRosterScreen() {
   // Fetch game data from database
   const fetchGame = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Game')
-        .select('*')
-        .eq('game_no', id)
-        .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
+      const data = await getGameById(Number(id));
       if (data) {
         const transformedGame = transformDatabaseGame(data);
         setGame(transformedGame);
+      } else {
+        setError('Game not found');
       }
     } catch (err) {
       console.error('Error fetching game:', err);
@@ -196,30 +96,19 @@ export default function GameRosterScreen() {
         return;
       }
 
-      const { data: batches, error: batchError } = await supabase
-        .from('Batch')
-        .select('*')
-        .eq('coach_no', coachNo)
-        .order('start_date', { ascending: false });
-
-      if (batchError) {
-        throw batchError;
+      const batches = await getBatchesByCoach(coachNo);
+      setBatches(batches);
+      
+      // Handle empty batches array
+      if (batches.length === 0) {
+        setSelectedBatch(null);
+        setError('No batches available. Please create a batch first.');
+        return;
       }
-
-      if (batches) {
-        setBatches(batches);
-        
-        // Handle empty batches array
-        if (batches.length === 0) {
-          setSelectedBatch(null);
-          setError('No batches available. Please create a batch first.');
-          return;
-        }
-        
-        // Auto-select current batch if available, otherwise select first batch
-        const currentBatch = getCurrentBatch(batches);
-        setSelectedBatch(currentBatch || batches[0] || null);
-      }
+      
+      // Auto-select current batch if available, otherwise select first batch
+      const currentBatch = getCurrentBatch(batches);
+      setSelectedBatch(currentBatch || batches[0] || null);
     } catch (err) {
       console.error('Error fetching batches:', err);
       setError('Failed to load batches');
@@ -235,24 +124,9 @@ export default function GameRosterScreen() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('athlete_batch')
-        .select(
-          `
-          Athlete!inner(*)
-        `
-        )
-        .eq('batch_no', batchToUse);
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setAvailableAthletes(transformedAthletes);
-      }
+      const athletes = await getAthletesByBatch(batchToUse);
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setAvailableAthletes(transformedAthletes);
     } catch (err) {
       console.error('Error fetching available athletes:', err);
       setError('Failed to load available athletes');
@@ -262,24 +136,9 @@ export default function GameRosterScreen() {
   // Fetch current roster for this game
   const fetchRoster = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Roster')
-        .select(
-          `
-          Athlete!inner(*)
-        `
-        )
-        .eq('game_no', id);
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setRosterAthletes(transformedAthletes);
-      }
+      const athletes = await getRosterWithAthletes(Number(id));
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setRosterAthletes(transformedAthletes);
     } catch (err) {
       console.error('Error fetching roster:', err);
       setError('Failed to load roster');
@@ -351,14 +210,13 @@ export default function GameRosterScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('Roster')
-                .delete()
-                .eq('game_no', id && typeof id === 'string' ? parseInt(id) : 0)
-                .eq('athlete_no', parseInt(athleteId));
+              const success = await removeAthleteFromRoster(
+                Number(id),
+                parseInt(athleteId)
+              );
 
-              if (error) {
-                throw error;
+              if (!success) {
+                throw new Error('Failed to remove athlete');
               }
 
               // Update local state
@@ -408,18 +266,18 @@ export default function GameRosterScreen() {
     if (id && typeof id === 'string') {
       setIsAdding(true); // Disable button during operation
       try {
-        const { error } = await supabase.from('Roster').insert({
-          game_no: parseInt(id),
-          athlete_no: parseInt(selectedAthleteId)
-        });
+        const result = await addAthleteToRosterWithValidation(
+          parseInt(id),
+          parseInt(selectedAthleteId)
+        );
 
-        if (error) {
+        if (!result.success) {
           // Handle unique constraint violation gracefully
-          if (error.code === '23505') {
+          if (result.errorCode === '23505') {
             Alert.alert('Already Added', 'This athlete is already on the roster');
             return;
           }
-          throw error;
+          throw new Error('Failed to add athlete');
         }
 
         // Update local state
