@@ -8,95 +8,27 @@ import FloatingButton from '@/components/buttons/FloatingButton';
 import GameCard from '@/components/cards/GameCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
-import supabase from '@/config/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getBatchesByCoach,
+  getCurrentBatch,
+  getAthletesByBatch,
+  getAllAthletes,
+  transformDatabaseAthlete,
+  getGamesByCoach,
+  transformDatabaseGame,
+  type Batch,
+  type Athlete,
+  type Game
+} from '@/services';
 ////////////////////////////// END OF IMPORTS ////////////////
 
 /////////////////////////////// START OF INTERFACES /////////////
-interface Athlete {
-  id: string;
-  number: string;
-  name: string;
-  position: string;
-}
-
-interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
-}
-
-interface Batch {
-  batch_no: number;
-  start_date: string | null;
-  end_date: string | null;
-  coach_no: number | null; // FK to Coach table
-}
-
-interface Game {
-  id: string;
-  gameName: string;
-  date: string;
-}
-
-interface DatabaseGame {
-  game_no: number;
-  date: string | null;
-  time: string | null;
-  season_no: number | null;
-  player_name: string | null;
-  opponent_name: string | null;
-  batch_no: number | null; // FK to Batch table
-}
+// Interfaces are now imported from services
 ////////////////////////////// END OF INTERFACES ////////////////
 
 /////////////////////////////// START OF HELPER FUNCTIONS /////////////
-// Helper function to transform database athlete to UI athlete
-const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
-  const fullName = [
-    dbAthlete.first_name,
-    dbAthlete.middle_name,
-    dbAthlete.last_name
-  ]
-    .filter(name => name && name.trim() !== '')
-    .join(' ');
-
-  return {
-    id: dbAthlete.athlete_no.toString(),
-    number: dbAthlete.player_no?.toString() || '0',
-    name: fullName || 'Unknown Player',
-    position: dbAthlete.position || 'Unknown'
-  };
-};
-
-// Helper function to transform database game to UI game
-const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
-  const gameDate = dbGame.date
-    ? new Date(dbGame.date).toLocaleDateString()
-    : 'TBD';
-  const gameTime = dbGame.time
-    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '';
-
-  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
-
-  // Create game name using player_name and opponent_name
-  const playerTeam = dbGame.player_name || 'Your Team';
-  const opponentTeam = dbGame.opponent_name || 'TBD';
-  const gameName = `${playerTeam} vs ${opponentTeam}`;
-
-  return {
-    id: dbGame.game_no.toString(),
-    gameName: gameName,
-    date: formattedDate
-  };
-};
+// Helper functions are now imported from services
 ////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
 /////////////////////////////// START OF MAIN COMPONENT /////////////
@@ -124,24 +56,7 @@ export default function AthleteScreen() {
   ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
   /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
-  // Helper function to determine current batch based on today's date
-  const getCurrentBatch = (batches: Batch[]): Batch | null => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-
-    return (
-      batches.find(batch => {
-        if (!batch.start_date || !batch.end_date) return false;
-
-        const startDate = new Date(batch.start_date);
-        const endDate = new Date(batch.end_date);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        return today >= startDate && today <= endDate;
-      }) || null
-    );
-  };
+  // Utility functions are now imported from services
   ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
   /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
@@ -154,22 +69,11 @@ export default function AthleteScreen() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('Batch')
-        .select('*')
-        .eq('coach_no', coachNo)
-        .order('start_date', { ascending: false });
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        setBatches(data);
-        // Auto-select current batch if available
-        const currentBatch = getCurrentBatch(data);
-        setSelectedBatch(currentBatch);
-      }
+      const data = await getBatchesByCoach(coachNo);
+      setBatches(data);
+      // Auto-select current batch if available
+      const currentBatch = getCurrentBatch(data);
+      setSelectedBatch(currentBatch);
     } catch (err) {
       console.error('Error fetching batches:', err);
     }
@@ -188,39 +92,9 @@ export default function AthleteScreen() {
         return;
       }
 
-      // First get all batch_no for this coach
-      const { data: batches, error: batchError } = await supabase
-        .from('Batch')
-        .select('batch_no')
-        .eq('coach_no', coachNo);
-
-      if (batchError) {
-        throw batchError;
-      }
-
-      if (!batches || batches.length === 0) {
-        setGames([]);
-        setGamesLoading(false);
-        return;
-      }
-
-      const batchNumbers = batches.map(b => b.batch_no);
-
-      // Then get games for those batches
-      const { data, error: fetchError } = await supabase
-        .from('Game')
-        .select('*')
-        .in('batch_no', batchNumbers)
-        .order('date', { ascending: false });
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const transformedGames = data.map(transformDatabaseGame);
-        setGames(transformedGames);
-      }
+      const data = await getGamesByCoach(coachNo);
+      const transformedGames = data.map(transformDatabaseGame);
+      setGames(transformedGames);
     } catch (err) {
       console.error('Error fetching games:', err);
       setGamesError('Failed to load games. Please try again.');
@@ -237,42 +111,13 @@ export default function AthleteScreen() {
       setError(null);
 
       if (selectedBatch) {
-        // Fetch athletes for selected batch using athlete_batch junction table
-        const { data, error: fetchError } = await supabase
-          .from('athlete_batch')
-          .select(
-            `
-            Athlete!inner(*)
-          `
-          )
-          .eq('batch_no', selectedBatch.batch_no);
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const athletes = data
-            .map((item: any) => item.Athlete)
-            .filter(Boolean);
-          const transformedAthletes = athletes.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
+        const athletes = await getAthletesByBatch(selectedBatch.batch_no);
+        const transformedAthletes = athletes.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
       } else {
-        // If no batch selected, fetch all athletes
-        const { data, error: fetchError } = await supabase
-          .from('Athlete')
-          .select('*')
-          .order('athlete_no', { ascending: true });
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const transformedAthletes = data.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
+        const athletes = await getAllAthletes();
+        const transformedAthletes = athletes.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
       }
     } catch (err) {
       console.error('Error refreshing athletes:', err);
@@ -292,42 +137,13 @@ export default function AthleteScreen() {
         setError(null);
 
         if (selectedBatch) {
-          // Fetch athletes for selected batch using athlete_batch junction table
-          const { data, error: fetchError } = await supabase
-            .from('athlete_batch')
-            .select(
-              `
-              Athlete!inner(*)
-            `
-            )
-            .eq('batch_no', selectedBatch.batch_no);
-
-          if (fetchError) {
-            throw fetchError;
-          }
-
-          if (data) {
-            const athletes = data
-              .map((item: any) => item.Athlete)
-              .filter(Boolean);
-            const transformedAthletes = athletes.map(transformDatabaseAthlete);
-            setAthletes(transformedAthletes);
-          }
+          const athletes = await getAthletesByBatch(selectedBatch.batch_no);
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
         } else {
-          // If no batch selected, fetch all athletes
-          const { data, error: fetchError } = await supabase
-            .from('Athlete')
-            .select('*')
-            .order('athlete_no', { ascending: true });
-
-          if (fetchError) {
-            throw fetchError;
-          }
-
-          if (data) {
-            const transformedAthletes = data.map(transformDatabaseAthlete);
-            setAthletes(transformedAthletes);
-          }
+          const athletes = await getAllAthletes();
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
         }
       } catch (err) {
         console.error('Error fetching athletes:', err);

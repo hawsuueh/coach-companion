@@ -1,15 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/config/supabaseClient';
+import { getUserProfile, getCoachNoByAccount, UserProfile } from '@/services/authService';
 
 // Types
-interface UserProfile {
-  account_no: number;
-  first_name: string | null;
-  last_name: string | null;
-  role: string; // 'coach', 'athlete', 'director'
-}
-
 interface DatabaseCoach {
   coach_no: number;
   account_no: number | null; // FK to Account table
@@ -43,66 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [coachNo, setCoachNo] = useState<number | null>(null);
-
-  // Get user profile from your Account table
-  const getUserProfile = async (userId: string) => {
-    try {
-      console.log('👤 Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('Account')
-        .select(
-          `
-          account_no,
-          first_name,
-          last_name,
-          Role(user_role)
-        `
-        )
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.log('❌ Profile fetch error:', error);
-        throw error;
-      }
-
-      console.log('📋 Raw profile data:', data);
-
-      const profile = {
-        account_no: data.account_no,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        role: (data.Role as any)?.user_role || ''
-      };
-
-      console.log('✅ Processed profile:', profile);
-      return profile;
-    } catch (error) {
-      console.error('💥 Error fetching user profile:', error);
-      return null;
-    }
-  };
-
-  // Get coach_no from account_no
-  const getCoachNo = async (accountNo: number): Promise<number | null> => {
-    try {
-      const { data, error } = await supabase
-        .from('Coach')
-        .select('coach_no')
-        .eq('account_no', accountNo)
-        .single();
-
-      if (error) {
-        console.log('❌ Coach fetch error:', error);
-        return null;
-      }
-
-      return data?.coach_no || null;
-    } catch (error) {
-      console.error('💥 Error fetching coach number:', error);
-      return null;
-    }
-  };
 
   // Sign In
   const signIn = async (email: string, password: string) => {
@@ -213,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Get coach_no if user is a coach
         if (userProfile) {
-          const coachNumber = await getCoachNo(userProfile.account_no);
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
           setCoachNo(coachNumber);
         } else {
           setCoachNo(null);
@@ -251,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Get coach_no if user is a coach
         if (userProfile) {
-          const coachNumber = await getCoachNo(userProfile.account_no);
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
           setCoachNo(coachNumber);
         } else {
           setCoachNo(null);
