@@ -32,6 +32,7 @@ import ExportButton from '../../../../../../components/buttons/ExportButton';
 import QuarterScoresCollapsible from '../../../../../../components/game/QuarterScoresCollapsible';
 import supabase from '../../../../../../config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   PlayerExportRow,
   renderGameStatsHtml
@@ -56,6 +57,7 @@ interface DatabaseGame {
   season_no: number | null; // ex: 6
   player_name: string | null; // ex: "Men's Division Team"
   opponent_name: string | null; // ex: "State University"
+  batch_no: number | null; // ex: 1 - FK to Batch table
 }
 
 // This is the raw database interface for athlete_game
@@ -253,6 +255,7 @@ export default function GameRecordingScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { setTitle } = useHeader();
+  const { coachNo } = useAuth();
   const [activeTab, setActiveTab] = useState<'realtime' | 'stats'>('realtime');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedStatsAthlete, setSelectedStatsAthlete] = useState<{
@@ -289,10 +292,16 @@ export default function GameRecordingScreen() {
   ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
   /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
-  // Fetch game data from database
+  // Fetch game data from database (with coach validation)
   const fetchGame = async () => {
     try {
-      const { data, error: fetchError } = await supabase
+      if (!coachNo) {
+        setError('No coach information available');
+        return;
+      }
+
+      // First get the game
+      const { data: gameData, error: fetchError } = await supabase
         .from('Game')
         .select('*')
         .eq('game_no', id)
@@ -302,10 +311,27 @@ export default function GameRecordingScreen() {
         throw fetchError;
       }
 
-      if (data) {
-        const transformedGame = transformDatabaseGame(data);
-        setGame(transformedGame);
+      if (!gameData || !gameData.batch_no) {
+        setError('Game does not belong to any batch');
+        return;
       }
+
+      // Validate that the batch belongs to this coach
+      const { data: batchData, error: batchError } = await supabase
+        .from('Batch')
+        .select('coach_no')
+        .eq('batch_no', gameData.batch_no)
+        .eq('coach_no', coachNo)
+        .single();
+
+      if (batchError || !batchData) {
+        setError('Game does not belong to your batches');
+        return;
+      }
+
+      // Game is valid, transform and set it
+      const transformedGame = transformDatabaseGame(gameData);
+      setGame(transformedGame);
     } catch (err) {
       console.error('Error fetching game:', err);
       setError('Failed to load game details');

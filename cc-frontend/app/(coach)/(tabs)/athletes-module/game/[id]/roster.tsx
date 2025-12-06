@@ -17,6 +17,7 @@ import LoadingScreen from '@/components/common/LoadingScreen';
 import ErrorScreen from '@/components/common/ErrorScreen';
 import supabase from '@/config/supabaseClient';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import { useAuth } from '@/contexts/AuthContext';
 ////////////////////////////// END OF IMPORTS //////////////////////////////////////////////////////////
 
 /////////////////////////////// START OF INTERFACES ////////////////////////////////////////////
@@ -37,12 +38,14 @@ interface DatabaseGame {
   season_no: number | null; // ex: 6
   player_name: string | null; // ex: "Men's Division Team"
   opponent_name: string | null; // ex: "State University"
+  batch_no: number | null; // ex: 1 - FK to Batch table
 }
 
 interface DatabaseBatch {
   batch_no: number; // ex: 1
   start_date: string | null; // ex: "2024-01-01"
   end_date: string | null; // ex: "2024-12-31"
+  coach_no: number | null; // ex: 1 - FK to Coach table
 }
 
 interface DatabaseRoster {
@@ -139,6 +142,7 @@ export default function GameRosterScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { setTitle } = useHeader();
+  const { coachNo } = useAuth();
   
   // UI state
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
@@ -182,12 +186,20 @@ export default function GameRosterScreen() {
     }
   };
 
-  // Fetch all batches from database
+  // Fetch all batches from database (filtered by coach)
   const fetchBatches = async () => {
     try {
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setBatches([]);
+        setError('No coach information available');
+        return;
+      }
+
       const { data: batches, error: batchError } = await supabase
         .from('Batch')
         .select('*')
+        .eq('coach_no', coachNo)
         .order('start_date', { ascending: false });
 
       if (batchError) {

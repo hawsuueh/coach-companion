@@ -9,6 +9,7 @@ import GameCard from '@/components/cards/GameCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
 import supabase from '@/config/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
 ////////////////////////////// END OF IMPORTS ////////////////
 
 /////////////////////////////// START OF INTERFACES /////////////
@@ -32,6 +33,7 @@ interface Batch {
   batch_no: number;
   start_date: string | null;
   end_date: string | null;
+  coach_no: number | null; // FK to Coach table
 }
 
 interface Game {
@@ -47,6 +49,7 @@ interface DatabaseGame {
   season_no: number | null;
   player_name: string | null;
   opponent_name: string | null;
+  batch_no: number | null; // FK to Batch table
 }
 ////////////////////////////// END OF INTERFACES ////////////////
 
@@ -101,6 +104,7 @@ const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
 export default function AthleteScreen() {
   /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
+  const { coachNo } = useAuth();
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
@@ -141,12 +145,19 @@ export default function AthleteScreen() {
   ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
   /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
-  // Fetch batches from database
+  // Fetch batches from database (filtered by coach)
   const fetchBatches = async () => {
     try {
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setBatches([]);
+        return;
+      }
+
       const { data, error: fetchError } = await supabase
         .from('Batch')
         .select('*')
+        .eq('coach_no', coachNo)
         .order('start_date', { ascending: false });
 
       if (fetchError) {
@@ -164,15 +175,42 @@ export default function AthleteScreen() {
     }
   };
 
-  // Fetch games from database
+  // Fetch games from database (filtered by coach's batches)
   const fetchGames = async () => {
     try {
       setGamesLoading(true);
       setGamesError(null);
 
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setGames([]);
+        setGamesLoading(false);
+        return;
+      }
+
+      // First get all batch_no for this coach
+      const { data: batches, error: batchError } = await supabase
+        .from('Batch')
+        .select('batch_no')
+        .eq('coach_no', coachNo);
+
+      if (batchError) {
+        throw batchError;
+      }
+
+      if (!batches || batches.length === 0) {
+        setGames([]);
+        setGamesLoading(false);
+        return;
+      }
+
+      const batchNumbers = batches.map(b => b.batch_no);
+
+      // Then get games for those batches
       const { data, error: fetchError } = await supabase
         .from('Game')
         .select('*')
+        .in('batch_no', batchNumbers)
         .order('date', { ascending: false });
 
       if (fetchError) {
@@ -303,11 +341,13 @@ export default function AthleteScreen() {
     fetchAthletes();
   }, [selectedBatch]);
 
-  // Fetch batches and games on component mount
+  // Fetch batches and games on component mount and when coachNo changes
   useEffect(() => {
-    fetchBatches();
-    fetchGames();
-  }, []);
+    if (coachNo !== null) {
+      fetchBatches();
+      fetchGames();
+    }
+  }, [coachNo]);
   ////////////////////////////// END OF USE EFFECTS ///////////////////////
 
   /////////////////////////////// START OF EVENT HANDLERS /////////////

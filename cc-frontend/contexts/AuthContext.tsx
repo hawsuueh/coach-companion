@@ -10,11 +10,18 @@ interface UserProfile {
   role: string; // 'coach', 'athlete', 'director'
 }
 
+interface DatabaseCoach {
+  coach_no: number;
+  account_no: number | null; // FK to Account table
+  contact_no: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
+  coachNo: number | null; // Coach number if user is a coach
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (
     email: string,
@@ -35,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [coachNo, setCoachNo] = useState<number | null>(null);
 
   // Get user profile from your Account table
   const getUserProfile = async (userId: string) => {
@@ -71,6 +79,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return profile;
     } catch (error) {
       console.error('💥 Error fetching user profile:', error);
+      return null;
+    }
+  };
+
+  // Get coach_no from account_no
+  const getCoachNo = async (accountNo: number): Promise<number | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('Coach')
+        .select('coach_no')
+        .eq('account_no', accountNo)
+        .single();
+
+      if (error) {
+        console.log('❌ Coach fetch error:', error);
+        return null;
+      }
+
+      return data?.coach_no || null;
+    } catch (error) {
+      console.error('💥 Error fetching coach number:', error);
       return null;
     }
   };
@@ -181,6 +210,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNo(userProfile.account_no);
+          setCoachNo(coachNumber);
+        } else {
+          setCoachNo(null);
+        }
+      } else {
+        setCoachNo(null);
       }
 
       setLoading(false);
@@ -209,8 +248,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNo(userProfile.account_no);
+          setCoachNo(coachNumber);
+        } else {
+          setCoachNo(null);
+        }
       } else {
         setProfile(null);
+        setCoachNo(null);
       }
 
       setLoading(false);
@@ -224,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     session,
     loading,
+    coachNo,
     signIn,
     signUp,
     signOut
