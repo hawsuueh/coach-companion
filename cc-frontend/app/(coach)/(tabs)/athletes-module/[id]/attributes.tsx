@@ -4,26 +4,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useHeader } from '@/components/contexts/HeaderContext';
-import supabase from '@/config/supabaseClient';
 import AttributeContentCard from '@/components/cards/AttributeContentCard';
+import supabase from '@/config/supabaseClient';
+// Service imports
+import { getAthleteById, transformDatabaseAthlete } from '@/services/athleteService';
 ////////////////////////////// END OF IMPORTS ////////////////
 
-/////////////////////////////// START OF DATABASE INTERFACES /////////////
-/**
- * Database Interfaces - These match the structure of your Supabase tables
- * Example: When fetching from Supabase, the data comes in this exact format
- */
 
-// Example: { athlete_no: 1, first_name: "John", middle_name: "M", last_name: "Doe", position: "Forward", player_no: 10, gmail: "john@example.com" }
-interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
-  gmail: string | null;
-}
+
+/////////////////////////////// START OF DATABASE INTERFACES /////////////
+// Using imported types from athleteService for DatabaseAthlete
 
 // Example: { attribute_no: 1, attribute_type: "Height" }
 interface DatabaseAttribute {
@@ -42,11 +32,6 @@ interface DatabaseAthleteAttribute {
 ////////////////////////////// END OF DATABASE INTERFACES ////////////////
 
 /////////////////////////////// START OF UI INTERFACES /////////////
-/**
- * UI Interfaces - These are the transformed formats used in the component
- * Example: These are easier to work with in React Native than the raw database format
- */
-
 // Example: { id: "1", number: "10", name: "John Doe", position: "Forward" }
 interface Athlete {
   id: string;
@@ -126,58 +111,17 @@ export default function AttributesScreen() {
 
       try {
         ////////////////////////////// STEP 1: FETCH ATHLETE DATA /////////////
-        /**
-         * Query: Get athlete from Athlete table where athlete_no matches the id
-         * Example: If id = "5", fetches athlete with athlete_no = 5
-         * 
-         * .maybeSingle() = Returns null if no record found (instead of throwing error)
-         * Result: { athlete_no: 5, first_name: "John", last_name: "Doe", ... }
-         */
-        const { data: athleteData, error: athleteError } = await supabase
-          .from('Athlete')
-          .select('*')
-          .eq('athlete_no', id)
-          .maybeSingle();
-
-        if (athleteError) {
-          throw athleteError;
-        }
+        const athleteData = await getAthleteById(parseInt(id));
 
         if (athleteData) {
-          // Transform database format to UI format
-          // Example: Combines first_name + middle_name + last_name into full name
-          // Input: { first_name: "John", middle_name: "M", last_name: "Doe" }
-          // Output: "John M Doe"
-          const fullName = [
-            athleteData.first_name,
-            athleteData.middle_name,
-            athleteData.last_name,
-          ]
-            .filter(name => name && name.trim() !== '')
-            .join(' ');
-
-          setAthlete({
-            id: athleteData.athlete_no.toString(), // Convert number to string
-            number: athleteData.player_no?.toString() || '0',
-            name: fullName || 'Unknown Player',
-            position: athleteData.position || 'Unknown',
-          });
+          const transformedAthlete = transformDatabaseAthlete(athleteData);
+          setAthlete(transformedAthlete);
         }
 
         ////////////////////////////// STEP 2: FETCH ATHLETE ATTRIBUTES /////////////
-        /**
-         * Query: Get all attributes for this athlete by joining Athlete_attributes with Attributes table
-         * Example: If id = "5", fetches all attributes where athlete_no = 5
-         * 
-         * .select() with join:
-         *   - value = the actual measurement value (e.g., "6'6\"")
-         *   - Attributes!inner(attribute_type) = joins with Attributes table to get the type (e.g., "Height")
-         * 
-         * Result: [
-         *   { value: "6'6\"", Attributes: { attribute_type: "Height" } },
-         *   { value: "212 lbs", Attributes: { attribute_type: "Weight" } }
-         * ]
-         */
+        // Note: This query requires a join with Attributes table to get attribute_type
+        // The athleteService.getAthleteAttributes() doesn't include this join
+        // So we keep this inline query for now
         const { data: athleteAttributesData, error: attributesError } =
           await supabase
             .from('Athlete_attributes')
@@ -194,14 +138,11 @@ export default function AttributesScreen() {
         }
 
         if (athleteAttributesData) {
-          // Transform database format to UI format
-          // Example Input: { value: "6'6\"", Attributes: { attribute_type: "Height" } }
-          // Example Output: { label: "Height", primary: "6'6\"", secondary: "" }
           const transformedAttributes: Attribute[] = athleteAttributesData.map(
             (item: any) => ({
-              label: item.Attributes?.attribute_type || 'Unknown', // Gets "Height" from joined table
-              primary: item.value || '', // Gets "6'6\"" from Athlete_attributes table
-              secondary: '', // Empty because your database only stores one value
+              label: item.Attributes?.attribute_type || 'Unknown',
+              primary: item.value || '',
+              secondary: '',
             })
           );
 
