@@ -49,7 +49,7 @@ export default function DropdownList({
 
       {/* Dropdown content */}
       {isOpen && (
-        <View className="px-5 py-2">
+        <View className="px-5 pb-5">
           {data.length > 0 ? (
             <FlatList
               data={data}
