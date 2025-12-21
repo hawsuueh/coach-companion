@@ -45,6 +45,12 @@ export const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete =>
  * @returns Array of athletes or empty array
  */
 export const getAthletesByBatch = async (batchNo: number): Promise<DatabaseAthlete[]> => {
+
+  //  This query means:
+  // This means: "Get me all athletes assigned to this batch number,
+  // but only if they actually exist in the Athlete table"
+
+  // It's a data quality safeguard that prevents you from getting incomplete or broken data!
   try {
     const { data, error } = await supabase
       .from('athlete_batch')
