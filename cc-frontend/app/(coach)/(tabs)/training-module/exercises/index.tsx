@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, FlatList, Text } from 'react-native';
+import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
@@ -8,6 +9,7 @@ import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 
 export default function Exercises() {
   const [searchText, setSearchText] = useState('');
+  const router = useRouter();
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
@@ -20,36 +22,40 @@ export default function Exercises() {
   // Sample data (replace with actual data later)
   const exercises = [
     {
-      id: '1',
+      exerciseId: '1',
       exerciseName: 'Push-Ups',
       description: 'Strengthens chest, shoulders, and triceps'
     },
     {
-      id: '2',
+      exerciseId: '2',
       exerciseName: 'Squats',
       description: 'Targets quads, hamstrings, and glutes'
     },
     {
-      id: '3',
+      exerciseId: '3',
       exerciseName: 'Plank',
       description: 'Improves core strength and stability'
     },
     {
-      id: '4',
+      exerciseId: '4',
       exerciseName: 'Lunges',
       description: 'Enhances balance and strengthens legs'
     },
     {
-      id: '5',
+      exerciseId: '5',
       exerciseName: 'Burpees',
       description: 'Full-body exercise for strength and endurance'
     },
     {
-      id: '6',
+      exerciseId: '6',
       exerciseName: 'Jump Rope',
       description: 'Boosts cardiovascular endurance and coordination'
     }
   ];
+
+  const handleExercisePress = (exerciseId: string) => {
+    router.push(`/training-module/exercises/${exerciseId}` as Href);
+  };
 
   // Filter exercises by search text (case-insensitive)
   const filteredExercises = exercises.filter(item =>
@@ -74,12 +80,12 @@ export default function Exercises() {
       {/* Exercises List */}
       <FlatList
         data={filteredExercises}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.exerciseId}
         renderItem={({ item }) => (
           <List1
             title={item.exerciseName}
             subtitle={item.description}
-            onPress={() => console.log(`Pressed ${item.exerciseName}`)}
+            onPress={() => handleExercisePress(item.exerciseId)}
             onLongPress={() => console.log(`Long pressed ${item.exerciseName}`)}
           />
         )}
@@ -92,11 +98,12 @@ export default function Exercises() {
       />
 
       {/* Floating Button */}
-      <FloatingButton
-        onPress={handleFloatingPress}
-        icon="add"
-        IconComponent={FontAwesome6}
-      />
+      <Link
+        href="/(coach)/(tabs)/training-module/(modals)/add-exercise"
+        asChild
+      >
+        <FloatingButton icon="add" IconComponent={FontAwesome6} />
+      </Link>
     </View>
   );
 }
