@@ -2,6 +2,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
 import { useRouter, Href, Link } from 'expo-router';
+import VideoCard from '@/components/training-module/cards/VideoCard';
+import NumberListCard from '@/components/training-module/cards/NumberListCard';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
@@ -15,7 +17,7 @@ export default function ExerciseDetails() {
   const exercise = {
     exerciseId: exerciseId,
     name: 'Bench Press',
-    url: 'www.samplevideolink.com',
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     instructions: ['Lie on bench', 'Lower Bar', 'Press up'],
     equipment: 'Barbell',
     type: 'Strength',
@@ -40,9 +42,17 @@ export default function ExerciseDetails() {
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
-      {/* Search */}
+      {/* Exercise Name */}
       <View className="mb-5 items-center">
         <Text className="text-title1">{exercise.name}</Text>
+      </View>
+
+      <View className="mb-5">
+        <VideoCard youtubeUrl={exercise.url} />
+      </View>
+
+      <View className="mb-5">
+        <NumberListCard title="Instructions" items={exercise.instructions} />
       </View>
 
       {/* Floating Button */}
