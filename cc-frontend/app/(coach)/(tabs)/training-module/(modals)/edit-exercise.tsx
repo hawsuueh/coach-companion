@@ -35,7 +35,7 @@ export default function EditExerciseModal() {
   const exercise = {
     exerciseId,
     name: 'Bench Press',
-    url: 'https://www.youtube.com/watch?v=VIDEO_ID',
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     instructions: ['Lie on bench', 'Lower bar', 'Press up'],
     equipment: ['2'], // must match dropdown values
     type: '1',
