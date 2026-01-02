@@ -180,3 +180,95 @@ export const updateAthleteAttributes = async (
     return false;
   }
 };
+/**
+ * Create a new athlete and associate with a batch
+ * @param athlete - Athlete data (excluding ID)
+ * @param batchNo - Batch number to associate with
+ * @returns Object with success status and optional error or new ID
+ */
+export const createAthlete = async (
+  athlete: Omit<DatabaseAthlete, 'athlete_no'>,
+  batchNo: number
+): Promise<{ success: boolean; error?: string; athleteNo?: number }> => {
+  try {
+    // 1. Insert into Athlete table
+    const { data: athleteData, error: athleteError } = await supabase
+      .from('Athlete')
+      .insert([
+        {
+          first_name: athlete.first_name,
+          middle_name: athlete.middle_name,
+          last_name: athlete.last_name,
+          position: athlete.position,
+          player_no: athlete.player_no
+        }
+      ])
+      .select('athlete_no')
+      .single();
+
+    if (athleteError) {
+      console.error('Error creating athlete:', athleteError);
+      return { success: false, error: 'Failed to create athlete record' };
+    }
+
+    if (!athleteData) {
+      return { success: false, error: 'No data returned from creation' };
+    }
+
+    const newAthleteNo = athleteData.athlete_no;
+
+    // 2. Associate with Batch (athlete_batch table)
+    const { error: batchError } = await supabase
+      .from('athlete_batch')
+      .insert([
+        {
+          athlete_no: newAthleteNo,
+          batch_no: batchNo
+        }
+      ]);
+
+    if (batchError) {
+      console.error('Error associating athlete with batch:', batchError);
+      // Optional: We could try to delete the created athlete here to maintain integrity,
+      // but for now we'll just report the error. Front-end could handle cleanup.
+      return {
+        success: false,
+        error: 'Created athlete but failed to add to batch'
+      };
+    }
+
+    return { success: true, athleteNo: newAthleteNo };
+  } catch (error) {
+    console.error('Error in createAthlete:', error);
+    return { success: false, error: 'Unexpected error occurred' };
+  }
+};
+/**
+ * Remove an athlete from a specific batch (Unlink operation)
+ * This safely removes them from the current view without deleting historical stats.
+ * @param athleteNo - Athlete number to remove
+ * @param batchNo - Batch number to remove from
+ * @returns Success boolean
+ */
+export const removeAthleteFromBatch = async (
+  athleteNo: number,
+  batchNo: number
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('athlete_batch')
+      .delete()
+      .eq('athlete_no', athleteNo)
+      .eq('batch_no', batchNo);
+
+    if (error) {
+      console.error('Error removing athlete from batch:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in removeAthleteFromBatch:', error);
+    return false;
+  }
+};

@@ -2,7 +2,7 @@
 import { useRouter } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { FlatList, View, Text, TouchableOpacity, Modal } from 'react-native';
+import { FlatList, View, Text, TouchableOpacity, Modal, Alert } from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingButton from '@/components/buttons/FloatingButton';
 import GameCard from '@/components/cards/GameCard';
@@ -17,6 +17,7 @@ import {
   transformDatabaseAthlete,
   getGamesByCoach,
   transformDatabaseGame,
+  removeAthleteFromBatch,
   type Batch,
   type Athlete,
   type Game
@@ -48,6 +49,52 @@ export default function AthleteScreen() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [gamesError, setGamesError] = useState<string | null>(null);
+
+  // Purpose: Handles the deletion of an athlete from a batch
+  // 1. Validates that a batch and coach context exist
+  // 2. Shows a confirmation alert to the user
+  // 3. Calls the removeAthleteFromBatch service
+  // 4. Refreshes the list on success
+  const handleDeleteAthlete = (athlete: Athlete) => {
+    if (!selectedBatch || !coachNo) {
+      alert('Cannot delete: No active batch context.');
+      return;
+    }
+
+    Alert.alert(
+      'Remove Athlete',
+      `Are you sure you want to remove ${athlete.name} from this batch? Their historical stats will be preserved, but they will be removed from this list.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const success = await removeAthleteFromBatch(
+                parseInt(athlete.id),
+                selectedBatch.batch_no
+              );
+              
+              if (success) {
+                // Refresh list
+                await refreshAthletes();
+                alert('Athlete removed from batch.');
+              } else {
+                alert('Failed to remove athlete.');
+              }
+            } catch (err) {
+              console.error('Error deleting athlete:', err);
+              alert('An error occurred while deleting.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const athleteTabs = [
     { id: 'athletes', label: 'Athletes' },
@@ -189,10 +236,8 @@ export default function AthleteScreen() {
   };
 
   const handleAddAthlete = () => {
-    console.log('Add athlete pressed');
-    // TODO: Navigate to add athlete screen when created
-    // router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
-    alert('Add Athlete functionality coming soon!');
+    // Navigate to add athlete screen
+    router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
   };
 
   const handleAddGame = () => {
@@ -233,6 +278,7 @@ export default function AthleteScreen() {
       playerName={item.name}
       position={item.position}
       onPress={() => handleAthletePress(item)}
+      onLongPress={() => handleDeleteAthlete(item)}
     />
   );
 
