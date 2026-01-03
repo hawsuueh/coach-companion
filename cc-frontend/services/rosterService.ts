@@ -1,4 +1,5 @@
 import supabase from '@/config/supabaseClient';
+import { DatabaseAthlete } from './athleteService';
 
 // Types
 export interface RosterEntry {
@@ -7,14 +8,7 @@ export interface RosterEntry {
   athlete_no: number;
 }
 
-export interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
-}
+
 
 export interface AthleteGameStats {
   athlete_game_no: number;

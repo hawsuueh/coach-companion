@@ -8,8 +8,8 @@ import { useHeader } from '@/components/contexts/HeaderContext';
 
 // Mock data - in the future this will come from Supabase
 const MOCK_ATHLETES = {
-  '1': { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  '2': { id: '2', number: '7', name: 'Mike Johnson', position: 'Midfielder' },
+  '1': { id: '1', number: '10', name: 'Raymond Doss', position: 'Forward' },
+  '2': { id: '2', number: '7', name: 'Toby Maguire', position: 'Midfielder' },
   '3': { id: '3', number: '23', name: 'David Wilson', position: 'Defender' },
   '4': { id: '4', number: '1', name: 'Tom Brown', position: 'Goalkeeper' },
   '5': { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },

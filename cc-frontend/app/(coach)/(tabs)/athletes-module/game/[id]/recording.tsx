@@ -681,8 +681,8 @@ export default function GameRecordingScreen() {
 
       {/* Quarter Scores Section */}
       <QuarterScoresCollapsible
-        homeTeamName="Men's Division Team"
-        awayTeamName="State University"
+        homeTeamName={game.teamName}
+        awayTeamName={game.opponentName}
         quarterScores={quarterScores}
         isExpanded={showQuarterScores}
         onToggle={() => setShowQuarterScores(!showQuarterScores)}

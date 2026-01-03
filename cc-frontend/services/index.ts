@@ -15,3 +15,6 @@ export * from './gameService';
 
 // Roster Service
 export * from './rosterService';
+
+// Stats Service
+export * from './statsService';

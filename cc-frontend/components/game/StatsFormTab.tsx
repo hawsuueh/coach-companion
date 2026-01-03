@@ -227,6 +227,21 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
 
             {/* Player Stats Table */}
             <View className="p-3">
+              {/* Table Header */}
+              <View className="flex-row border-b border-gray-200 pb-2 mb-2 px-2">
+                <View className="flex-1">
+                  <Text className="text-xs font-bold text-gray-500 uppercase">Athlete</Text>
+                </View>
+                <View className="flex-row w-[60%] justify-between px-2">
+                  <Text className="w-10 text-center text-xs font-bold text-gray-500">PTS</Text>
+                  <Text className="w-10 text-center text-xs font-bold text-gray-500">REB</Text>
+                  <Text className="w-10 text-center text-xs font-bold text-gray-500">AST</Text>
+                  <Text className="w-10 text-center text-xs font-bold text-gray-500">STL</Text>
+                  <Text className="w-10 text-center text-xs font-bold text-gray-500">BLK</Text>
+                </View>
+              </View>
+
+              {/* Rows */}
               {selectedAthletes.map(athlete => {
                 const statsByQuarter = playerStats[athlete.id];
                 const totalPoints = calculateTotalPointsForPlayer(
@@ -256,49 +271,32 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
                 return (
                   <View
                     key={athlete.id}
-                    className="border-b border-gray-100 py-2"
+                    className="border-b border-gray-100 py-3 flex-row items-center px-2"
                   >
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1">
-                        <Text className="font-semibold text-black">
-                          #{athlete.number} {athlete.name}
-                        </Text>
-                        <Text className="text-sm text-gray-500">
-                          {athlete.position}
-                        </Text>
-                      </View>
-                      <View className="flex-row space-x-4">
-                        <View className="items-center">
-                          <Text className="text-xs text-gray-500">PTS</Text>
-                          <Text className="font-bold text-black">
-                            {totalPoints}
-                          </Text>
-                        </View>
-                        <View className="items-center">
-                          <Text className="text-xs text-gray-500">REB</Text>
-                          <Text className="font-bold text-black">
-                            {totalRebounds}
-                          </Text>
-                        </View>
-                        <View className="items-center">
-                          <Text className="text-xs text-gray-500">AST</Text>
-                          <Text className="font-bold text-black">
-                            {assists}
-                          </Text>
-                        </View>
-                        <View className="items-center">
-                          <Text className="text-xs text-gray-500">STL</Text>
-                          <Text className="font-bold text-black">
-                            {steals}
-                          </Text>
-                        </View>
-                        <View className="items-center">
-                          <Text className="text-xs text-gray-500">BLK</Text>
-                          <Text className="font-bold text-black">
-                            {blocks}
-                          </Text>
-                        </View>
-                      </View>
+                    <View className="flex-1">
+                      <Text className="font-semibold text-black">
+                        #{athlete.number} {athlete.name}
+                      </Text>
+                      <Text className="text-xs text-gray-500">
+                        {athlete.position}
+                      </Text>
+                    </View>
+                    <View className="flex-row w-[60%] justify-between px-2">
+                      <Text className="w-10 text-center font-bold text-black text-lg">
+                        {totalPoints}
+                      </Text>
+                      <Text className="w-10 text-center font-bold text-black text-lg">
+                        {totalRebounds}
+                      </Text>
+                      <Text className="w-10 text-center font-bold text-black text-lg">
+                        {assists}
+                      </Text>
+                      <Text className="w-10 text-center font-bold text-black text-lg">
+                        {steals}
+                      </Text>
+                      <Text className="w-10 text-center font-bold text-black text-lg">
+                        {blocks}
+                      </Text>
                     </View>
                   </View>
                 );

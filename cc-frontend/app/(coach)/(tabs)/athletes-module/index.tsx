@@ -47,6 +47,7 @@ export default function AthleteScreen() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showGameFilterModal, setShowGameFilterModal] = useState(false);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [gamesError, setGamesError] = useState<string | null>(null);
 
@@ -219,7 +220,11 @@ export default function AthleteScreen() {
   };
 
   const handleFilterPress = () => {
-    setShowBatchModal(true);
+    if (activeTab === 'games') {
+      setShowGameFilterModal(true);
+    } else {
+      setShowBatchModal(true);
+    }
   };
 
   const handleBatchSelect = (batch: Batch | null) => {
@@ -306,8 +311,8 @@ export default function AthleteScreen() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onFilterPress={handleFilterPress}
-        filterType="batch"
-        placeholder="Search athletes..."
+        filterType={activeTab === 'games' ? 'game' : 'batch'}
+        placeholder={activeTab === 'games' ? 'Search games...' : 'Search athletes...'}
       />
 
       {/* Batch Selection Indicator */}
@@ -488,6 +493,64 @@ export default function AthleteScreen() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowBatchModal(false)}
+              className="mt-4 rounded-lg bg-gray-200 p-3"
+            >
+              <Text className="text-center font-medium text-gray-700">
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Game Filter Modal */}
+      <Modal
+        visible={showGameFilterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowGameFilterModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50">
+          <View className="mx-4 w-80 rounded-xl bg-white p-6">
+            <Text className="mb-4 text-center text-lg font-semibold">
+              Filter Games
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setShowGameFilterModal(false)}
+              className="mb-3 rounded-lg bg-gray-100 p-3"
+            >
+              <Text className="text-center font-medium text-gray-700">
+                All Games (Default)
+              </Text>
+            </TouchableOpacity>
+            
+             <TouchableOpacity
+              onPress={() => {
+                 setGames([...games].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                 setShowGameFilterModal(false);
+              }}
+              className="mb-3 rounded-lg bg-gray-100 p-3"
+            >
+              <Text className="text-center font-medium text-gray-700">
+                Most Recent First
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                 setGames([...games].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+                 setShowGameFilterModal(false);
+              }}
+              className="mb-3 rounded-lg bg-gray-100 p-3"
+            >
+              <Text className="text-center font-medium text-gray-700">
+                Oldest First
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowGameFilterModal(false)}
               className="mt-4 rounded-lg bg-gray-200 p-3"
             >
               <Text className="text-center font-medium text-gray-700">
