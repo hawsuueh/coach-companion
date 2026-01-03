@@ -1,199 +1,347 @@
+/////////////////////////////// START OF IMPORTS /////////////
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import AttributeContentCard from '@/components/cards/AttributeContentCard';
+import supabase from '@/config/supabaseClient';
+// Service imports
+import { getAthleteById, transformDatabaseAthlete } from '@/services/athleteService';
+////////////////////////////// END OF IMPORTS ////////////////
 
-// Mock data - in the future this will come from Supabase
-const MOCK_ATHLETES = {
-  '1': { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  '2': { id: '2', number: '7', name: 'Mike Johnson', position: 'Midfielder' },
-  '3': { id: '3', number: '23', name: 'David Wilson', position: 'Defender' },
-  '4': { id: '4', number: '1', name: 'Tom Brown', position: 'Goalkeeper' },
-  '5': { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },
-  '6': { id: '6', number: '4', name: 'Chris Miller', position: 'Defender' },
-  '7': { id: '7', number: '8', name: 'Ryan Taylor', position: 'Midfielder' },
-  '8': { id: '8', number: '11', name: 'Kevin Lee', position: 'Forward' }
-};
 
-// Mock attributes data - in the future this will come from Supabase
-const MOCK_ATTRIBUTES = {
-  '1': [
-    { label: 'Height', primary: '6\'6"', secondary: ' 198 cm' },
-    { label: 'Weight', primary: '212 lbs', secondary: ' 96 kg' },
-    { label: 'Wingspan', primary: '6\'11"', secondary: ' 211 cm' },
-    { label: 'Standing Reach', primary: '8\'4"', secondary: ' 254 cm' },
-    { label: 'Vertical Jump', primary: '36"', secondary: ' 91 cm' }
-  ],
-  '2': [
-    { label: 'Height', primary: '5\'11"', secondary: ' 180 cm' },
-    { label: 'Weight', primary: '165 lbs', secondary: ' 75 kg' },
-    { label: 'Wingspan', primary: '6\'0"', secondary: ' 183 cm' },
-    { label: 'Standing Reach', primary: '7\'8"', secondary: ' 234 cm' },
-    { label: 'Vertical Jump', primary: '32"', secondary: ' 81 cm' }
-  ]
-};
 
-interface AttributeRowProps {
+/////////////////////////////// START OF DATABASE INTERFACES /////////////
+// Using imported types from athleteService for DatabaseAthlete
+
+// Example: { attribute_no: 1, attribute_type: "Height" }
+interface DatabaseAttribute {
+  attribute_no: number;
+  attribute_type: string | null;
+}
+
+// Example: { "athlete_attributes_no.": 1, attribute_no: 1, athlete_no: 1, value: "6'6\"", Attributes: { attribute_no: 1, attribute_type: "Height" } }
+interface DatabaseAthleteAttribute {
+  'athlete_attributes_no.': number;
+  attribute_no: number | null;
+  athlete_no: number | null;
+  value: string | null;
+  Attributes?: DatabaseAttribute;
+}
+////////////////////////////// END OF DATABASE INTERFACES ////////////////
+
+/////////////////////////////// START OF UI INTERFACES /////////////
+// Example: { id: "1", number: "10", name: "John Doe", position: "Forward" }
+interface Athlete {
+  id: string;
+  number: string;
+  name: string;
+  position: string;
+}
+
+// Example: { label: "Height", primary: "6'6\"", secondary: "" }
+interface Attribute {
   label: string;
   primary: string;
   secondary: string;
-  onEdit?: () => void;
-  onDelete?: () => void;
 }
 
-function AttributeRow({
-  label,
-  primary,
-  secondary,
-  onEdit,
-  onDelete
-}: AttributeRowProps) {
-  return (
-    <View className="flex-row items-center justify-between border-b border-gray-100 px-2 py-3">
-      {/* Label and Values */}
-      <View className="mr-3 min-w-0 flex-1">
-        <Text className="mb-1 text-sm text-gray-600" numberOfLines={1}>
-          {label}
-        </Text>
-        <View className="flex-row flex-wrap items-baseline">
-          <Text
-            className="mr-2 text-base font-semibold text-black"
-            numberOfLines={1}
-          >
-            {primary}
-          </Text>
-          <Text className="text-sm text-gray-500" numberOfLines={1}>
-            {secondary}
-          </Text>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View className="flex-shrink-0 flex-row">
-        <TouchableOpacity
-          onPress={onEdit}
-          className="mx-1 rounded-lg bg-gray-100 p-2"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="pencil" size={16} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onDelete}
-          className="mx-1 rounded-lg bg-red-50 p-2"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="trash" size={16} color="#DC2626" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+// Props for the AttributeRow component (each row in the attributes list)
+interface AttributeRowProps {
+  label: string; // Example: "Height"
+  primary: string; // Example: "6'6\""
+  secondary: string; // Example: "" (empty in your database)
+  onEdit?: () => void; // Function called when edit button is pressed
+  onDelete?: () => void; // Function called when delete button is pressed
 }
+////////////////////////////// END OF UI INTERFACES ////////////////
 
+/////////////////////////////// ATTRIBUTE CARD COMPONENT /////////////
+/**
+ * Note: AttributeContentCard component is now imported from @/components/cards/AttributeContentCard
+ * This keeps the code cleaner and allows reuse across the app
+ */
+////////////////////////////// END OF ATTRIBUTE CARD COMPONENT ////////////////
+
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 export default function AttributesScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams(); // Gets the athlete ID from the URL (e.g., if URL is /athletes-module/5, id = "5")
   const { setTitle } = useHeader();
 
+  // State management
+  // Example: athlete = { id: "1", number: "10", name: "John Doe", position: "Forward" }
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
+  
+  // Example: attributes = [{ label: "Height", primary: "6'6\"", secondary: "" }, { label: "Weight", primary: "212 lbs", secondary: "" }]
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  
+  const [loading, setLoading] = useState(true); // Shows loading spinner while fetching data
+  const [error, setError] = useState<string | null>(null); // Stores error message if fetch fails
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
+  /**
+   * Set the header title when component mounts
+   * Runs once when the screen loads
+   */
   useEffect(() => {
     setTitle('Attributes');
-  });
+  }, [setTitle]);
 
-  // Get athlete data - in the future this will be fetched from Supabase
-  const athlete = MOCK_ATHLETES[id as keyof typeof MOCK_ATHLETES];
-  const attributes =
-    MOCK_ATTRIBUTES[id as keyof typeof MOCK_ATTRIBUTES] || MOCK_ATTRIBUTES['1']; // Fallback to first athlete
+  /**
+   * Fetch athlete and attributes data from Supabase
+   * Runs when component mounts AND whenever the id changes
+   * Example: If user navigates from athlete 5 to athlete 3, this runs again with new id
+   */
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
 
+      // Validate that id exists and is a string
+      // Example: If id is undefined or 123 (number), show error
+      if (!id || typeof id !== 'string') {
+        setError('Invalid athlete ID.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        ////////////////////////////// STEP 1: FETCH ATHLETE DATA /////////////
+        const athleteData = await getAthleteById(parseInt(id));
+
+        if (athleteData) {
+          const transformedAthlete = transformDatabaseAthlete(athleteData);
+          setAthlete(transformedAthlete);
+        }
+
+        ////////////////////////////// STEP 2: FETCH ATHLETE ATTRIBUTES /////////////
+        // Note: This query requires a join with Attributes table to get attribute_type
+        // The athleteService.getAthleteAttributes() doesn't include this join
+        // So we keep this inline query for now
+        const { data: athleteAttributesData, error: attributesError } =
+          await supabase
+            .from('Athlete_attributes')
+            .select(
+              `
+              value,
+              Attributes!inner(attribute_type)
+            `
+            )
+            .eq('athlete_no', id);
+
+        if (attributesError) {
+          throw attributesError;
+        }
+
+        if (athleteAttributesData) {
+          const transformedAttributes: Attribute[] = athleteAttributesData.map(
+            (item: any) => ({
+              label: item.Attributes?.attribute_type || 'Unknown',
+              primary: item.value || '',
+              secondary: '',
+            })
+          );
+
+          setAttributes(transformedAttributes);
+        }
+      } catch (err) {
+        console.error('Error fetching athlete attributes:', err);
+        setError('Failed to load athlete attributes.');
+        setAthlete(null);
+        setAttributes([]);
+      } finally {
+        setLoading(false); // Always set loading to false when done (success or error)
+      }
+    };
+
+    fetchData();
+  }, [id]); // Dependency: Re-fetch when id changes
+  ////////////////////////////// END OF USE EFFECTS ////////////////
+
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
+  /**
+   * Called when user clicks the edit (pencil) icon on an attribute row
+   * Example: User clicks edit on "Height" row → logs "Edit attribute: Height for athlete: John Doe"
+   */
   const handleEditAttribute = (label: string) => {
     console.log('Edit attribute:', label, 'for athlete:', athlete?.name);
-    // Navigate to edit attribute screen
+    // Navigate to edit attribute screen (TODO: implement navigation)
   };
 
+  /**
+   * Called when user clicks the delete (trash) icon on an attribute row
+   * Example: User clicks delete on "Weight" row → logs "Delete attribute: Weight for athlete: John Doe"
+   */
   const handleDeleteAttribute = (label: string) => {
     console.log('Delete attribute:', label, 'for athlete:', athlete?.name);
-    // Show confirmation dialog and delete
+    // Show confirmation dialog and delete (TODO: implement delete functionality)
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
-  if (!athlete) {
+  /////////////////////////////// START OF CONDITIONAL RENDERS /////////////
+  /**
+   * Show loading state while fetching data from Supabase
+   * Example: Displays "Loading athlete attributes..." spinner
+   */
+  if (loading) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-lg font-semibold text-gray-500">
-          Athlete not found
-        </Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: '#F9FAFB' }}>
+        <View className="items-center">
+          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: '#FEF2F2' }}>
+            <Ionicons name="fitness" size={32} color="#DC2626" />
+          </View>
+          <Text className="text-lg font-semibold text-gray-700">
+            Loading attributes...
+          </Text>
+          <Text className="mt-2 text-sm text-gray-500">
+            Fetching athlete data
+          </Text>
+        </View>
       </View>
     );
   }
 
-  return (
-    <View className="flex-1">
-      {/* Scrollable Content */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Athlete Profile Section */}
-        <View className="items-center px-4 py-4 sm:py-6">
-          <Text className="mb-1 text-center text-xl font-bold text-black sm:text-2xl">
-            {athlete.name}
+  /**
+   * Show error state if fetch failed or athlete not found
+   * Example: Displays "Failed to load athlete attributes." or "Athlete not found"
+   */
+  if (error || !athlete) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: '#F9FAFB' }}>
+        <View className="items-center px-6">
+          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: '#FEF2F2' }}>
+            <Ionicons name="alert-circle" size={32} color="#DC2626" />
+          </View>
+          <Text className="mb-2 text-lg font-semibold text-gray-900">
+            {error || 'Athlete not found'}
           </Text>
-          <Text className="text-center text-base text-gray-600 sm:text-lg">
-            {athlete.position}
+          <Text className="text-center text-sm text-gray-500">
+            Unable to load athlete attributes. Please try again.
           </Text>
         </View>
+      </View>
+    );
+  }
+  ////////////////////////////// END OF CONDITIONAL RENDERS ////////////////
 
-        {/* Attributes Card */}
-        <View className="px-2 pb-6 sm:px-4">
-          <View
-            className="rounded-xl bg-white p-4 sm:p-6"
-            style={{
-              shadowColor: '#000',
-              shadowOffset: {
-                width: 0,
-                height: 2
-              },
-              shadowOpacity: 0.1,
-              shadowRadius: 3.84,
-              elevation: 5
-            }}
-          >
-            {/* Card Header */}
-            <Text className="mb-4 text-lg font-bold text-black sm:mb-6 sm:text-xl">
-              Physical & Performance Measurements
-            </Text>
-
-            {/* Attributes List */}
-            <View>
-              {attributes.map(
-                (
-                  attribute: {
-                    label: string;
-                    primary: string;
-                    secondary: string;
-                  },
-                  index: number
-                ) => (
-                  <AttributeRow
-                    key={index}
-                    label={attribute.label}
-                    primary={attribute.primary}
-                    secondary={attribute.secondary}
-                    onEdit={() => handleEditAttribute(attribute.label)}
-                    onDelete={() => handleDeleteAttribute(attribute.label)}
-                  />
-                )
-              )}
+  /////////////////////////////// START OF JSX RETURN /////////////
+  /**
+   * Main UI Render - Modern Design
+   * Displays:
+   *   1. Hero header with athlete info (gradient background)
+   *   2. Individual attribute cards in grid layout
+   *   3. Each attribute card has icon, label, value, and action buttons
+   *   4. "Add New Measurement" floating button
+   */
+  return (
+    <View className="flex-1" style={{ backgroundColor: '#F9FAFB' }}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Hero Header Section */}
+        <View
+          className="px-6 pb-6 pt-8"
+          style={{
+            backgroundColor: '#DC2626',
+            borderBottomLeftRadius: 32,
+            borderBottomRightRadius: 32
+          }}
+        >
+          <View className="items-center">
+            {/* Athlete Avatar */}
+            <View
+              className="mb-3 h-20 w-20 items-center justify-center rounded-full"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+            >
+              <Ionicons name="person" size={40} color="#FFFFFF" />
             </View>
 
-            {/* Add New Attribute Button */}
-            <TouchableOpacity
-              className="mt-4 flex-row items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 sm:mt-6 sm:py-3"
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle" size={18} color="#3B82F6" />
-              <Text className="ml-2 text-sm font-medium text-blue-600 sm:text-base">
-                Add New Measurement
+            {/* Athlete Info */}
+            <Text className="mb-1 text-center text-2xl font-bold text-white">
+              {athlete.name}
+            </Text>
+            <View className="flex-row items-center">
+              <View className="mr-2 rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
+                <Text className="text-sm font-semibold text-white">
+                  #{athlete.number}
+                </Text>
+              </View>
+              <Text className="text-base text-white opacity-90">
+                {athlete.position}
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
+
+        {/* Attributes Grid Section */}
+        <View className="px-4 pb-8 pt-4">
+          {/* Section Header */}
+          <View className="mb-6 flex-row items-center justify-between">
+            <Text className="text-xl font-bold text-gray-900">
+              Measurements
+            </Text>
+            <View className="flex-row items-center rounded-lg px-3 py-1.5" style={{ backgroundColor: '#FEF2F2' }}>
+              <Ionicons name="fitness" size={16} color="#DC2626" />
+              <Text className="ml-1.5 text-xs font-semibold text-red-600">
+                {attributes.length} Total
+              </Text>
+            </View>
+          </View>
+
+          {/* Attributes List */}
+          {attributes.length === 0 ? (
+            // Empty State
+            <View className="items-center rounded-2xl bg-white py-12 px-6" style={{ borderWidth: 1, borderColor: '#F3F4F6' }}>
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: '#FEF2F2' }}>
+                <Ionicons name="fitness-outline" size={32} color="#DC2626" />
+              </View>
+              <Text className="mb-2 text-lg font-semibold text-gray-900">
+                No Attributes Yet
+              </Text>
+              <Text className="text-center text-sm text-gray-500">
+                Start tracking this athlete's physical measurements
+              </Text>
+            </View>
+          ) : (
+            // Attributes Grid
+            <View>
+              {attributes.map((attribute, index) => (
+                <AttributeContentCard
+                  key={index}
+                  label={attribute.label}
+                  primary={attribute.primary}
+                  secondary={attribute.secondary}
+                  onEdit={() => handleEditAttribute(attribute.label)}
+                  onDelete={() => handleDeleteAttribute(attribute.label)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Bottom Spacing for Floating Button */}
+        <View className="h-24" />
       </ScrollView>
+
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full"
+        style={{
+          backgroundColor: '#DC2626',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8
+        }}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 }
+////////////////////////////// END OF JSX RETURN ////////////////
+////////////////////////////// END OF MAIN COMPONENT ////////////////

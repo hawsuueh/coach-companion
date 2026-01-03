@@ -6,6 +6,7 @@ interface AthleteCardProps {
   playerName: string;
   position: string;
   onPress?: () => void;
+  onLongPress?: () => void;
   className?: string;
 }
 
@@ -14,12 +15,14 @@ export default function AthleteCard({
   playerName,
   position,
   onPress,
+  onLongPress,
   className = ''
 }: AthleteCardProps) {
   return (
     <TouchableOpacity
       className={`mb-3 rounded-xl p-3 ${className}`}
       onPress={onPress}
+      onLongPress={onLongPress}
       activeOpacity={0.7}
       style={{
         backgroundColor: '#FFFFFF',

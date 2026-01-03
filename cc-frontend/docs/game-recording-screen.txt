@@ -1,0 +1,189 @@
+Game Recording Screen Overview
+================================
+
+File: app/(coach)/(tabs)/athletes-module/game/[id]/recording.tsx
+
+
+1. High-Level Purpose
+---------------------
+- Presents the in-game stat recording workflow for a single scheduled game.
+- Pulls roster, game metadata, and any existing per-quarter player stats from Supabase.
+- Lets the coach track stats live, auto-saves updates back to Supabase, summarizes quarter
+  scoring, and exports the results to a PDF-ready stats sheet.
+
+
+2. Data Models and Helpers
+--------------------------
+Database Interfaces:
+  - `DatabaseAthlete`, `DatabaseGame`, `DatabaseAthleteGame` mirror Supabase tables.
+  - Provide typed access to the raw columns returned by Supabase.
+
+UI Models or making the database interface to a UI friendly interpretation:
+  - `Athlete`, `Game`, `PlayerStats`, `PlayerQuarterStats` reorganize raw data into shapes that
+    are convenient for rendering (numbers as strings, grouped values, etc.).
+
+Factory & Aggregators:
+
+Factory (createEmptyPlayerStats)
+Think of it as a factory that manufactures a fresh, fully-populated PlayerStats object every time we need one.
+
+Aggregators (calculateTotalPoints, calculateTotalPointsForPlayer, aggregateNumberStat, aggregateShootingTotals, formatPercentage)
+These helpers “aggregate” numbers—combine or summarize data. They total up points, rebounds, etc., across quarters or within a stat category, and format percentages. That keeps the math centralized so both the UI and export features rely on the same logic.
+
+-> So “factory” = builds a default data object, “aggregators” = gather stats into useful totals/percentages.
+
+
+  - `createEmptyPlayerStats()` seeds a blank stats object for new athletes/quarters so that
+    downstream code can assume keys exist.
+  - `calculateTotalPoints()`, `calculateTotalPointsForPlayer()`, `aggregateNumberStat()`, and
+    `aggregateShootingTotals()` are utility functions used by the UI and export logic to compute
+    totals and percentages consistently.
+  - `formatPercentage()` encapsulates the percentage formatting logic so the UI and PDF export
+    are always in sync.
+
+Transformers:
+  - `transformDatabaseAthlete()` cleans a raw Supabase athlete into the UI-friendly structure.
+  - `transformDatabaseGame()` combines date/time strings, team names, and season info into a
+    single object used across the screen and export.
+
+
+3. Component State
+------------------
+Primary React State Hooks:
+  - `activeTab`: toggles between “Real-Time” stat input view and “Stats Sheet” view.
+  - `selectedPlayerId` / `selectedStatsAthlete`: track the athlete currently being edited in each
+    tab. The screen supports updating stats from two different UX flows.
+  - `playerStats`: nested record keyed by athlete id and quarter number, holding `PlayerStats`
+    objects for every combo the coach edits or loads from Supabase.
+  - `quarterScores`: derived totals for the home/away team flow, updated via `updateQuarterScores()`.
+  - `currentQuarter`: drives the quarter selector and determines which stats entry form is active.
+  - `exporting`: controls loading state for the export button while the PDF is being generated.
+
+Data Loading State:
+  - `game`, `selectedAthletes`, `loading`, `error` track the asynchronous Supabase fetches.
+  - Refs `saveTimeoutRef` and `pendingSavesRef` are part of the debounced auto-save mechanism.
+
+
+4. Supabase Fetch & Save Functions
+----------------------------------
+`fetchGame()`, `fetchRosterAthletes()`, `fetchGameStats()`:
+  - Run on initial load (and on retry) to pull the game metadata, the roster for this game, and any
+    existing `athlete_game` rows.
+  - Errors are caught and either surface as retryable UI errors or logged; the main screen handles
+    loading/error states based on `loading` and `error`.
+
+`saveStatsToDatabase()` (wrapped in `useCallback`):
+  - Accepts athlete id, quarter, and the in-memory `PlayerStats` structure.
+  - Calculates points, flattens the nested stats into the columns required by Supabase, and upserts
+    into the `athlete_game` table (update if existing, otherwise insert).
+  - Used by the explicit “Save Stats” button and by the auto-save scheduler.
+
+
+5. Auto-Save Pipeline
+---------------------
+`ensureQuarterStats(playerId, quarter)`:
+  - Guarantees that the specific athlete/quarter entry exists in `playerStats` before editing to
+    avoid undefined access.
+
+`scheduleAutoSave(athleteId, quarter)`:
+  - Debounces saves for a given athlete+quarter pair. It stores pending keys in `pendingSavesRef`,
+    resets a timeout, and when the timeout fires, snapshots the current state and calls
+    `saveStatsToDatabase()` for each pending entry.
+  - Keeps the UI responsive by preventing a network call on every keystroke.
+
+`updateQuarterScores()`:
+  - Recomputes aggregate quarter totals every time `playerStats` changes. That drives the “Quarter
+    Scores” header and the stats sheet preview.
+
+
+6. Event Handlers
+-----------------
+Navigation/Button Handlers:
+  - `handleBackPress()` uses `router.back()` so the screen integrates with Expo Router history.
+  - `handleReset()` prompts the user and clears all in-memory stats (`playerStats`) if confirmed.
+
+Quarter & Athlete Selection:
+  - `handleQuarterChange()` updates `currentQuarter`, ensures stats objects exist for both selected
+    player contexts, and therefore keeps UI forms in sync when switching quarters mid-recording.
+  - `handleStatsAthleteSelect()` sets the dropdown selection in the “Stats Sheet” tab and ensures
+    quarter stats are initialized.
+
+Form Update Handlers:
+  - `handleShootingStatsUpdate()`, `handleReboundingStatsUpdate()`, and `handleOtherStatsUpdate()`
+    each update the nested `playerStats` structure for the selected athlete/quarter, then invoke
+    the auto-save scheduler to persist the change shortly after the user finishes typing/tapping.
+
+Export:
+  - `handleExport()` performs several tasks:
+      1. Validates prerequisites (game loaded, roster exists).
+      2. Sorts athletes by jersey number, then builds `PlayerExportRow` entries by aggregating
+         per-quarter stats.
+      3. Computes team totals to display the overall FG/2P/3P/FT percentages and counting stats.
+      4. Calls `renderGameStatsHtml()` to turn the data into styled HTML.
+      5. Uses `Print.printToFileAsync()` to render the HTML into a PDF.
+      6. Moves the output into the app documents folder and, if available, launches the native
+         share sheet via `Sharing.shareAsync()` so the coach can save or send the file directly
+         from Expo Go.
+      7. Displays alerts on success/failure and toggles the `exporting` spinner state.
+
+
+7. Rendering Layout
+-------------------
+Loading/Error Handling:
+  - Early returns show loading spinner text or a retry UI if the Supabase calls fail.
+
+Main View Includes:
+  - Header: Game name.
+  - Quarter selector row with a Reset button (quarter buttons highlight based on `currentQuarter`).
+  - Collapsible Quarter Scores summary that reflects `quarterScores`.
+  - Tab navigation for `Real-Time` and `Stats Sheet`.
+
+Real-Time Tab:
+  - Horizontal scroller of rostered athletes for quick selection.
+  - Export button that calls the PDF workflow described above.
+  - Stat entry cards (`StatCard`, `SimpleStatRow`) for 2pt, 3pt, free throw, rebound, and other
+    categories. Each modification triggers `setPlayerStats` and the auto-save scheduler.
+
+Stats Sheet Tab:
+  - Dropdown to pick an athlete, followed by the structured forms for shooting, rebounding, and
+    other stats (shared handlers ensure all updates persist the same way).
+  - Manual “Save Stats” button that immediately calls `saveStatsToDatabase()` for the current
+    athlete and quarter.
+  - Summary “Complete Stats Sheet” section rendering total points, rebounds, assists, steals, and
+    blocks for every athlete using the aggregated helper functions. This gives a preview similar to
+    the exported PDF layout.
+
+
+8. External Dependencies
+------------------------
+- `expo-print`, `expo-file-system`, `expo-sharing`: handle PDF generation, file storage, and share
+  dialogs.
+- Supabase JavaScript client: database queries and upserts for roster, game details, and stats.
+- Expo Router (`useRouter`, `useLocalSearchParams`) for screen context and navigation.
+- Custom components from the codebase (`StatCard`, `SimpleStatRow`, `ShootingStats_StatsForm`, etc.)
+  encapsulate UI patterns for card layouts and inputs.
+
+
+9. Why This Structure?
+----------------------
+- Keeping `PlayerStats` grouped by quarter allows the app to support per-quarter entry, quarter
+  switching, and accurate quarter totals without separate tables or fragile calculations.
+- Using React state plus Supabase auto-save means the coach sees immediate UI feedback while the
+  data is asynchronously persisted; debouncing avoids overwhelming the backend.
+- Exporting to HTML + `expo-print` is the most straightforward way to create printable PDFs inside
+  Expo Go (alternatives like pdf-lib require manual drawing operations).
+- Separating helper functions (aggregators, transformers) keeps rendering and business logic clean
+  and re-usable across tabs and export functionality.
+
+
+
+ADDITIONAL NOTES:
+
+They’re linked. Think of Record<K, V> as “for each key of type K, store one value of type V.”
+-> K tells TypeScript what kind of identifier you’ll use to look things up.
+-> V tells TypeScript what kind of data you’ll get back when you look things up.
+
+In our case, Record<number, PlayerStats> says: “When you index this object with a number (like 2), the value at that number must be a PlayerStats object.”
+ You can’t change one without the other—the key type determines how you access the data, and the value type determines what data lives there.
+
+

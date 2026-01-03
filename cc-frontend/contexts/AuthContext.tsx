@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/config/supabaseClient';
+import { getUserProfile, getCoachNoByAccount, UserProfile } from '@/services/authService';
 
 // Types
-interface UserProfile {
-  account_no: number;
-  first_name: string | null;
-  last_name: string | null;
-  role: string; // 'coach', 'athlete', 'director'
+interface DatabaseCoach {
+  coach_no: number;
+  account_no: number | null; // FK to Account table
+  contact_no: string | null;
 }
 
 interface AuthContextType {
@@ -15,6 +15,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
+  coachNo: number | null; // Coach number if user is a coach
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (
     email: string,
@@ -35,45 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Get user profile from your Account table
-  const getUserProfile = async (userId: string) => {
-    try {
-      console.log('👤 Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('Account')
-        .select(
-          `
-          account_no,
-          first_name,
-          last_name,
-          Role(user_role)
-        `
-        )
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.log('❌ Profile fetch error:', error);
-        throw error;
-      }
-
-      console.log('📋 Raw profile data:', data);
-
-      const profile = {
-        account_no: data.account_no,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        role: (data.Role as any)?.user_role || ''
-      };
-
-      console.log('✅ Processed profile:', profile);
-      return profile;
-    } catch (error) {
-      console.error('💥 Error fetching user profile:', error);
-      return null;
-    }
-  };
+  const [coachNo, setCoachNo] = useState<number | null>(null);
 
   // Sign In
   const signIn = async (email: string, password: string) => {
@@ -181,6 +144,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+          setCoachNo(coachNumber);
+        } else {
+          setCoachNo(null);
+        }
+      } else {
+        setCoachNo(null);
       }
 
       setLoading(false);
@@ -209,8 +182,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+          setCoachNo(coachNumber);
+        } else {
+          setCoachNo(null);
+        }
       } else {
         setProfile(null);
+        setCoachNo(null);
       }
 
       setLoading(false);
@@ -224,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     session,
     loading,
+    coachNo,
     signIn,
     signUp,
     signOut
