@@ -16,7 +16,7 @@ export default function TrainingCard({
 
       {/* Date and Time */}
       <Text className="text-label1">
-        {date}, {time}
+        {date} • {time}
       </Text>
     </View>
   );
