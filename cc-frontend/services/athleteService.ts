@@ -272,3 +272,81 @@ export const removeAthleteFromBatch = async (
     return false;
   }
 };
+
+/**
+ * Get athlete number from Athlete table by account number
+ * @param accountNo - Account number from Account table
+ * @returns Athlete number or null if not found/error
+ */
+export const getAthleteNoByAccount = async (
+  accountNo: number
+): Promise<number | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('Athlete')
+      .select('athlete_no')
+      .eq('account_no', accountNo)
+      .single();
+
+    if (error) {
+      if (error.code !== 'PGRST116') { // Ignore "no rows found"
+        console.log('❌ Athlete fetch error:', error);
+      }
+      return null;
+    }
+
+    return data?.athlete_no || null;
+  } catch (error) {
+    console.error('💥 Error fetching athlete number:', error);
+    return null;
+  }
+};
+
+/**
+ * Search for athletes by name (for profile linking)
+ * @param query - Name search query
+ * @returns Array of matching athletes
+ */
+export const searchAthletesByName = async (
+  query: string
+): Promise<DatabaseAthlete[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('Athlete')
+      .select('*')
+      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+      .is('account_no', null) // Only show unlinked athletes
+      .limit(10);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error searching athletes:', error);
+    return [];
+  }
+};
+
+/**
+ * Link an athlete record to an account
+ * @param athleteNo - Athlete ID to link
+ * @param accountNo - Account ID to link to
+ * @returns Success boolean
+ */
+export const linkAthleteToAccount = async (
+  athleteNo: number,
+  accountNo: number
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('Athlete')
+      .update({ account_no: accountNo })
+      .eq('athlete_no', athleteNo);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error linking athlete to account:', error);
+    return false;
+  }
+};
+
