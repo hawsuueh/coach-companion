@@ -203,7 +203,7 @@ export const createAthlete = async (
           player_no: athlete.player_no
         }
       ])
-      .select('athlete_no')
+      .select('athlete_no') // we immediately select the athlete_no that we recently created because we are gonna use it to link to a BATCH
       .single();
 
     if (athleteError) {

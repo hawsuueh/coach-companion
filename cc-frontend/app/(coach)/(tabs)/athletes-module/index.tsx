@@ -50,6 +50,7 @@ export default function AthleteScreen() {
   const [showGameFilterModal, setShowGameFilterModal] = useState(false);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [gamesError, setGamesError] = useState<string | null>(null);
+  const [gameSortLabel, setGameSortLabel] = useState<string | null>(null);
 
   // Purpose: Handles the deletion of an athlete from a batch
   // 1. Validates that a batch and coach context exist
@@ -315,8 +316,8 @@ export default function AthleteScreen() {
         placeholder={activeTab === 'games' ? 'Search games...' : 'Search athletes...'}
       />
 
-      {/* Batch Selection Indicator */}
-      {selectedBatch && (
+      {/* Batch Selection Indicator - Only show on Athletes tab */}
+      {activeTab === 'athletes' && selectedBatch && (
         <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
           <Text className="text-center text-sm text-red-600">
             Showing athletes from Batch {selectedBatch.batch_no}
@@ -329,6 +330,15 @@ export default function AthleteScreen() {
                 {new Date(selectedBatch.end_date).toLocaleDateString()})
               </Text>
             )}
+          </Text>
+        </View>
+      )}
+
+      {/* Game Filter Indicator - Only show on Games tab */}
+      {activeTab === 'games' && gameSortLabel && (
+        <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
+          <Text className="text-center text-sm text-red-600">
+            Showing games: {gameSortLabel}
           </Text>
         </View>
       )}
@@ -517,7 +527,10 @@ export default function AthleteScreen() {
             </Text>
 
             <TouchableOpacity
-              onPress={() => setShowGameFilterModal(false)}
+              onPress={() => {
+                 setGameSortLabel(null);
+                 setShowGameFilterModal(false);
+              }}
               className="mb-3 rounded-lg bg-gray-100 p-3"
             >
               <Text className="text-center font-medium text-gray-700">
@@ -528,6 +541,7 @@ export default function AthleteScreen() {
              <TouchableOpacity
               onPress={() => {
                  setGames([...games].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                 setGameSortLabel('Most Recent First');
                  setShowGameFilterModal(false);
               }}
               className="mb-3 rounded-lg bg-gray-100 p-3"
@@ -540,6 +554,7 @@ export default function AthleteScreen() {
             <TouchableOpacity
               onPress={() => {
                  setGames([...games].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+                 setGameSortLabel('Oldest First');
                  setShowGameFilterModal(false);
               }}
               className="mb-3 rounded-lg bg-gray-100 p-3"
