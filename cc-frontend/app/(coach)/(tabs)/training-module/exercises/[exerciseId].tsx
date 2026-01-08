@@ -16,9 +16,14 @@ export default function ExerciseDetails() {
   // Dummy exercise
   const exercise = {
     exerciseId: exerciseId,
-    name: 'Bench Press',
-    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    instructions: ['Lie on bench', 'Lower Bar', 'Press up'],
+    name: 'Plank Hold',
+    url: 'https://www.youtube.com/watch?v=pSHjTRCQxIw',
+    instructions: [
+      'Place elbows under shoulders',
+      'Engage core and glutes',
+      'Keep body in straight line',
+      'Hold position without sagging hips'
+    ],
     equipment: 'Barbell',
     type: 'Strength',
     bodypart: 'Chest',

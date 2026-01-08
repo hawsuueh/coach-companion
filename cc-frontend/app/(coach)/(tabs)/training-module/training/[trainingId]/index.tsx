@@ -9,6 +9,7 @@ import IconButton from '@/components/training-module/buttons/IconButton';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
+import { TimerCard } from '@/components/training-module/cards/TimerCard';
 
 export default function TrainingDetails() {
   const { trainingId } = useLocalSearchParams<{ trainingId: string }>();
@@ -19,9 +20,10 @@ export default function TrainingDetails() {
   // Dummy training (metadata)
   const training = {
     trainingId: trainingId,
-    name: 'Training Name',
+    name: 'Core Strength Training',
     date: 'Sept 15, 2025',
-    time: '7:00 AM'
+    time: '7:00 AM',
+    duration: 3600
   };
 
   // Dummy athlete_training data
@@ -81,12 +83,16 @@ export default function TrainingDetails() {
       </View>
 
       {/* Training Card */}
-      <View className="mb-5">
+      <View>
         <TrainingCard
           name={training.name}
           date={training.date}
           time={training.time}
         />
+      </View>
+
+      <View className="items-center">
+        <TimerCard remainingSeconds={training.duration} />
       </View>
 
       {/* Filter Button */}

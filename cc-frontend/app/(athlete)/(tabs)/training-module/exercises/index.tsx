@@ -22,7 +22,7 @@ export default function Exercises() {
   const exercises = [
     {
       exerciseId: '1',
-      exerciseName: 'Push-Ups',
+      exerciseName: 'Plank Hold',
       description: 'Strengthens chest, shoulders, and triceps'
     },
     {

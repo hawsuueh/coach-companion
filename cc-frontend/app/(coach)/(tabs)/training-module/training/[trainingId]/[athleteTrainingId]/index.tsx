@@ -22,9 +22,9 @@ export default function AthleteTraining() {
   // Dummy athlete_training (metadata)
   const athleteTraining = {
     athleteTrainingId: athleteTrainingId,
-    athleteName: 'Athlete Name',
-    position: 'Postion',
-    trainingName: 'Training Name',
+    athleteName: 'John Doe',
+    position: 'Guard',
+    trainingName: 'Core Strength Training',
     date: 'Sept 15, 2025',
     time: '7:00 AM'
   };
@@ -71,10 +71,8 @@ export default function AthleteTraining() {
   const handleFloatingPress = () =>
     console.log('Floating button pressed in training details');
 
-  const handleAExercisePress = (athleteTrainingExerciseId: string) => {
-    router.push(
-      `/training-module/training/${trainingId}/${athleteTrainingId}/${athleteTrainingExerciseId}` as Href
-    );
+  const handleAExercisePress = (exerciseId: string) => {
+    router.push(`/training-module/exercises/${exerciseId}` as Href);
   };
 
   // Set header2 title whenever this screen loads
@@ -132,11 +130,11 @@ export default function AthleteTraining() {
       />
 
       {/* Floating Button */}
-      <FloatingButton
+      {/* <FloatingButton
         onPress={handleFloatingPress}
         icon="edit"
         IconComponent={AntDesign}
-      />
+      /> */}
     </View>
   );
 }

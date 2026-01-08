@@ -17,7 +17,7 @@ export default function AthleteTraining() {
   const trainingToday = {
     athleteTrainingId: '1',
     trainingId: '1',
-    name: 'Training Name',
+    name: 'Speed & Conditioning',
     date: 'Sept 15, 2025',
     time: '7:00 AM'
   };
@@ -35,7 +35,7 @@ export default function AthleteTraining() {
   const athleteTraining = [
     {
       athleteTrainingId: '1',
-      trainingName: 'Core Strength Training',
+      trainingName: 'Speed & Conditioning',
       dateTime: 'Sept 15, 2025 - 7:00 AM'
     },
     {

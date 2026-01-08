@@ -22,7 +22,7 @@ export default function AthleteTrainingDetails() {
     name: 'Speed & Conditioning',
     date: 'Sept 15, 2025',
     time: '7:00 AM',
-    duration: 990, // total seconds including rests (example)
+    duration: 3600, // total seconds including rests (example)
     status: 'assigned',
     timeElapsed: 0,
     dateExecuted: null
@@ -33,56 +33,26 @@ export default function AthleteTrainingDetails() {
     {
       athleteTrainingExerciseId: '1',
       exerciseId: '1',
-      exerciseName: 'Push-Ups',
+      exerciseName: 'Defensive Slides',
       description: 'Strengthens chest, shoulders, and triceps'
     },
     {
       athleteTrainingExerciseId: '2',
       exerciseId: '2',
-      exerciseName: 'Squats',
+      exerciseName: 'Suicide Sprints',
       description: 'Targets quads, hamstrings, and glutes'
     },
     {
       athleteTrainingExerciseId: '3',
       exerciseId: '3',
-      exerciseName: 'Plank',
+      exerciseName: 'Plank Hold',
       description: 'Improves core strength and stability'
     },
     {
       athleteTrainingExerciseId: '4',
       exerciseId: '4',
-      exerciseName: 'Lunges',
+      exerciseName: 'Jump Squats',
       description: 'Enhances balance and strengthens legs'
-    },
-    {
-      athleteTrainingExerciseId: '5',
-      exerciseId: '5',
-      exerciseName: 'Burpees',
-      description: 'Full-body exercise for strength and endurance'
-    },
-    {
-      athleteTrainingExerciseId: '6',
-      exerciseId: '6',
-      exerciseName: 'Jump Rope',
-      description: 'Boosts cardiovascular endurance and coordination'
-    },
-    {
-      athleteTrainingExerciseId: '7',
-      exerciseId: '7',
-      exerciseName: 'Lunges',
-      description: 'Enhances balance and strengthens legs'
-    },
-    {
-      athleteTrainingExerciseId: '8',
-      exerciseId: '8',
-      exerciseName: 'Burpees',
-      description: 'Full-body exercise for strength and endurance'
-    },
-    {
-      athleteTrainingExerciseId: '9',
-      exerciseId: '9',
-      exerciseName: 'Jump Rope',
-      description: 'Boosts cardiovascular endurance and coordination'
     }
   ];
 

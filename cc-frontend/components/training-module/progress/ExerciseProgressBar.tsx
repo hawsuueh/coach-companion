@@ -11,7 +11,7 @@ const ExerciseProgressBar = ({
   completedIndex
 }: ExerciseProgressBarProps) => {
   return (
-    <View className="mb-4 flex-row items-center justify-between">
+    <View className="flex-row items-center justify-between">
       {Array.from({ length: total }).map((_, index) => {
         const isCompleted = index <= completedIndex;
 

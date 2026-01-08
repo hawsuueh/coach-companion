@@ -6,10 +6,16 @@ type TimerCardProps = {
 };
 
 export function TimerCard({ remainingSeconds }: TimerCardProps) {
-  const minutes = Math.floor(remainingSeconds / 60);
+  const hours = Math.floor(remainingSeconds / 3600);
+  const minutes = Math.floor((remainingSeconds % 3600) / 60);
   const seconds = remainingSeconds % 60;
 
-  const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const formattedTime =
+    hours > 0
+      ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
+          .toString()
+          .padStart(2, '0')}`
+      : `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
   return (
     <View className="flex-row items-center gap-1 px-4 py-3">

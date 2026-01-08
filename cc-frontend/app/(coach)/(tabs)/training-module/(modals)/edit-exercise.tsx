@@ -34,14 +34,23 @@ export default function EditExerciseModal() {
   // 🔹 Dummy exercise (simulating DB result)
   const exercise = {
     exerciseId,
-    name: 'Bench Press',
-    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    instructions: ['Lie on bench', 'Lower bar', 'Press up'],
+    name: 'Plank Hold',
+    url: 'https://www.youtube.com/watch?v=pSHjTRCQxIw',
+    instructions: [
+      'Place elbows under shoulders',
+      'Engage core and glutes',
+      'Keep body in straight line',
+      'Hold position without sagging hips'
+    ],
     equipment: ['2'], // must match dropdown values
     type: '1',
     primaryMuscle: ['1'],
     secondaryMuscle: ['3']
   };
+
+  useEffect(() => {
+    setTitle('Edit Exercise');
+  });
 
   // 🔹 Populate modal when exercise loads
   useEffect(() => {

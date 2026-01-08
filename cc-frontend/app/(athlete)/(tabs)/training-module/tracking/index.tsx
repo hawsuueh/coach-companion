@@ -19,7 +19,6 @@ export default function AthleteTracking() {
     {
       trackingId: '1',
       trainingId: '1',
-      number: '23',
       name: 'Core Strength Training',
       dateTime: 'Sept 15, 2025 - 7:00 AM',
       status: 'assigned'
@@ -37,6 +36,14 @@ export default function AthleteTracking() {
       name: 'Explosive Power Workout',
       dateTime: 'Sept 17, 2025 - 6:30 AM',
       status: 'missed'
+    },
+    {
+      trackingId: '4',
+      trainingId: '4',
+      number: '23',
+      name: 'Speed & Conditioning',
+      dateTime: 'Sept 15, 2025 - 7:00 AM',
+      status: 'done'
     }
   ];
 

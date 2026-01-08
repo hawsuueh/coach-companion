@@ -14,8 +14,8 @@ export default function ExerciseDetails() {
   // Dummy exercise
   const exercise = {
     exerciseId: exerciseId,
-    name: 'Bench Press',
-    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    name: 'Plank Hold',
+    url: 'https://www.youtube.com/watch?v=pSHjTRCQxIw',
     instructions: ['Lie on bench', 'Lower Bar', 'Press up'],
     equipment: 'Barbell',
     type: 'Strength',
@@ -29,9 +29,6 @@ export default function ExerciseDetails() {
       'Core Muscles'
     ]
   };
-
-  const handleFloatingPress = () =>
-    console.log('Floating button pressed in training details');
 
   // Set header2 title whenever this screen loads
   useEffect(() => {
