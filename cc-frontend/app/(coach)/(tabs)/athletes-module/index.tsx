@@ -1,184 +1,183 @@
-import { useRouter } from 'expo-router';
+/////////////////////////////// START OF IMPORTS /////////////
+import { useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { FlatList, View, Text, TouchableOpacity, Modal } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { FlatList, View, Text, TouchableOpacity, Modal, Alert } from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingButton from '@/components/buttons/FloatingButton';
-import GameCard from '@/components/cards/GameCard';
+import SeasonCard from '@/components/cards/SeasonCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
-import supabase from '@/config/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  getBatchesByCoach,
+  getCurrentBatch,
+  getAthletesByBatch,
+  getAllAthletes,
+  transformDatabaseAthlete,
+  removeAthleteFromBatch,
+  type Batch,
+  type Athlete
+} from '@/services';
+import {
+  getAllSeasons,
+  transformDatabaseSeason,
+  type Season
+} from '@/services/seasonService';
+////////////////////////////// END OF IMPORTS ////////////////
 
-interface Athlete {
-  id: string;
-  number: string;
-  name: string;
-  position: string;
-}
+/////////////////////////////// START OF INTERFACES /////////////
+// Interfaces are now imported from services
+////////////////////////////// END OF INTERFACES ////////////////
 
-interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
-}
+/////////////////////////////// START OF HELPER FUNCTIONS /////////////
+// Helper functions are now imported from services
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
-interface Batch {
-  batch_no: number;
-  start_date: string | null;
-  end_date: string | null;
-}
-
-interface Game {
-  id: string;
-  gameName: string;
-  date: string;
-}
-
-interface DatabaseGame {
-  game_no: number;
-  date: string | null;
-  time: string | null;
-  season_no: number | null;
-  player_name: string | null;
-  opponent_name: string | null;
-}
-
-// Helper function to transform database athlete to UI athlete
-const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
-  const fullName = [
-    dbAthlete.first_name,
-    dbAthlete.middle_name,
-    dbAthlete.last_name
-  ]
-    .filter(name => name && name.trim() !== '')
-    .join(' ');
-
-  return {
-    id: dbAthlete.athlete_no.toString(),
-    number: dbAthlete.player_no?.toString() || '0',
-    name: fullName || 'Unknown Player',
-    position: dbAthlete.position || 'Unknown'
-  };
-};
-
-// Helper function to transform database game to UI game
-const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
-  const gameDate = dbGame.date
-    ? new Date(dbGame.date).toLocaleDateString()
-    : 'TBD';
-  const gameTime = dbGame.time
-    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '';
-
-  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
-
-  // Create game name using player_name and opponent_name
-  const playerTeam = dbGame.player_name || 'Your Team';
-  const opponentTeam = dbGame.opponent_name || 'TBD';
-  const gameName = `${playerTeam} vs ${opponentTeam}`;
-
-  return {
-    id: dbGame.game_no.toString(),
-    gameName: gameName,
-    date: formattedDate
-  };
-};
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function AthleteScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
+  const { coachNo } = useAuth();
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
-  const [gamesLoading, setGamesLoading] = useState(true);
-  const [gamesError, setGamesError] = useState<string | null>(null);
+  const [seasonsLoading, setSeasonsLoading] = useState(true);
+  const [seasonsError, setSeasonsError] = useState<string | null>(null);
 
-  const athleteTabs = [
-    { id: 'athletes', label: 'Athletes' },
-    { id: 'games', label: 'Games' }
-  ];
+  // Purpose: Handles the deletion of an athlete from a batch
+  // 1. Validates that a batch and coach context exist
+  // 2. Shows a confirmation alert to the user
+  // 3. Calls the removeAthleteFromBatch service
+  // 4. Refreshes the list on success
+  const handleDeleteAthlete = (athlete: Athlete) => {
+    if (!selectedBatch || !coachNo) {
+      alert('Cannot delete: No active batch context.');
+      return;
+    }
 
-  // Helper function to determine current batch based on today's date
-  const getCurrentBatch = (batches: Batch[]): Batch | null => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-
-    return (
-      batches.find(batch => {
-        if (!batch.start_date || !batch.end_date) return false;
-
-        const startDate = new Date(batch.start_date);
-        const endDate = new Date(batch.end_date);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        return today >= startDate && today <= endDate;
-      }) || null
+    Alert.alert(
+      'Remove Athlete',
+      `Are you sure you want to remove ${athlete.name} from this batch? Their historical stats will be preserved, but they will be removed from this list.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const success = await removeAthleteFromBatch(
+                parseInt(athlete.id),
+                selectedBatch.batch_no
+              );
+              
+              if (success) {
+                // Refresh list
+                await refreshAthletes();
+                alert('Athlete removed from batch.');
+              } else {
+                alert('Failed to remove athlete.');
+              }
+            } catch (err) {
+              console.error('Error deleting athlete:', err);
+              alert('An error occurred while deleting.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
     );
   };
 
-  // Fetch batches from database
+  const athleteTabs = [
+    { id: 'athletes', label: 'Athletes' },
+    { id: 'seasons', label: 'Seasons' }
+  ];
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
+
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
+  // Utility functions are now imported from services
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
+  // Fetch batches from database (filtered by coach)
   const fetchBatches = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Batch')
-        .select('*')
-        .order('start_date', { ascending: false });
-
-      if (fetchError) {
-        throw fetchError;
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setBatches([]);
+        return;
       }
 
-      if (data) {
-        setBatches(data);
-        // Auto-select current batch if available
-        const currentBatch = getCurrentBatch(data);
-        setSelectedBatch(currentBatch);
-      }
+      const data = await getBatchesByCoach(coachNo);
+      setBatches(data);
+      // Auto-select current batch if available
+      const currentBatch = getCurrentBatch(data);
+      setSelectedBatch(currentBatch);
     } catch (err) {
       console.error('Error fetching batches:', err);
     }
   };
 
-  // Fetch games from database
-  const fetchGames = async () => {
+  // Fetch seasons from database (filtered by coach's batches)
+  const fetchSeasons = async () => {
     try {
-      setGamesLoading(true);
-      setGamesError(null);
+      setSeasonsLoading(true);
+      setSeasonsError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('Game')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (fetchError) {
-        throw fetchError;
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setSeasons([]);
+        setSeasonsLoading(false);
+        return;
       }
 
-      if (data) {
-        const transformedGames = data.map(transformDatabaseGame);
-        setGames(transformedGames);
-      }
+      const data = await getAllSeasons();
+      const transformedSeasons = data.map(transformDatabaseSeason);
+      setSeasons(transformedSeasons);
     } catch (err) {
-      console.error('Error fetching games:', err);
-      setGamesError('Failed to load games. Please try again.');
-      setGames([]);
+      console.error('Error fetching seasons:', err);
+      setSeasonsError('Failed to load seasons. Please try again.');
+      setSeasons([]);
     } finally {
-      setGamesLoading(false);
+      setSeasonsLoading(false);
     }
   };
 
+  // Function to refresh athlete data
+  const refreshAthletes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (selectedBatch) {
+        const athletes = await getAthletesByBatch(selectedBatch.batch_no);
+        const transformedAthletes = athletes.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
+      } else {
+        const athletes = await getAllAthletes();
+        const transformedAthletes = athletes.map(transformDatabaseAthlete);
+        setAthletes(transformedAthletes);
+      }
+    } catch (err) {
+      console.error('Error refreshing athletes:', err);
+      setError('Failed to refresh athletes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
   // Fetch athletes from database with batch filtering
   useEffect(() => {
     const fetchAthletes = async () => {
@@ -187,42 +186,13 @@ export default function AthleteScreen() {
         setError(null);
 
         if (selectedBatch) {
-          // Fetch athletes for selected batch using athlete_batch junction table
-          const { data, error: fetchError } = await supabase
-            .from('athlete_batch')
-            .select(
-              `
-              Athlete!inner(*)
-            `
-            )
-            .eq('batch_no', selectedBatch.batch_no);
-
-          if (fetchError) {
-            throw fetchError;
-          }
-
-          if (data) {
-            const athletes = data
-              .map((item: any) => item.Athlete)
-              .filter(Boolean);
-            const transformedAthletes = athletes.map(transformDatabaseAthlete);
-            setAthletes(transformedAthletes);
-          }
+          const athletes = await getAthletesByBatch(selectedBatch.batch_no);
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
         } else {
-          // If no batch selected, fetch all athletes
-          const { data, error: fetchError } = await supabase
-            .from('Athlete')
-            .select('*')
-            .order('athlete_no', { ascending: true });
-
-          if (fetchError) {
-            throw fetchError;
-          }
-
-          if (data) {
-            const transformedAthletes = data.map(transformDatabaseAthlete);
-            setAthletes(transformedAthletes);
-          }
+          const athletes = await getAllAthletes();
+          const transformedAthletes = athletes.map(transformDatabaseAthlete);
+          setAthletes(transformedAthletes);
         }
       } catch (err) {
         console.error('Error fetching athletes:', err);
@@ -236,70 +206,33 @@ export default function AthleteScreen() {
     fetchAthletes();
   }, [selectedBatch]);
 
-  // Fetch batches and games on component mount
+  // Fetch batches on component mount
   useEffect(() => {
-    fetchBatches();
-    fetchGames();
-  }, []);
-
-  // Function to refresh athlete data
-  const refreshAthletes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (selectedBatch) {
-        // Fetch athletes for selected batch using athlete_batch junction table
-        const { data, error: fetchError } = await supabase
-          .from('athlete_batch')
-          .select(
-            `
-            Athlete!inner(*)
-          `
-          )
-          .eq('batch_no', selectedBatch.batch_no);
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const athletes = data
-            .map((item: any) => item.Athlete)
-            .filter(Boolean);
-          const transformedAthletes = athletes.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
-      } else {
-        // If no batch selected, fetch all athletes
-        const { data, error: fetchError } = await supabase
-          .from('Athlete')
-          .select('*')
-          .order('athlete_no', { ascending: true });
-
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          const transformedAthletes = data.map(transformDatabaseAthlete);
-          setAthletes(transformedAthletes);
-        }
-      }
-    } catch (err) {
-      console.error('Error refreshing athletes:', err);
-      setError('Failed to refresh athletes. Please try again.');
-    } finally {
-      setLoading(false);
+    if (coachNo !== null) {
+      fetchBatches();
     }
-  };
+  }, [coachNo]);
 
+  // Fetch seasons when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (coachNo !== null && activeTab === 'seasons') {
+        fetchSeasons();
+      }
+    }, [coachNo, activeTab])
+  );
+  ////////////////////////////// END OF USE EFFECTS ///////////////////////
+
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleNotificationPress = () => {
     console.log('Notification pressed');
   };
 
   const handleFilterPress = () => {
-    setShowBatchModal(true);
+    // Only show batch filter for athletes tab
+    if (activeTab === 'athletes') {
+      setShowBatchModal(true);
+    }
   };
 
   const handleBatchSelect = (batch: Batch | null) => {
@@ -307,6 +240,8 @@ export default function AthleteScreen() {
     setShowBatchModal(false);
   };
 
+
+  // When one of the athlete card is pressed, navigate to the athlete detail screen
   const handleAthletePress = (athlete: Athlete) => {
     console.log('Athlete pressed:', athlete.name);
     // Navigate to athlete detail screen
@@ -314,27 +249,25 @@ export default function AthleteScreen() {
   };
 
   const handleAddAthlete = () => {
-    console.log('Add athlete pressed');
-    // TODO: Navigate to add athlete screen when created
-    // router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
-    alert('Add Athlete functionality coming soon!');
+    // Navigate to add athlete screen
+    router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
   };
 
-  const handleAddGame = () => {
-    console.log('Add game pressed');
-    // TODO: Navigate to add game screen when created
-    // router.push('/(coach)/(tabs)/athletes-module/add-game' as any);
-    alert('Add Game functionality coming soon!');
+  const handleAddSeason = () => {
+    // Navigate to add season screen
+    router.push('/(coach)/(tabs)/athletes-module/add-season' as any);
   };
 
-  const handleGamePress = (game: Game) => {
-    console.log('Game pressed:', game.gameName);
-    // Navigate to team roster screen for this specific game
+  const handleSeasonPress = (season: Season) => {
+    console.log('Season pressed:', season.label);
+    // Navigate to matchups screen for this season
     router.push(
-      `/(coach)/(tabs)/athletes-module/game/${game.id}/roster` as any
+      `/(coach)/(tabs)/athletes-module/seasons/${season.id}/matchups` as any
     );
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
+  /////////////////////////////// START OF FILTER LOGIC /////////////
   const filteredAthletes = athletes.filter(
     athlete =>
       athlete.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -342,29 +275,35 @@ export default function AthleteScreen() {
       athlete.position.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredGames = games.filter(
-    game =>
-      game.gameName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      game.date.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSeasons = seasons.filter(
+    season =>
+      season.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      season.duration.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  ////////////////////////////// END OF FILTER LOGIC ////////////////
 
+  /////////////////////////////// START OF RENDER FUNCTIONS /////////////
   const renderAthleteCard = ({ item }: { item: Athlete }) => (
     <AthleteCard
       playerNumber={item.number}
       playerName={item.name}
       position={item.position}
       onPress={() => handleAthletePress(item)}
+      onLongPress={() => handleDeleteAthlete(item)}
     />
   );
 
-  const renderGameCard = ({ item }: { item: Game }) => (
-    <GameCard
-      gameName={item.gameName}
-      date={item.date}
-      onPress={() => handleGamePress(item)}
+  const renderSeasonCard = ({ item }: { item: Season }) => (
+    <SeasonCard
+      seasonLabel={item.label}
+      duration={item.duration}
+      totalGames={item.totalGames}
+      onPress={() => handleSeasonPress(item)}
     />
   );
+  ////////////////////////////// END OF RENDER FUNCTIONS ////////////////
 
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1" style={{ position: 'relative' }}>
       {/* Tab Navigation - Using reusable SubTab component */}
@@ -380,11 +319,11 @@ export default function AthleteScreen() {
         onSearchChange={setSearchQuery}
         onFilterPress={handleFilterPress}
         filterType="batch"
-        placeholder="Search athletes..."
+        placeholder={activeTab === 'seasons' ? 'Search seasons...' : 'Search athletes...'}
       />
 
-      {/* Batch Selection Indicator */}
-      {selectedBatch && (
+      {/* Batch Selection Indicator - Only show on Athletes tab */}
+      {activeTab === 'athletes' && selectedBatch && (
         <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
           <Text className="text-center text-sm text-red-600">
             Showing athletes from Batch {selectedBatch.batch_no}
@@ -400,6 +339,7 @@ export default function AthleteScreen() {
           </Text>
         </View>
       )}
+
 
       {/* Athlete/Game List */}
       <View className="flex-1 px-3">
@@ -444,42 +384,42 @@ export default function AthleteScreen() {
           </>
         ) : (
           <>
-            {gamesLoading ? (
+            {seasonsLoading ? (
               <View className="flex-1 items-center justify-center">
-                <Text className="text-gray-500">Loading games...</Text>
+                <Text className="text-gray-500">Loading seasons...</Text>
               </View>
-            ) : gamesError ? (
+            ) : seasonsError ? (
               <View className="flex-1 items-center justify-center px-4">
                 <Text className="mb-4 text-center text-red-500">
-                  {gamesError}
+                  {seasonsError}
                 </Text>
                 <TouchableOpacity
-                  onPress={fetchGames}
+                  onPress={fetchSeasons}
                   className="rounded-lg bg-red-500 px-4 py-2"
                 >
                   <Text className="font-semibold text-white">Retry</Text>
                 </TouchableOpacity>
               </View>
-            ) : filteredGames.length === 0 ? (
+            ) : filteredSeasons.length === 0 ? (
               <View className="flex-1 items-center justify-center">
                 <Text className="text-center text-gray-500">
                   {searchQuery
-                    ? 'No games found matching your search.'
-                    : 'No games found.'}
+                    ? 'No seasons found matching your search.'
+                    : 'No seasons found.'}
                 </Text>
               </View>
             ) : (
               <FlatList
-                data={filteredGames}
-                renderItem={renderGameCard}
+                data={filteredSeasons}
+                renderItem={renderSeasonCard}
                 keyExtractor={item => item.id}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingBottom: 100,
                   paddingHorizontal: 8
                 }}
-                refreshing={gamesLoading}
-                onRefresh={fetchGames}
+                refreshing={seasonsLoading}
+                onRefresh={fetchSeasons}
               />
             )}
           </>
@@ -489,7 +429,7 @@ export default function AthleteScreen() {
       {/* Floating Action Button */}
       {/* Floating Button */}
       <FloatingButton
-        onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddGame}
+        onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddSeason}
         icon="add"
         IconComponent={FontAwesome6}
       />
@@ -572,4 +512,6 @@ export default function AthleteScreen() {
       </Modal>
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////

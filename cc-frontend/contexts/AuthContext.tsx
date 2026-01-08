@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/config/supabaseClient';
+import { getUserProfile, getCoachNoByAccount, UserProfile } from '@/services/authService';
+import { getAthleteNoByAccount } from '@/services/athleteService';
 
 // Types
-interface UserProfile {
-  account_no: number;
-  first_name: string | null;
-  last_name: string | null;
-  role: string; // 'coach', 'athlete', 'director'
+interface DatabaseCoach {
+  coach_no: number;
+  account_no: number | null; // FK to Account table
+  contact_no: string | null;
 }
 
 interface AuthContextType {
@@ -15,6 +16,8 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
+  coachNo: number | null; // Coach number if user is a coach
+  athleteNo: number | null; // Athlete number if user is an athlete
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (
     email: string,
@@ -24,6 +27,7 @@ interface AuthContextType {
     role: string
   ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  refreshAthleteNo: () => Promise<void>;
 }
 
 // Create the context
@@ -35,43 +39,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [coachNo, setCoachNo] = useState<number | null>(null);
+  const [athleteNo, setAthleteNo] = useState<number | null>(null);
 
-  // Get user profile from your Account table
-  const getUserProfile = async (userId: string) => {
-    try {
-      console.log('👤 Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('Account')
-        .select(
-          `
-          account_no,
-          first_name,
-          last_name,
-          Role(user_role)
-        `
-        )
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.log('❌ Profile fetch error:', error);
-        throw error;
-      }
-
-      console.log('📋 Raw profile data:', data);
-
-      const profile = {
-        account_no: data.account_no,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        role: (data.Role as any)?.user_role || ''
-      };
-
-      console.log('✅ Processed profile:', profile);
-      return profile;
-    } catch (error) {
-      console.error('💥 Error fetching user profile:', error);
-      return null;
+  // Refresh Athlete No
+  const refreshAthleteNo = async () => {
+    if (profile?.account_no && profile.role?.toLowerCase() === 'athlete') {
+      console.log('🔄 Refreshing athleteNo for account:', profile.account_no);
+      const athleteNumber = await getAthleteNoByAccount(profile.account_no);
+      console.log('✅ Found athleteNo:', athleteNumber);
+      setAthleteNo(athleteNumber);
+    } else {
+      console.log('⚠️ Cannot refresh athleteNo. Profile:', profile);
     }
   };
 
@@ -152,6 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setUser(null);
       setProfile(null);
+      setCoachNo(null);
+      setAthleteNo(null);
 
       console.log('✅ Sign out completed - all data cleared');
     } catch (error) {
@@ -181,6 +162,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+
+        // Get coach_no or athlete_no based on role
+        if (userProfile) {
+          const normalizedRole = userProfile.role?.toLowerCase();
+          console.log('🔍 Normalized Role:', normalizedRole, 'for Account:', userProfile.account_no);
+          
+          if (normalizedRole === 'coach') {
+            const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+            setCoachNo(coachNumber);
+            setAthleteNo(null);
+          } else if (normalizedRole === 'athlete') {
+            const athleteNumber = await getAthleteNoByAccount(userProfile.account_no);
+            console.log('🏃 Athlete Number found:', athleteNumber);
+            setAthleteNo(athleteNumber);
+            setCoachNo(null);
+          } else {
+            console.log('❓ Unknown role:', userProfile.role);
+            setCoachNo(null);
+            setAthleteNo(null);
+          }
+        } else {
+          setCoachNo(null);
+          setAthleteNo(null);
+        }
+      } else {
+        setCoachNo(null);
+        setAthleteNo(null);
       }
 
       setLoading(false);
@@ -209,8 +217,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
+
+        // Get coach_no or athlete_no based on role
+        if (userProfile) {
+          const normalizedRole = userProfile.role?.toLowerCase();
+          if (normalizedRole === 'coach') {
+            const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+            setCoachNo(coachNumber);
+            setAthleteNo(null);
+          } else if (normalizedRole === 'athlete') {
+            const athleteNumber = await getAthleteNoByAccount(userProfile.account_no);
+            console.log('🏃 Athlete Number (Auth Change):', athleteNumber);
+            setAthleteNo(athleteNumber);
+            setCoachNo(null);
+          } else {
+            setCoachNo(null);
+            setAthleteNo(null);
+          }
+        } else {
+          setCoachNo(null);
+          setAthleteNo(null);
+        }
       } else {
         setProfile(null);
+        setCoachNo(null);
+        setAthleteNo(null);
       }
 
       setLoading(false);
@@ -224,9 +255,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     session,
     loading,
+    coachNo,
+    athleteNo,
     signIn,
     signUp,
-    signOut
+    signOut,
+    refreshAthleteNo
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

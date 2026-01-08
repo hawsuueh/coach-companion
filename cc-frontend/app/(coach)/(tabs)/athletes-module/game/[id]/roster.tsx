@@ -1,3 +1,4 @@
+/////////////////////////////// START OF IMPORTS /////////////
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -11,156 +12,73 @@ import {
 } from 'react-native';
 import StartRecordingButton from '@/components/buttons/StartRecordingButton';
 import RosterCard from '@/components/cards/RosterCard';
-import supabase from '@/config/supabaseClient';
+import GameHeader from '@/components/game/GameHeader';
+import LoadingScreen from '@/components/common/LoadingScreen';
+import ErrorScreen from '@/components/common/ErrorScreen';
 import { useHeader } from '@/components/contexts/HeaderContext';
+import { useAuth } from '@/contexts/AuthContext';
+// Service imports
+import { getGameById, transformDatabaseGame, type DatabaseGame, type Game } from '@/services/gameService';
+import { getBatchesByCoach, getCurrentBatch, type Batch } from '@/services/batchService';
+import { getAthletesByBatch, transformDatabaseAthlete, type DatabaseAthlete, type Athlete } from '@/services/athleteService';
+import { getRosterWithAthletes, removeAthleteFromRoster, addAthleteToRosterWithValidation } from '@/services/rosterService';
+////////////////////////////// END OF IMPORTS //////////////////////////////////////////////////////////
 
-// Database interfaces
-interface DatabaseAthlete {
-  athlete_no: number;
-  first_name: string | null;
-  middle_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  player_no: number | null;
-}
 
-interface DatabaseGame {
-  game_no: number;
-  date: string | null;
-  time: string | null;
-  season_no: number | null;
-  player_name: string | null;
-  opponent_name: string | null;
-}
 
-interface DatabaseBatch {
-  batch_no: number;
-  start_date: string | null;
-  end_date: string | null;
-}
+/////////////////////////////// START OF INTERFACES ////////////////////////////////////////////
+// Database interfaces - using imported types from services
+// Local interface for Batch (using imported type)
+interface DatabaseBatch extends Batch {}
 
 interface DatabaseRoster {
-  roster_no: number;
-  game_no: number;
-  athlete_no: number;
-  created_at: string;
+  roster_no: number; // ex: 1
+  game_no: number; // ex: 1
+  athlete_no: number; // ex: 1
+  created_at: string; // ex: "2024-01-15T10:30:00Z"
 }
+////////////////////////////// END OF INTERFACES ////////////////
 
-interface Athlete {
-  id: string;
-  number: string;
-  name: string;
-  position: string;
-}
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
-interface Game {
-  id: string;
-  gameName: string;
-  date: string;
-}
 
-// Helper function to transform database athlete to UI athlete
-const transformDatabaseAthlete = (dbAthlete: DatabaseAthlete): Athlete => {
-  const fullName = [
-    dbAthlete.first_name,
-    dbAthlete.middle_name,
-    dbAthlete.last_name
-  ]
-    .filter(name => name && name.trim() !== '')
-    .join(' ');
-
-  return {
-    id: dbAthlete.athlete_no.toString(),
-    number: dbAthlete.player_no?.toString() || '0',
-    name: fullName || 'Unknown Player',
-    position: dbAthlete.position || 'Unknown'
-  };
-};
-
-// Helper function to transform database game to UI game
-const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
-  const gameDate = dbGame.date
-    ? new Date(dbGame.date).toLocaleDateString()
-    : 'TBD';
-  const gameTime = dbGame.time
-    ? new Date(`2000-01-01T${dbGame.time}`).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '';
-
-  const formattedDate = gameTime ? `${gameDate} ${gameTime}` : gameDate;
-
-  const playerTeam = dbGame.player_name || 'Your Team';
-  const opponentTeam = dbGame.opponent_name || 'TBD';
-  const gameName = `${playerTeam} vs ${opponentTeam}`;
-
-  return {
-    id: dbGame.game_no.toString(),
-    gameName: gameName,
-    date: formattedDate
-  };
-};
-
-// Helper function to determine current batch based on today's date
-const getCurrentBatch = (batches: DatabaseBatch[]): DatabaseBatch | null => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return (
-    batches.find(batch => {
-      if (!batch.start_date || !batch.end_date) return false;
-
-      const startDate = new Date(batch.start_date);
-      const endDate = new Date(batch.end_date);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
-
-      return today >= startDate && today <= endDate;
-    }) || null
-  );
-};
-
-// Mock data removed - now using real database data
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function GameRosterScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+  const { coachNo } = useAuth();
+  
+  // UI state
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  
+  // Data state
   const [game, setGame] = useState<Game | null>(null);
   const [availableAthletes, setAvailableAthletes] = useState<Athlete[]>([]);
   const [rosterAthletes, setRosterAthletes] = useState<Athlete[]>([]);
+  const [batches, setBatches] = useState<DatabaseBatch[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<DatabaseBatch | null>(null);
+  
+  // Loading and error state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [batches, setBatches] = useState<DatabaseBatch[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<DatabaseBatch | null>(
-    null
-  );
-  const [showBatchModal, setShowBatchModal] = useState(false);
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
-  const { setTitle } = useHeader();
-
-  useEffect(() => {
-    setTitle('Team Roster');
-  });
-
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
   // Fetch game data from database
   const fetchGame = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Game')
-        .select('*')
-        .eq('game_no', id)
-        .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
+      const data = await getGameById(Number(id));
       if (data) {
         const transformedGame = transformDatabaseGame(data);
         setGame(transformedGame);
+      } else {
+        setError('Game not found');
       }
     } catch (err) {
       console.error('Error fetching game:', err);
@@ -168,24 +86,29 @@ export default function GameRosterScreen() {
     }
   };
 
-  // Fetch all batches from database
+  // Fetch all batches from database (filtered by coach)
   const fetchBatches = async () => {
     try {
-      const { data: batches, error: batchError } = await supabase
-        .from('Batch')
-        .select('*')
-        .order('start_date', { ascending: false });
-
-      if (batchError) {
-        throw batchError;
+      if (!coachNo) {
+        console.log('⚠️ No coach number available');
+        setBatches([]);
+        setError('No coach information available');
+        return;
       }
 
-      if (batches) {
-        setBatches(batches);
-        // Auto-select current batch if available, otherwise select first batch
-        const currentBatch = getCurrentBatch(batches);
-        setSelectedBatch(currentBatch || batches[0] || null);
+      const batches = await getBatchesByCoach(coachNo);
+      setBatches(batches);
+      
+      // Handle empty batches array
+      if (batches.length === 0) {
+        setSelectedBatch(null);
+        setError('No batches available. Please create a batch first.');
+        return;
       }
+      
+      // Auto-select current batch if available, otherwise select first batch
+      const currentBatch = getCurrentBatch(batches);
+      setSelectedBatch(currentBatch || batches[0] || null);
     } catch (err) {
       console.error('Error fetching batches:', err);
       setError('Failed to load batches');
@@ -201,24 +124,9 @@ export default function GameRosterScreen() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('athlete_batch')
-        .select(
-          `
-          Athlete!inner(*)
-        `
-        )
-        .eq('batch_no', batchToUse);
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setAvailableAthletes(transformedAthletes);
-      }
+      const athletes = await getAthletesByBatch(batchToUse);
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setAvailableAthletes(transformedAthletes);
     } catch (err) {
       console.error('Error fetching available athletes:', err);
       setError('Failed to load available athletes');
@@ -228,29 +136,20 @@ export default function GameRosterScreen() {
   // Fetch current roster for this game
   const fetchRoster = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('Roster')
-        .select(
-          `
-          Athlete!inner(*)
-        `
-        )
-        .eq('game_no', id);
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (data) {
-        const athletes = data.map((item: any) => item.Athlete).filter(Boolean);
-        const transformedAthletes = athletes.map(transformDatabaseAthlete);
-        setRosterAthletes(transformedAthletes);
-      }
+      const athletes = await getRosterWithAthletes(Number(id));
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setRosterAthletes(transformedAthletes);
     } catch (err) {
       console.error('Error fetching roster:', err);
       setError('Failed to load roster');
     }
   };
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
+  useEffect(() => {
+    setTitle('Team Roster');
+  });
 
   // Load all data on component mount
   useEffect(() => {
@@ -274,7 +173,9 @@ export default function GameRosterScreen() {
       fetchAvailableAthletes(selectedBatch.batch_no);
     }
   }, [selectedBatch]);
+  ////////////////////////////// END OF USE EFFECTS ////////////////
 
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleBackPress = () => {
     router.back();
   };
@@ -291,43 +192,92 @@ export default function GameRosterScreen() {
   };
 
   const handleRemoveAthlete = async (athleteId: string) => {
-    try {
-      const { error } = await supabase
-        .from('Roster')
-        .delete()
-        .eq('game_no', id && typeof id === 'string' ? parseInt(id) : 0)
-        .eq('athlete_no', parseInt(athleteId));
+    // Get athlete name for confirmation dialog
+    const athlete = rosterAthletes.find(a => a.id === athleteId);
+    const athleteName = athlete?.name || 'this athlete';
 
-      if (error) {
-        throw error;
-      }
+    // Show confirmation dialog
+    Alert.alert(
+      'Remove Athlete',
+      `Are you sure you want to remove ${athleteName} from the roster?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const success = await removeAthleteFromRoster(
+                Number(id),
+                parseInt(athleteId)
+              );
 
-      // Update local state
-      setRosterAthletes(prev =>
-        prev.filter(athlete => athlete.id !== athleteId)
-      );
-      console.log('Athlete removed from roster successfully');
-    } catch (err) {
-      console.error('Error removing athlete from roster:', err);
-      Alert.alert('Error', 'Failed to remove athlete from roster');
-    }
+              if (!success) {
+                throw new Error('Failed to remove athlete');
+              }
+
+              // Update local state
+              setRosterAthletes(prev =>
+                prev.filter(athlete => athlete.id !== athleteId)
+              );
+              console.log('Athlete removed from roster successfully');
+            } catch (err) {
+              console.error('Error removing athlete from roster:', err);
+              Alert.alert('Error', 'Failed to remove athlete from roster');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleStartRecording = () => {
+    // Validate roster is not empty
+    if (rosterAthletes.length === 0) {
+      Alert.alert(
+        'No Athletes Selected',
+        'Please add at least one athlete to the roster before starting recording.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     console.log('Start recording for game:', game?.gameName);
     router.push(`/athletes-module/game/${id}/recording`);
   };
 
   const handleAddAthlete = async () => {
-    if (selectedAthleteId && id && typeof id === 'string') {
-      try {
-        const { error } = await supabase.from('Roster').insert({
-          game_no: parseInt(id),
-          athlete_no: parseInt(selectedAthleteId)
-        });
+    // Validate selection
+    if (!selectedAthleteId) {
+      Alert.alert('No Athlete Selected', 'Please select an athlete from the dropdown first');
+      return;
+    }
 
-        if (error) {
-          throw error;
+    // Check if already in roster (immediate feedback)
+    const alreadyInRoster = rosterAthletes.some(a => a.id === selectedAthleteId);
+    if (alreadyInRoster) {
+      Alert.alert('Already Added', 'This athlete is already on the roster');
+      return;
+    }
+
+    if (id && typeof id === 'string') {
+      setIsAdding(true); // Disable button during operation
+      try {
+        const result = await addAthleteToRosterWithValidation(
+          parseInt(id),
+          parseInt(selectedAthleteId)
+        );
+
+        if (!result.success) {
+          // Handle unique constraint violation gracefully
+          if (result.errorCode === '23505') {
+            Alert.alert('Already Added', 'This athlete is already on the roster');
+            return;
+          }
+          throw new Error('Failed to add athlete');
         }
 
         // Update local state
@@ -344,50 +294,43 @@ export default function GameRosterScreen() {
       } catch (err) {
         console.error('Error adding athlete to roster:', err);
         Alert.alert('Error', 'Failed to add athlete to roster');
+      } finally {
+        setIsAdding(false); // Re-enable button
       }
     }
   };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
   // Filter available athletes (exclude those already on roster)
   const availableAthletesFiltered = availableAthletes.filter(
     athlete =>
       !rosterAthletes.some(rosterAthlete => rosterAthlete.id === athlete.id)
   );
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
+  /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
   if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-lg font-semibold text-gray-500">
-          Loading roster...
-        </Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading roster..." />;
   }
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center px-4">
-        <Text className="mb-4 text-center text-lg font-semibold text-red-500">
-          {error}
-        </Text>
-        <TouchableOpacity
-          onPress={() => {
-            setError(null);
-            setLoading(true);
-            // Reload data
-            if (id) {
-              Promise.all([
-                fetchGame(),
-                fetchAvailableAthletes(),
-                fetchRoster()
-              ]).finally(() => setLoading(false));
-            }
-          }}
-          className="rounded-lg bg-red-500 px-4 py-2"
-        >
-          <Text className="font-semibold text-white">Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorScreen
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+          // Reload all data (including batches)
+          if (id) {
+            Promise.all([
+              fetchGame(),
+              fetchBatches(),
+              fetchRoster()
+            ]).finally(() => setLoading(false));
+          }
+        }}
+      />
     );
   }
 
@@ -400,20 +343,15 @@ export default function GameRosterScreen() {
       </View>
     );
   }
+  ////////////////////////////// END OF LOADING AND ERROR STATES ////////////////
 
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1">
       {/* Scrollable Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Game Info Section */}
-        <View className="items-center px-4 py-4">
-          <Text className="mb-1 text-center text-xl font-bold text-black">
-            {game.gameName}
-          </Text>
-          <Text className="text-center text-base text-gray-600">
-            {game.date}
-          </Text>
-        </View>
+        <GameHeader gameName={game.gameName} date={game.date} />
 
         {/* Athlete Selection Section */}
         <View className="px-4 pb-4">
@@ -455,31 +393,42 @@ export default function GameRosterScreen() {
                 <Ionicons name="funnel" size={20} color="white" />
               </TouchableOpacity>
               <TouchableOpacity
-                className="ml-2 rounded-lg bg-red-500 px-4 py-3"
+                className={`ml-2 rounded-lg px-4 py-3 ${isAdding ? 'bg-gray-400' : 'bg-red-500'}`}
                 onPress={handleAddAthlete}
+                disabled={isAdding}
               >
-                <Text className="font-semibold text-white">Add</Text>
+                <Text className="font-semibold text-white">
+                  {isAdding ? 'Adding...' : 'Add'}
+                </Text>
               </TouchableOpacity>
             </View>
 
             {/* Dropdown */}
             {showDropdown && (
               <View className="mt-2 rounded-lg border border-gray-300 bg-white">
-                {availableAthletesFiltered.map(athlete => (
-                  <TouchableOpacity
-                    key={athlete.id}
-                    className="border-b border-gray-100 px-3 py-3"
-                    onPress={() => {
-                      setSelectedAthleteId(athlete.id);
-                      setShowDropdown(false);
-                    }}
-                  >
-                    <Text className="text-black">{athlete.name}</Text>
-                    <Text className="text-sm text-gray-500">
-                      No. {athlete.number} - {athlete.position}
+                {availableAthletesFiltered.length > 0 ? (
+                  availableAthletesFiltered.map(athlete => (
+                    <TouchableOpacity
+                      key={athlete.id}
+                      className="border-b border-gray-100 px-3 py-3"
+                      onPress={() => {
+                        setSelectedAthleteId(athlete.id);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <Text className="text-black">{athlete.name}</Text>
+                      <Text className="text-sm text-gray-500">
+                        No. {athlete.number} - {athlete.position}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View className="px-3 py-6">
+                    <Text className="text-center text-gray-500">
+                      All available athletes have been added to the roster
                     </Text>
-                  </TouchableOpacity>
-                ))}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -591,4 +540,6 @@ export default function GameRosterScreen() {
       </Modal>
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////
