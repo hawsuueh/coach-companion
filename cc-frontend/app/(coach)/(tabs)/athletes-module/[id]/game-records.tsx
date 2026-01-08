@@ -7,40 +7,6 @@ import { getAthleteGameStatsHistory, AggregatedGameStats } from '@/services/stat
 import supabase from '@/config/supabaseClient';
 import { useState } from 'react';
 
-// Mock data - in the future this will come from Supabase
-const MOCK_ATHLETES = {
-  '1': { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  '2': { id: '2', number: '7', name: 'Mike Johnson', position: 'Midfielder' },
-  '3': { id: '3', number: '23', name: 'David Wilson', position: 'Defender' },
-  '4': { id: '4', number: '1', name: 'Tom Brown', position: 'Goalkeeper' },
-  '5': { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },
-  '6': { id: '6', number: '4', name: 'Chris Miller', position: 'Defender' },
-  '7': { id: '7', number: '8', name: 'Ryan Taylor', position: 'Midfielder' },
-  '8': { id: '8', number: '11', name: 'Kevin Lee', position: 'Forward' }
-};
-
-// Mock game statistics data
-const MOCK_GAME_STATS = {
-  '1': {
-    totalFieldGoal: { percentage: 42.86, made: 6, attempted: 14 },
-    twoPointFieldGoal: { percentage: 33.33, made: 3, attempted: 9 },
-    threePointFieldGoal: { percentage: 80.0, made: 3, attempted: 5 },
-    totalPoints: 19,
-    assist: 8,
-    steal: 0,
-    block: 3
-  },
-  '2': {
-    totalFieldGoal: { percentage: 50.0, made: 8, attempted: 16 },
-    twoPointFieldGoal: { percentage: 45.45, made: 5, attempted: 11 },
-    threePointFieldGoal: { percentage: 60.0, made: 3, attempted: 5 },
-    totalPoints: 22,
-    assist: 5,
-    steal: 2,
-    block: 1
-  }
-};
-
 
 
 export default function GameRecordsScreen() {

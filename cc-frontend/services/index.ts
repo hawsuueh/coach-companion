@@ -13,6 +13,9 @@ export * from './athleteService';
 // Game Service
 export * from './gameService';
 
+// Season Service
+export * from './seasonService';
+
 // Roster Service
 export * from './rosterService';
 

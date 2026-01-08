@@ -1,31 +1,20 @@
 /////////////////////////////// START OF IMPORTS //////////////////////////////////////////////////////////
-import { Ionicons } from '@expo/vector-icons';
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ScrollView,
   Text,
-  TouchableOpacity,
   View,
   Alert,
-  TextInput,
-  ActivityIndicator
 } from 'react-native';
-import StatCard from '../../../../../../components/cards/StatCard';
-import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
-import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
-import ShootingStats_StatsForm from '../../../../../../components/cards/ShootingStats_StatsForm';
-import ReboundingStats_StatsForm from '../../../../../../components/cards/ReboundingStats_StatsForm';
-import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
+
 import QuarterSelector from '../../../../../../components/game/QuarterSelector';
 import GameHeader from '../../../../../../components/game/GameHeader';
-import PlayerSelectionGrid from '../../../../../../components/game/PlayerSelectionGrid';
 import TabNavigation from '../../../../../../components/navigation/TabNavigation';
 import StatsFormTab from '../../../../../../components/game/StatsFormTab';
 import RealTimeStatsTab from '../../../../../../components/game/RealTimeStatsTab';
 import LoadingScreen from '../../../../../../components/common/LoadingScreen';
 import ErrorScreen from '../../../../../../components/common/ErrorScreen';
-import ExportButton from '../../../../../../components/buttons/ExportButton';
 import QuarterScoresCollapsible from '../../../../../../components/game/QuarterScoresCollapsible';
 import { useHeader } from '@/components/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';

@@ -9,6 +9,7 @@ export interface DatabaseGame {
   player_name: string | null;
   opponent_name: string | null;
   batch_no: number | null;
+  custom_game_label: string | null;
 }
 
 export interface Game {
@@ -18,7 +19,19 @@ export interface Game {
   teamName: string;
   opponentName: string;
   seasonLabel?: string;
+  seasonNo?: number;
+  batchNo?: number | null;
+  customGameLabel?: string;
 }
+
+export interface Matchup {
+  id: string;              // e.g., "unc-vs-ateneo"
+  playerTeam: string;      // "UNC"
+  opponentTeam: string;    // "Ateneo"
+  gameCount: number;       // 3
+  games: Game[];           // Array of individual game instances
+}
+
 
 /**
  * Transform database game format to UI game format
@@ -50,8 +63,12 @@ export const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
     date: formattedDate,
     teamName: playerTeam,
     opponentName: opponentTeam,
-    seasonLabel
+    seasonLabel,
+    seasonNo: dbGame.season_no || undefined,
+    batchNo: dbGame.batch_no,
+    customGameLabel: dbGame.custom_game_label || undefined
   };
+
 };
 
 /**
@@ -193,5 +210,105 @@ export const getGameByIdWithBatchValidation = async (
   } catch (error) {
     console.error('Error in getGameByIdWithBatchValidation:', error);
     return null;
+  }
+};
+
+/**
+ * Get all games for a specific season
+ * @param seasonNo - Season number
+ * @returns Array of games or empty array
+ */
+export const getGamesBySeason = async (seasonNo: number): Promise<DatabaseGame[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('Game')
+      .select('*')
+      .eq('season_no', seasonNo)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching games by season:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getGamesBySeason:', error);
+    return [];
+  }
+};
+
+/**
+ * Group games by matchup (opponent pairs)
+ * @param games - Array of Game objects
+ * @returns Array of Matchup objects with grouped games
+ */
+export const groupGamesByMatchup = (games: Game[]): Matchup[] => {
+  const matchupMap = new Map<string, Matchup>();
+
+  games.forEach(game => {
+    // Create a unique matchup ID based on team names
+    const matchupId = `${game.teamName.toLowerCase().replace(/\s+/g, '-')}-vs-${game.opponentName.toLowerCase().replace(/\s+/g, '-')}`;
+
+    // Check if it's a real game (has batchNo) or a placeholder
+    const isRealGame = game.batchNo !== null && game.batchNo !== undefined;
+
+    if (matchupMap.has(matchupId)) {
+      // Add game to existing matchup if it's a real game
+      const matchup = matchupMap.get(matchupId)!;
+      if (isRealGame) {
+        matchup.games.push(game);
+        matchup.gameCount = matchup.games.length;
+      }
+    } else {
+      // Create new matchup
+      matchupMap.set(matchupId, {
+        id: matchupId,
+        playerTeam: game.teamName,
+        opponentTeam: game.opponentName,
+        gameCount: isRealGame ? 1 : 0,
+        games: isRealGame ? [game] : []
+      });
+    }
+  });
+
+  // Convert map to array and sort by game count (descending)
+  return Array.from(matchupMap.values()).sort((a, b) => b.gameCount - a.gameCount);
+};
+
+/**
+ * Create a new game
+ * @param game - Game data to create
+ * @returns Success status and error message if any
+ */
+export const createGame = async (
+  game: Partial<DatabaseGame>
+): Promise<{ success: boolean; error?: string; gameNo?: number }> => {
+  try {
+    const { data, error } = await supabase
+      .from('Game')
+      .insert([
+        {
+          player_name: game.player_name,
+          opponent_name: game.opponent_name,
+          date: game.date,
+          time: game.time,
+          season_no: game.season_no,
+          batch_no: game.batch_no,
+          custom_game_label: game.custom_game_label
+        }
+      ])
+      .select('game_no')
+      .single();
+
+    if (error) {
+      console.error('Error creating game:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, gameNo: data.game_no };
+  } catch (error) {
+    console.error('Error in createGame:', error);
+    return { success: false, error: 'An unexpected error occurred' };
   }
 };

@@ -1,11 +1,11 @@
 /////////////////////////////// START OF IMPORTS /////////////
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { FlatList, View, Text, TouchableOpacity, Modal, Alert } from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingButton from '@/components/buttons/FloatingButton';
-import GameCard from '@/components/cards/GameCard';
+import SeasonCard from '@/components/cards/SeasonCard';
 import SearchBar from '@/components/inputs/SearchBar';
 import SubTab from '@/components/navigations/SUBTAB';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,13 +15,15 @@ import {
   getAthletesByBatch,
   getAllAthletes,
   transformDatabaseAthlete,
-  getGamesByCoach,
-  transformDatabaseGame,
   removeAthleteFromBatch,
   type Batch,
-  type Athlete,
-  type Game
+  type Athlete
 } from '@/services';
+import {
+  getAllSeasons,
+  transformDatabaseSeason,
+  type Season
+} from '@/services/seasonService';
 ////////////////////////////// END OF IMPORTS ////////////////
 
 /////////////////////////////// START OF INTERFACES /////////////
@@ -41,16 +43,14 @@ export default function AthleteScreen() {
   const [activeTab, setActiveTab] = useState('athletes');
   const [searchQuery, setSearchQuery] = useState('');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
-  const [showGameFilterModal, setShowGameFilterModal] = useState(false);
-  const [gamesLoading, setGamesLoading] = useState(true);
-  const [gamesError, setGamesError] = useState<string | null>(null);
-  const [gameSortLabel, setGameSortLabel] = useState<string | null>(null);
+  const [seasonsLoading, setSeasonsLoading] = useState(true);
+  const [seasonsError, setSeasonsError] = useState<string | null>(null);
 
   // Purpose: Handles the deletion of an athlete from a batch
   // 1. Validates that a batch and coach context exist
@@ -100,7 +100,7 @@ export default function AthleteScreen() {
 
   const athleteTabs = [
     { id: 'athletes', label: 'Athletes' },
-    { id: 'games', label: 'Games' }
+    { id: 'seasons', label: 'Seasons' }
   ];
   ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
@@ -128,28 +128,28 @@ export default function AthleteScreen() {
     }
   };
 
-  // Fetch games from database (filtered by coach's batches)
-  const fetchGames = async () => {
+  // Fetch seasons from database (filtered by coach's batches)
+  const fetchSeasons = async () => {
     try {
-      setGamesLoading(true);
-      setGamesError(null);
+      setSeasonsLoading(true);
+      setSeasonsError(null);
 
       if (!coachNo) {
         console.log('⚠️ No coach number available');
-        setGames([]);
-        setGamesLoading(false);
+        setSeasons([]);
+        setSeasonsLoading(false);
         return;
       }
 
-      const data = await getGamesByCoach(coachNo);
-      const transformedGames = data.map(transformDatabaseGame);
-      setGames(transformedGames);
+      const data = await getAllSeasons();
+      const transformedSeasons = data.map(transformDatabaseSeason);
+      setSeasons(transformedSeasons);
     } catch (err) {
-      console.error('Error fetching games:', err);
-      setGamesError('Failed to load games. Please try again.');
-      setGames([]);
+      console.error('Error fetching seasons:', err);
+      setSeasonsError('Failed to load seasons. Please try again.');
+      setSeasons([]);
     } finally {
-      setGamesLoading(false);
+      setSeasonsLoading(false);
     }
   };
 
@@ -206,13 +206,21 @@ export default function AthleteScreen() {
     fetchAthletes();
   }, [selectedBatch]);
 
-  // Fetch batches and games on component mount and when coachNo changes
+  // Fetch batches on component mount
   useEffect(() => {
     if (coachNo !== null) {
       fetchBatches();
-      fetchGames();
     }
   }, [coachNo]);
+
+  // Fetch seasons when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (coachNo !== null && activeTab === 'seasons') {
+        fetchSeasons();
+      }
+    }, [coachNo, activeTab])
+  );
   ////////////////////////////// END OF USE EFFECTS ///////////////////////
 
   /////////////////////////////// START OF EVENT HANDLERS /////////////
@@ -221,9 +229,8 @@ export default function AthleteScreen() {
   };
 
   const handleFilterPress = () => {
-    if (activeTab === 'games') {
-      setShowGameFilterModal(true);
-    } else {
+    // Only show batch filter for athletes tab
+    if (activeTab === 'athletes') {
       setShowBatchModal(true);
     }
   };
@@ -246,18 +253,16 @@ export default function AthleteScreen() {
     router.push('/(coach)/(tabs)/athletes-module/add-athlete' as any);
   };
 
-  const handleAddGame = () => {
-    console.log('Add game pressed');
-    // TODO: Navigate to add game screen when created
-    // router.push('/(coach)/(tabs)/athletes-module/add-game' as any);
-    alert('Add Game functionality coming soon!');
+  const handleAddSeason = () => {
+    // Navigate to add season screen
+    router.push('/(coach)/(tabs)/athletes-module/add-season' as any);
   };
 
-  const handleGamePress = (game: Game) => {
-    console.log('Game pressed:', game.gameName);
-    // Navigate to team roster screen for this specific game
+  const handleSeasonPress = (season: Season) => {
+    console.log('Season pressed:', season.label);
+    // Navigate to matchups screen for this season
     router.push(
-      `/(coach)/(tabs)/athletes-module/game/${game.id}/roster` as any
+      `/(coach)/(tabs)/athletes-module/seasons/${season.id}/matchups` as any
     );
   };
   ////////////////////////////// END OF EVENT HANDLERS ////////////////
@@ -270,10 +275,10 @@ export default function AthleteScreen() {
       athlete.position.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredGames = games.filter(
-    game =>
-      game.gameName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      game.date.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSeasons = seasons.filter(
+    season =>
+      season.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      season.duration.toLowerCase().includes(searchQuery.toLowerCase())
   );
   ////////////////////////////// END OF FILTER LOGIC ////////////////
 
@@ -288,11 +293,12 @@ export default function AthleteScreen() {
     />
   );
 
-  const renderGameCard = ({ item }: { item: Game }) => (
-    <GameCard
-      gameName={item.gameName}
-      date={item.date}
-      onPress={() => handleGamePress(item)}
+  const renderSeasonCard = ({ item }: { item: Season }) => (
+    <SeasonCard
+      seasonLabel={item.label}
+      duration={item.duration}
+      totalGames={item.totalGames}
+      onPress={() => handleSeasonPress(item)}
     />
   );
   ////////////////////////////// END OF RENDER FUNCTIONS ////////////////
@@ -312,8 +318,8 @@ export default function AthleteScreen() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onFilterPress={handleFilterPress}
-        filterType={activeTab === 'games' ? 'game' : 'batch'}
-        placeholder={activeTab === 'games' ? 'Search games...' : 'Search athletes...'}
+        filterType="batch"
+        placeholder={activeTab === 'seasons' ? 'Search seasons...' : 'Search athletes...'}
       />
 
       {/* Batch Selection Indicator - Only show on Athletes tab */}
@@ -334,14 +340,6 @@ export default function AthleteScreen() {
         </View>
       )}
 
-      {/* Game Filter Indicator - Only show on Games tab */}
-      {activeTab === 'games' && gameSortLabel && (
-        <View className="mx-3 mb-2 rounded-lg bg-red-50 p-2">
-          <Text className="text-center text-sm text-red-600">
-            Showing games: {gameSortLabel}
-          </Text>
-        </View>
-      )}
 
       {/* Athlete/Game List */}
       <View className="flex-1 px-3">
@@ -386,42 +384,42 @@ export default function AthleteScreen() {
           </>
         ) : (
           <>
-            {gamesLoading ? (
+            {seasonsLoading ? (
               <View className="flex-1 items-center justify-center">
-                <Text className="text-gray-500">Loading games...</Text>
+                <Text className="text-gray-500">Loading seasons...</Text>
               </View>
-            ) : gamesError ? (
+            ) : seasonsError ? (
               <View className="flex-1 items-center justify-center px-4">
                 <Text className="mb-4 text-center text-red-500">
-                  {gamesError}
+                  {seasonsError}
                 </Text>
                 <TouchableOpacity
-                  onPress={fetchGames}
+                  onPress={fetchSeasons}
                   className="rounded-lg bg-red-500 px-4 py-2"
                 >
                   <Text className="font-semibold text-white">Retry</Text>
                 </TouchableOpacity>
               </View>
-            ) : filteredGames.length === 0 ? (
+            ) : filteredSeasons.length === 0 ? (
               <View className="flex-1 items-center justify-center">
                 <Text className="text-center text-gray-500">
                   {searchQuery
-                    ? 'No games found matching your search.'
-                    : 'No games found.'}
+                    ? 'No seasons found matching your search.'
+                    : 'No seasons found.'}
                 </Text>
               </View>
             ) : (
               <FlatList
-                data={filteredGames}
-                renderItem={renderGameCard}
+                data={filteredSeasons}
+                renderItem={renderSeasonCard}
                 keyExtractor={item => item.id}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingBottom: 100,
                   paddingHorizontal: 8
                 }}
-                refreshing={gamesLoading}
-                onRefresh={fetchGames}
+                refreshing={seasonsLoading}
+                onRefresh={fetchSeasons}
               />
             )}
           </>
@@ -431,7 +429,7 @@ export default function AthleteScreen() {
       {/* Floating Action Button */}
       {/* Floating Button */}
       <FloatingButton
-        onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddGame}
+        onPress={activeTab === 'athletes' ? handleAddAthlete : handleAddSeason}
         icon="add"
         IconComponent={FontAwesome6}
       />
@@ -503,69 +501,6 @@ export default function AthleteScreen() {
             {/* Cancel Button */}
             <TouchableOpacity
               onPress={() => setShowBatchModal(false)}
-              className="mt-4 rounded-lg bg-gray-200 p-3"
-            >
-              <Text className="text-center font-medium text-gray-700">
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Game Filter Modal */}
-      <Modal
-        visible={showGameFilterModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowGameFilterModal(false)}
-      >
-        <View className="flex-1 items-center justify-center bg-black/50">
-          <View className="mx-4 w-80 rounded-xl bg-white p-6">
-            <Text className="mb-4 text-center text-lg font-semibold">
-              Filter Games
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => {
-                 setGameSortLabel(null);
-                 setShowGameFilterModal(false);
-              }}
-              className="mb-3 rounded-lg bg-gray-100 p-3"
-            >
-              <Text className="text-center font-medium text-gray-700">
-                All Games (Default)
-              </Text>
-            </TouchableOpacity>
-            
-             <TouchableOpacity
-              onPress={() => {
-                 setGames([...games].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                 setGameSortLabel('Most Recent First');
-                 setShowGameFilterModal(false);
-              }}
-              className="mb-3 rounded-lg bg-gray-100 p-3"
-            >
-              <Text className="text-center font-medium text-gray-700">
-                Most Recent First
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                 setGames([...games].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-                 setGameSortLabel('Oldest First');
-                 setShowGameFilterModal(false);
-              }}
-              className="mb-3 rounded-lg bg-gray-100 p-3"
-            >
-              <Text className="text-center font-medium text-gray-700">
-                Oldest First
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setShowGameFilterModal(false)}
               className="mt-4 rounded-lg bg-gray-200 p-3"
             >
               <Text className="text-center font-medium text-gray-700">
