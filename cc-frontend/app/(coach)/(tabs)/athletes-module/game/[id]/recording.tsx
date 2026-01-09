@@ -1,78 +1,72 @@
-import { Ionicons } from '@expo/vector-icons';
+/////////////////////////////// START OF IMPORTS //////////////////////////////////////////////////////////
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ScrollView,
   Text,
-  TouchableOpacity,
   View,
   Alert,
-  TextInput
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import StatCard from '../../../../../../components/cards/StatCard';
-import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
-import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
-import ShootingStats_StatsForm from '../../../../../../components/cards/ShootingStats_StatsForm';
-import ReboundingStats_StatsForm from '../../../../../../components/cards/ReboundingStats_StatsForm';
-import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 
-// Mock data - in the future this will come from Supabase
-const MOCK_GAMES = {
-  '1': {
-    id: '1',
-    gameName: 'UNC Basketball Team vs State University',
-    date: 'Oct 15, 2025',
-    opponent: 'State University'
-  },
-  '2': {
-    id: '2',
-    gameName: 'UNC vs Duke',
-    date: 'Nov 20, 2025',
-    opponent: 'Duke University'
-  },
-  '3': {
-    id: '3',
-    gameName: 'UNC vs Wake Forest',
-    date: 'Dec 5, 2025',
-    opponent: 'Wake Forest University'
-  }
+import QuarterSelector from '../../../../../../components/game/QuarterSelector';
+import GameHeader from '../../../../../../components/game/GameHeader';
+import TabNavigation from '../../../../../../components/navigation/TabNavigation';
+import StatsFormTab from '../../../../../../components/game/StatsFormTab';
+import RealTimeStatsTab from '../../../../../../components/game/RealTimeStatsTab';
+import LoadingScreen from '../../../../../../components/common/LoadingScreen';
+import ErrorScreen from '../../../../../../components/common/ErrorScreen';
+import QuarterScoresCollapsible from '../../../../../../components/game/QuarterScoresCollapsible';
+import { useHeader } from '@/components/contexts/HeaderContext';
+import { useAuth } from '@/contexts/AuthContext';
+// Utility imports
+import { exportGameStatsToPDF, type PlayerStats, type PlayerQuarterStats } from '@/utils/pdfExport';
+// Service imports
+import { getGameByIdWithBatchValidation, transformDatabaseGame, type DatabaseGame, type Game } from '@/services/gameService';
+import { transformDatabaseAthlete, type DatabaseAthlete, type Athlete } from '@/services/athleteService';
+import { getRosterWithAthletes } from '@/services/rosterService';
+import { getAthleteGameStatsByGame, upsertAthleteGameStats, type DatabaseAthleteGame } from '@/services/statsService';
+////////////////////////////// END OF IMPORTS ////////////////
+
+
+/////////////////////////////// START OF INTERFACES /////////////
+// Using imported types from services for Database interfaces and helper functions
+// PlayerStats and PlayerQuarterStats are now imported from @/utils/pdfExport
+
+// For default values of the player stats object
+const createEmptyPlayerStats = (): PlayerStats => ({
+  totalFieldGoals: { made: 0, attempted: 0 },
+  twoPointFG: { made: 0, attempted: 0 },
+  threePointFG: { made: 0, attempted: 0 },
+  freeThrows: { made: 0, attempted: 0 },
+  rebounds: { offensive: 0, defensive: 0 },
+  assists: 0,
+  steals: 0,
+  blocks: 0,
+  turnovers: 0,
+  fouls: 0
+});
+
+// the purpose of this function is to calculate the total points for a player
+const calculateTotalPoints = (stats: PlayerStats | undefined) => { // "stats:" is like the parameter name 
+  if (!stats) return 0;
+  const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
+  const threePointPoints = (stats.threePointFG?.made || 0) * 3;
+  const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
+  return twoPointPoints + threePointPoints + freeThrowPoints;
 };
+////////////////////////////// END OF INTERFACES ////////////////
 
-const MOCK_ATHLETES = [
-  { id: '1', number: '10', name: 'John Smith', position: 'Forward' },
-  { id: '2', number: '7', name: 'Mike Johnson', position: 'Guard' },
-  { id: '3', number: '23', name: 'David Wilson', position: 'Center' },
-  { id: '4', number: '1', name: 'Tom Brown', position: 'Guard' },
-  { id: '5', number: '9', name: 'Alex Davis', position: 'Forward' },
-  { id: '6', number: '4', name: 'Chris Miller', position: 'Center' },
-  { id: '7', number: '8', name: 'Ryan Taylor', position: 'Guard' },
-  { id: '8', number: '11', name: 'Kevin Lee', position: 'Forward' }
-];
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
-// Mock roster data
-const MOCK_ROSTERS = {
-  '1': ['1', '2', '3', '4', '5'], // Game 1 roster
-  '2': ['1', '6', '7', '8', '5'], // Game 2 roster
-  '3': ['2', '3', '6', '7', '8'] // Game 3 roster
-};
 
-interface PlayerStats {
-  totalFieldGoals: { made: number; attempted: number };
-  twoPointFG: { made: number; attempted: number };
-  threePointFG: { made: number; attempted: number };
-  freeThrows: { made: number; attempted: number };
-  rebounds: { offensive: number; defensive: number };
-  assists: number;
-  steals: number;
-  blocks: number;
-  turnovers: number;
-  fouls: number;
-}
+/////////////////////////////// START OF MAIN COMPONENT /////////////
 
 export default function GameRecordingScreen() {
+  /////////////////////////////// START OF STATE AND CONFIGURATION /////////////
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { setTitle } = useHeader();
+  const { coachNo } = useAuth();
   const [activeTab, setActiveTab] = useState<'realtime' | 'stats'>('realtime');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedStatsAthlete, setSelectedStatsAthlete] = useState<{
@@ -81,53 +75,328 @@ export default function GameRecordingScreen() {
     name: string;
     position: string;
   } | null>(null);
-  const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>(
-    {}
-  );
+  const [playerStats, setPlayerStats] = useState<
+    Record<string, PlayerQuarterStats>
+  >({});
+
+  // Purpose: The Record<K, T> type is useful for creating an object with known key-value pairs where the keys are of type K and the values are of type T. It helps to define the shape of an object clearly and concisely.
+  // Example: const myObject: Record<string, number> = { 'key1': 1, 'key2': 2, 'key3': 3 };
+
+
   const [showQuarterScores, setShowQuarterScores] = useState(true);
   const [quarterScores, setQuarterScores] = useState({
-    home: { q1: '', q2: '', q3: '', q4: '', ot: '', total: 0 },
-    away: { q1: '', q2: '', q3: '', q4: '', ot: '', total: 0 }
+    home: { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, total: 0 },
+    away: { q1: 0, q2: 0, q3: 0, q4: 0, ot: 0, total: 0 }
   });
+  const [currentQuarter, setCurrentQuarter] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
-  // Get game data
-  const game = MOCK_GAMES[id as keyof typeof MOCK_GAMES];
-  const selectedAthleteIds =
-    MOCK_ROSTERS[id as keyof typeof MOCK_ROSTERS] || [];
-  const selectedAthletes = MOCK_ATHLETES.filter(athlete =>
-    selectedAthleteIds.includes(athlete.id)
-  );
+  // Real data states
+  const [game, setGame] = useState<Game | null>(null);
+  const [selectedAthletes, setSelectedAthletes] = useState<Athlete[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Calculate total points for a player
-  const calculateTotalPoints = (stats: PlayerStats | undefined) => {
-    if (!stats) return 0;
-    const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
-    const threePointPoints = (stats.threePointFG?.made || 0) * 3;
-    const freeThrowPoints = (stats.freeThrows?.made || 0) * 1;
-    return twoPointPoints + threePointPoints + freeThrowPoints;
-  };
+  // Auto-save functionality
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSavesRef = useRef<Set<string>>(new Set());
+  ////////////////////////////// END OF STATE AND CONFIGURATION ////////////////
 
-  // Initialize player stats if not exists
-  const initializePlayerStats = (playerId: string) => {
-    if (!playerStats[playerId]) {
-      setPlayerStats(prev => ({
-        ...prev,
-        [playerId]: {
-          totalFieldGoals: { made: 0, attempted: 0 },
-          twoPointFG: { made: 0, attempted: 0 },
-          threePointFG: { made: 0, attempted: 0 },
-          freeThrows: { made: 0, attempted: 0 },
-          rebounds: { offensive: 0, defensive: 0 },
-          assists: 0,
-          steals: 0,
-          blocks: 0,
-          turnovers: 0,
-          fouls: 0
-        }
-      }));
+  /////////////////////////////// START OF DATA FETCHING FUNCTIONS /////////////
+  // Fetch game data from database (with coach validation)
+  const fetchGame = async () => {
+    try {
+      if (!coachNo) {
+        setError('No coach information available');
+        return;
+      }
+
+      const gameData = await getGameByIdWithBatchValidation(Number(id), coachNo);
+      
+      if (!gameData) {
+        setError('Game not found or does not belong to your batches');
+        return;
+      }
+
+      // Game is valid, transform and set it
+      const transformedGame = transformDatabaseGame(gameData);
+      setGame(transformedGame);
+    } catch (err) {
+      console.error('Error fetching game:', err);
+      setError('Failed to load game details');
     }
   };
 
+  // Fetch roster athletes for this game
+  // Whatever game_no you select → get all athletes in that game's roster
+  const fetchRosterAthletes = async () => {
+    try {
+      const athletes = await getRosterWithAthletes(Number(id));
+      const transformedAthletes = athletes.map(transformDatabaseAthlete);
+      setSelectedAthletes(transformedAthletes);
+    } catch (err) {
+      console.error('Error fetching roster athletes:', err);
+      setError('Failed to load roster athletes');
+    }
+  };
+
+  // Fetch existing game stats for athletes
+  const fetchGameStats = async () => {
+    try {
+      const data = await getAthleteGameStatsByGame(Number(id));
+
+      if (data && data.length > 0) {
+        // Transform database stats to UI format
+        const athleteStatsContainer: Record<string, PlayerQuarterStats> = {};
+
+        data.forEach((stat: DatabaseAthleteGame) => {
+          const athleteId = stat.athlete_no.toString();
+          const quarterNo = stat.quarter_no ? Number(stat.quarter_no) : 1;
+
+          if (!athleteStatsContainer[athleteId]) {
+            athleteStatsContainer[athleteId] = {};
+          }
+
+          if (!athleteStatsContainer[athleteId][quarterNo]) {
+            athleteStatsContainer[athleteId][quarterNo] = createEmptyPlayerStats();
+          }
+
+          const currentStats = athleteStatsContainer[athleteId][quarterNo];
+          currentStats.totalFieldGoals.made += stat.field_goals_made || 0;
+          currentStats.totalFieldGoals.attempted += stat.field_goals_attempted || 0;
+          currentStats.twoPointFG.made += stat.two_point_made || 0;
+          currentStats.twoPointFG.attempted += stat.two_point_attempted || 0;
+          currentStats.threePointFG.made += stat.three_point_made || 0;
+          currentStats.threePointFG.attempted += stat.three_point_attempted || 0;
+          currentStats.freeThrows.made += stat.free_throws_made || 0;
+          currentStats.freeThrows.attempted += stat.free_throws_attempted || 0;
+          currentStats.rebounds.offensive += stat.offensive_rebounds || 0;
+          currentStats.rebounds.defensive += stat.defensive_rebounds || 0;
+          currentStats.assists += stat.assists || 0;
+          currentStats.steals += stat.steals || 0;
+          currentStats.blocks += stat.blocks || 0;
+          currentStats.turnovers += stat.turnovers || 0;
+          currentStats.fouls += stat.fouls || 0;
+        });
+
+        setPlayerStats(athleteStatsContainer);
+        console.log('Loaded per-quarter stats from database:', athleteStatsContainer);
+      }
+    } catch (err) {
+      console.error('Error fetching game stats:', err);
+      // Don't set error for stats fetch, just log it
+    }
+  };
+
+  // Save stats to database
+  const saveStatsToDatabase = useCallback(
+    async (athleteId: string, quarter: number, stats: PlayerStats) => {
+    try {
+      if (!id || typeof id !== 'string') return;
+
+      // Calculate total points
+      const totalPoints = calculateTotalPoints(stats);
+
+      // Prepare data for database
+      const statsData = {
+        points: totalPoints,
+        field_goals_made:
+          (stats.twoPointFG.made || 0) + (stats.threePointFG.made || 0),
+        field_goals_attempted:
+          (stats.twoPointFG.attempted || 0) +
+          (stats.threePointFG.attempted || 0),
+        two_point_made: stats.twoPointFG.made || 0,
+        two_point_attempted: stats.twoPointFG.attempted || 0,
+        three_point_made: stats.threePointFG.made || 0,
+        three_point_attempted: stats.threePointFG.attempted || 0,
+        free_throws_made: stats.freeThrows.made || 0,
+        free_throws_attempted: stats.freeThrows.attempted || 0,
+        assists: stats.assists || 0,
+        offensive_rebounds: stats.rebounds.offensive || 0,
+        defensive_rebounds: stats.rebounds.defensive || 0,
+        steals: stats.steals || 0,
+        blocks: stats.blocks || 0,
+        turnovers: stats.turnovers || 0,
+        fouls: stats.fouls || 0
+      };
+
+      console.log('Saving stats to database:', {
+        athleteId,
+        quarter,
+        statsData,
+        originalStats: stats
+      });
+
+      const success = await upsertAthleteGameStats(
+        parseInt(athleteId),
+        parseInt(id),
+        quarter,
+        statsData
+      );
+
+      if (!success) {
+        throw new Error('Failed to save stats');
+      }
+
+      console.log('Stats saved successfully for athlete:', athleteId);
+    } catch (err) {
+      console.error('Error saving stats:', err);
+      Alert.alert('Error', 'Failed to save stats to database');
+    }
+  }, [id]);
+  ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
+  // Update quarter scores automatically using per-quarter stats
+  const updateQuarterScores = () => {
+    const homeScores = {
+      q1: 0,
+      q2: 0,
+      q3: 0,
+      q4: 0,
+      ot: 0,
+      total: 0
+    };
+
+    Object.values(playerStats).forEach(athleteQuarterStats => {
+      Object.entries(athleteQuarterStats).forEach(([quarterKey, stats]) => {
+        const quarterNumber = Number(quarterKey);
+        const points = calculateTotalPoints(stats);
+
+        switch (quarterNumber) {
+          case 1:
+            homeScores.q1 += points;
+            break;
+          case 2:
+            homeScores.q2 += points;
+            break;
+          case 3:
+            homeScores.q3 += points;
+            break;
+          case 4:
+            homeScores.q4 += points;
+            break;
+          default:
+            homeScores.ot += points;
+            break;
+        }
+      });
+    });
+
+    homeScores.total =
+      homeScores.q1 +
+      homeScores.q2 +
+      homeScores.q3 +
+      homeScores.q4 +
+      homeScores.ot;
+
+    setQuarterScores(prev => ({
+      home: homeScores,
+      away: prev.away
+    }));
+  };
+
+  // Initialize player stats if not exists
+  // this is to make the players in the playerStats object have a default value of 0 for all stats
+  const ensureQuarterStats = (playerId: string, quarter: number) => {
+    setPlayerStats(currentState => {
+      const existingAthleteStats = currentState[playerId];
+      const quarterExists = existingAthleteStats?.[quarter];
+
+      if (quarterExists) {
+        return currentState;
+      }
+
+      const updatedAthleteStats: PlayerQuarterStats = {
+        ...(existingAthleteStats || {}),
+        [quarter]: createEmptyPlayerStats()
+      };
+
+      return {
+        ...currentState,
+        [playerId]: updatedAthleteStats
+      };
+    });
+  };
+
+  // Smart auto-save function with debouncing
+  const scheduleAutoSave = useCallback(
+    (athleteId: string, quarter: number) => {
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Add to pending saves
+    pendingSavesRef.current.add(`${athleteId}::${quarter}`);
+
+    // Set new timeout for 1.5 seconds
+    saveTimeoutRef.current = setTimeout(async () => {
+      const athletesToSave = Array.from(pendingSavesRef.current);
+      pendingSavesRef.current.clear();
+
+      // Save all pending athletes - get fresh state at save time
+      for (const athleteKey of athletesToSave) {
+        const [idPart, quarterPart] = athleteKey.split('::');
+        const parsedQuarter = Number(quarterPart);
+        if (!idPart || Number.isNaN(parsedQuarter)) {
+          continue;
+        }
+
+        // Get the current state at save time, not when scheduled
+        setPlayerStats(currentStats => {
+          const statsForQuarter = currentStats[idPart]?.[parsedQuarter];
+          if (statsForQuarter) {
+            console.log('Auto-save capturing fresh state:', {
+              athleteId: idPart,
+              quarter: parsedQuarter,
+              steals: statsForQuarter.steals,
+              timestamp: new Date().toISOString()
+            });
+            saveStatsToDatabase(idPart, parsedQuarter, statsForQuarter);
+          }
+          return currentStats; // Don't change state, just capture it
+        });
+      }
+    }, 1500); // 1.5 second delay
+  }, [saveStatsToDatabase]); // Remove playerStats dependency to avoid stale closures
+  ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
+
+  /////////////////////////////// START OF USE EFFECTS /////////////
+  useEffect(() => {
+    setTitle('Game Recording');
+  });
+
+  // Load all data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      await Promise.all([fetchGame(), fetchRosterAthletes(), fetchGameStats()]);
+
+      setLoading(false);
+    };
+
+    if (id && typeof id === 'string') {
+      loadData();
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [id]);
+
+  // Update quarter scores whenever player stats change
+  useEffect(() => {
+    updateQuarterScores();
+  }, [playerStats]);
+  ////////////////////////////// END OF USE EFFECTS ////////////////
+
+  /////////////////////////////// START OF EVENT HANDLERS /////////////
   const handleBackPress = () => {
     router.back();
   };
@@ -147,11 +416,54 @@ export default function GameRecordingScreen() {
     );
   };
 
-  const handleExport = () => {
-    Alert.alert(
-      'Export Stats',
-      'Export functionality will be implemented soon!'
-    );
+  const handleExport = useCallback(async () => {
+    if (!game) {
+      Alert.alert('Export Unavailable', 'Game details are still loading.');
+      return;
+    }
+
+    if (selectedAthletes.length === 0) {
+      Alert.alert('No Roster', 'Add athletes to the roster before exporting.');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      
+      await exportGameStatsToPDF({
+        game: {
+          gameName: game.gameName,
+          teamName: game.teamName,
+          opponentName: game.opponentName,
+          date: game.date,
+          seasonLabel: game.seasonLabel ?? ''
+        },
+        selectedAthletes,
+        playerStats,
+        quarterScores: quarterScores.home
+      });
+    } catch (err) {
+      console.error('Error exporting stats:', err);
+      Alert.alert('Export Failed', 'Something went wrong while generating the PDF.');
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    game,
+    playerStats,
+    quarterScores.home,
+    selectedAthletes
+  ]);
+
+  // Quarter selector handler
+  const handleQuarterChange = (quarter: number) => {
+    setCurrentQuarter(quarter);
+    if (selectedPlayerId) {
+      ensureQuarterStats(selectedPlayerId, quarter);
+    }
+    if (selectedStatsAthlete) {
+      ensureQuarterStats(selectedStatsAthlete.id, quarter);
+    }
   };
 
   // Stats form handlers
@@ -162,7 +474,7 @@ export default function GameRecordingScreen() {
     position: string;
   }) => {
     setSelectedStatsAthlete(athlete);
-    initializePlayerStats(athlete.id);
+    ensureQuarterStats(athlete.id, currentQuarter);
   };
 
   const handleShootingStatsUpdate = (
@@ -172,30 +484,37 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        [statType === 'total'
-          ? 'totalFieldGoals'
-          : statType === 'twoPoint'
-            ? 'twoPointFG'
-            : statType === 'threePoint'
-              ? 'threePointFG'
-              : 'freeThrows']: {
-          ...prev[selectedStatsAthlete.id][
-            statType === 'total'
-              ? 'totalFieldGoals'
-              : statType === 'twoPoint'
-                ? 'twoPointFG'
-                : statType === 'threePoint'
-                  ? 'threePointFG'
-                  : 'freeThrows'
-          ],
-          [field]: value
+    const statKey: 'totalFieldGoals' | 'twoPointFG' | 'threePointFG' | 'freeThrows' =
+      statType === 'total'
+        ? 'totalFieldGoals'
+        : statType === 'twoPoint'
+          ? 'twoPointFG'
+          : statType === 'threePoint'
+            ? 'threePointFG'
+            : 'freeThrows';
+
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [statKey]: {
+              ...currentQuarterStats[statKey],
+              [field]: value
+            }
+          }
         }
-      }
-    }));
+      };
+    });
+
+    // Trigger auto-save
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleReboundingStatsUpdate = (
@@ -204,16 +523,28 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        rebounds: {
-          ...prev[selectedStatsAthlete.id].rebounds,
-          [field]: value
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            rebounds: {
+              ...currentQuarterStats.rebounds,
+              [field]: value
+            }
+          }
         }
-      }
-    }));
+      };
+    });
+
+    // Trigger auto-save
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleOtherStatsUpdate = (
@@ -222,681 +553,170 @@ export default function GameRecordingScreen() {
   ) => {
     if (!selectedStatsAthlete) return;
 
-    setPlayerStats(prev => ({
-      ...prev,
-      [selectedStatsAthlete.id]: {
-        ...prev[selectedStatsAthlete.id],
-        [field]: value
-      }
-    }));
+    setPlayerStats(prev => {
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
+
+      return {
+        ...prev,
+        [selectedStatsAthlete.id]: {
+          ...athleteStats,
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [field]: value
+          }
+        }
+      };
+    });
+
+    // Trigger auto-save
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
-  const updateQuarterScore = (
-    team: 'home' | 'away',
-    quarter: string,
-    value: string
+  // Unified stat update handler for RealTimeStatsTab
+  const handleRealTimeStatsUpdate = (
+    playerId: string,
+    quarter: number,
+    field: string,
+    subfield: string | null,
+    value: number
   ) => {
-    setQuarterScores(prev => ({
-      ...prev,
-      [team]: {
-        ...prev[team],
-        [quarter]: value
-      }
-    }));
-  };
+    setPlayerStats(prev => {
+      const athleteStats = prev[playerId] ?? {};
+      const quarterStats = athleteStats[quarter] ?? createEmptyPlayerStats();
 
-  if (!game) {
+      let updatedQuarterStats = { ...quarterStats };
+
+      if (subfield) {
+        // Handle nested fields like twoPointFG.made, rebounds.offensive
+        updatedQuarterStats = {
+          ...quarterStats,
+          [field]: {
+            ...(quarterStats[field as keyof PlayerStats] as any),
+            [subfield]: value
+          }
+        };
+      } else {
+        // Handle simple fields like assists, steals
+        updatedQuarterStats = {
+          ...quarterStats,
+          [field]: value
+        };
+      }
+
+      const result = {
+        ...prev,
+        [playerId]: {
+          ...athleteStats,
+          [quarter]: updatedQuarterStats
+        }
+      };
+
+      // Trigger auto-save
+      scheduleAutoSave(playerId, quarter);
+
+      return result;
+    });
+  };
+  ////////////////////////////// END OF EVENT HANDLERS ////////////////
+
+  /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
+  if (loading) {
+    return <LoadingScreen message="Loading game data..." />;
+  }
+
+  if (error) {
     return (
-      <SafeAreaView className="flex-1" style={{ backgroundColor: '#F0F0F0' }}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-semibold text-gray-500">
-            Game not found
-          </Text>
-        </View>
-      </SafeAreaView>
+      <ErrorScreen
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+          if (id) {
+            Promise.all([
+              fetchGame(),
+              fetchRosterAthletes(),
+              fetchGameStats()
+            ]).finally(() => setLoading(false));
+          }
+        }}
+      />
     );
   }
 
+  if (!game) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-lg font-semibold text-gray-500">
+          Game not found
+        </Text>
+      </View>
+    );
+  }
+  ////////////////////////////// END OF LOADING AND ERROR STATES ////////////////
+
+  /////////////////////////////// START OF JSX RETURN /////////////
   return (
     <View className="flex-1 bg-white">
-      <SafeAreaView className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
-          <TouchableOpacity onPress={handleBackPress} className="p-2">
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-semibold text-black">
-            {game.gameName}
-          </Text>
-          <TouchableOpacity
-            onPress={handleReset}
-            className="rounded bg-black px-3 py-1"
-          >
-            <Text className="font-medium text-white">Reset</Text>
-          </TouchableOpacity>
-        </View>
+      <GameHeader gameName={game.gameName} variant="compact" />
 
-        {/* Quarter Scores Section */}
-        <View className="px-4 py-2">
-          <TouchableOpacity
-            className="flex-row items-center justify-between py-3"
-            onPress={() => setShowQuarterScores(!showQuarterScores)}
-          >
-            <Text className="text-lg font-semibold text-black">
-              Quarter Scores
-            </Text>
-            <Ionicons
-              name={showQuarterScores ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
+      {/* Quarter Selector */}
+      <QuarterSelector
+        currentQuarter={currentQuarter}
+        onQuarterChange={handleQuarterChange}
+        onReset={handleReset}
+      />
 
-          {showQuarterScores && (
-            <View className="mb-4 rounded-lg bg-gray-50 p-4">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ minWidth: 600 }}>
-                  {/* Header Row */}
-                  <View className="mb-3 flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm font-medium text-gray-600">
-                      Team
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q1
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q2
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q3
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      Q4
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      OT
-                    </Text>
-                    <Text className="w-20 text-center text-sm font-medium text-gray-600">
-                      T
-                    </Text>
-                  </View>
+      {/* Quarter Scores Section */}
+      <QuarterScoresCollapsible
+        homeTeamName={game.teamName}
+        awayTeamName={game.opponentName}
+        quarterScores={quarterScores}
+        isExpanded={showQuarterScores}
+        onToggle={() => setShowQuarterScores(!showQuarterScores)}
+      />
 
-                  {/* Home Team Row */}
-                  <View className="mb-2 flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm text-black">
-                      Men's Division Team
-                    </Text>
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.home.q1}
-                      onChangeText={value =>
-                        updateQuarterScore('home', 'q1', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.home.q2}
-                      onChangeText={value =>
-                        updateQuarterScore('home', 'q2', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.home.q3}
-                      onChangeText={value =>
-                        updateQuarterScore('home', 'q3', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.home.q4}
-                      onChangeText={value =>
-                        updateQuarterScore('home', 'q4', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.home.ot}
-                      onChangeText={value =>
-                        updateQuarterScore('home', 'ot', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <Text className="w-20 text-center text-lg font-bold text-black">
-                      0
-                    </Text>
-                  </View>
+      {/* Tab Navigation */}
+      <TabNavigation<'realtime' | 'stats'>
+        tabs={[
+          { id: 'realtime', label: 'Real-Time' },
+          { id: 'stats', label: 'Stats Sheet' }
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
-                  {/* Away Team Row */}
-                  <View className="flex-row items-center">
-                    <Text className="flex-1 pr-4 text-sm text-black">
-                      State University
-                    </Text>
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.away.q1}
-                      onChangeText={value =>
-                        updateQuarterScore('away', 'q1', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.away.q2}
-                      onChangeText={value =>
-                        updateQuarterScore('away', 'q2', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.away.q3}
-                      onChangeText={value =>
-                        updateQuarterScore('away', 'q3', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.away.q4}
-                      onChangeText={value =>
-                        updateQuarterScore('away', 'q4', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      className="h-12 w-20 rounded border border-gray-300 text-center text-lg font-semibold"
-                      value={quarterScores.away.ot}
-                      onChangeText={value =>
-                        updateQuarterScore('away', 'ot', value)
-                      }
-                      keyboardType="numeric"
-                    />
-                    <Text className="w-20 text-center text-lg font-bold text-black">
-                      0
-                    </Text>
-                  </View>
-                </View>
-              </ScrollView>
-            </View>
-          )}
-        </View>
-
-        {/* Tab Navigation */}
-        <View className="flex-row border-b border-gray-200">
-          <TouchableOpacity
-            className={`flex-1 py-4 ${activeTab === 'realtime' ? 'border-b-2 border-red-500' : ''}`}
-            onPress={() => setActiveTab('realtime')}
-          >
-            <Text
-              className={`text-center font-semibold ${activeTab === 'realtime' ? 'text-red-500' : 'text-gray-500'}`}
-            >
-              Real-Time
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={`flex-1 py-4 ${activeTab === 'stats' ? 'border-b-2 border-red-500' : ''}`}
-            onPress={() => setActiveTab('stats')}
-          >
-            <Text
-              className={`text-center font-semibold ${activeTab === 'stats' ? 'text-red-500' : 'text-gray-500'}`}
-            >
-              Stats Sheet
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'realtime' ? (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            {/* Player Selection */}
-            <View className="px-4 py-4">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mb-4"
-              >
-                <View className="flex-row space-x-3">
-                  {selectedAthletes.map(athlete => (
-                    <TouchableOpacity
-                      key={athlete.id}
-                      className={`items-center rounded-lg border-2 p-3 ${
-                        selectedPlayerId === athlete.id
-                          ? 'border-red-500 bg-red-50'
-                          : 'border-gray-200 bg-white'
-                      }`}
-                      onPress={() => {
-                        setSelectedPlayerId(athlete.id);
-                        initializePlayerStats(athlete.id);
-                      }}
-                    >
-                      <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-gray-300">
-                        <Text className="font-bold text-gray-600">
-                          {athlete.number}
-                        </Text>
-                      </View>
-                      <Text className="text-center text-sm font-medium text-black">
-                        {athlete.name}
-                      </Text>
-                      <Text className="text-center text-xs text-gray-500">
-                        {athlete.position}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-
-              {/* Export Button */}
-              <TouchableOpacity
-                onPress={handleExport}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-3"
-              >
-                <Text className="text-center font-medium text-black">
-                  Export
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Statistics Table */}
-            <View className="px-4 pb-6">
-              <View className="rounded-lg border border-gray-200 bg-white">
-                {selectedPlayerId && (
-                  <View className="border-b border-gray-200 p-4">
-                    <Text className="text-center text-lg font-semibold text-black">
-                      {MOCK_ATHLETES.find(a => a.id === selectedPlayerId)?.name}{' '}
-                      - No.{' '}
-                      {
-                        MOCK_ATHLETES.find(a => a.id === selectedPlayerId)
-                          ?.number
-                      }
-                    </Text>
-                  </View>
-                )}
-
-                <View className="p-4">
-                  {/* 2-Point Field Goals Card */}
-                  <StatCard
-                    title="2-Point Field Goals"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.twoPointFG
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) =>
-                      selectedPlayerId &&
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          twoPointFG: {
-                            ...prev[selectedPlayerId].twoPointFG,
-                            [field]: value
-                          }
-                        }
-                      }))
-                    }
-                  />
-
-                  {/* 3-Point Field Goals Card */}
-                  <StatCard
-                    title="3-Point Field Goals"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.threePointFG
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) =>
-                      selectedPlayerId &&
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          threePointFG: {
-                            ...prev[selectedPlayerId].threePointFG,
-                            [field]: value
-                          }
-                        }
-                      }))
-                    }
-                  />
-
-                  {/* Free Throws Card */}
-                  <StatCard
-                    title="Free Throws"
-                    type="shooting"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.freeThrows
-                        : { made: 0, attempted: 0 }
-                    }
-                    onUpdate={(field, value) =>
-                      selectedPlayerId &&
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          freeThrows: {
-                            ...prev[selectedPlayerId].freeThrows,
-                            [field]: value
-                          }
-                        }
-                      }))
-                    }
-                  />
-
-                  {/* Rebounds Card */}
-                  <StatCard
-                    title="Rebounds"
-                    type="rebounds"
-                    stats={
-                      selectedPlayerId
-                        ? playerStats[selectedPlayerId]?.rebounds
-                        : { offensive: 0, defensive: 0 }
-                    }
-                    onUpdate={(field, value) =>
-                      selectedPlayerId &&
-                      setPlayerStats(prev => ({
-                        ...prev,
-                        [selectedPlayerId]: {
-                          ...prev[selectedPlayerId],
-                          rebounds: {
-                            ...prev[selectedPlayerId].rebounds,
-                            [field]: value
-                          }
-                        }
-                      }))
-                    }
-                  />
-
-                  {/* Other Stats Card */}
-                  <View className="rounded-lg bg-gray-100 p-4">
-                    <Text className="mb-3 text-lg font-semibold text-black">
-                      Other Stats
-                    </Text>
-
-                    <SimpleStatRow
-                      label="Assists"
-                      value={playerStats[selectedPlayerId]?.assists || 0}
-                      onUpdate={value =>
-                        selectedPlayerId &&
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            assists: value
-                          }
-                        }))
-                      }
-                    />
-
-                    <SimpleStatRow
-                      label="Steals"
-                      value={playerStats[selectedPlayerId]?.steals || 0}
-                      onUpdate={value =>
-                        selectedPlayerId &&
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            steals: value
-                          }
-                        }))
-                      }
-                    />
-
-                    <SimpleStatRow
-                      label="Blocks"
-                      value={playerStats[selectedPlayerId]?.blocks || 0}
-                      onUpdate={value =>
-                        selectedPlayerId &&
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            blocks: value
-                          }
-                        }))
-                      }
-                    />
-
-                    <SimpleStatRow
-                      label="Turnovers"
-                      value={playerStats[selectedPlayerId]?.turnovers || 0}
-                      onUpdate={value =>
-                        selectedPlayerId &&
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            turnovers: value
-                          }
-                        }))
-                      }
-                    />
-
-                    <SimpleStatRow
-                      label="Fouls"
-                      value={playerStats[selectedPlayerId]?.fouls || 0}
-                      onUpdate={value =>
-                        selectedPlayerId &&
-                        setPlayerStats(prev => ({
-                          ...prev,
-                          [selectedPlayerId]: {
-                            ...prev[selectedPlayerId],
-                            fouls: value
-                          }
-                        }))
-                      }
-                    />
-
-                    {/* Total Points - Calculated Display */}
-                    <View className="flex-row items-center justify-between">
-                      <Text className="font-medium text-black">
-                        Total Points
-                      </Text>
-                      <Text className="text-lg font-bold text-red-500">
-                        {calculateTotalPoints(playerStats[selectedPlayerId])}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            className="flex-1 bg-gray-100"
-            showsVerticalScrollIndicator={false}
-          >
-            <View className="space-y-4 p-4">
-              {/* Athlete Selection */}
-              <View className="mb-4">
-                <AthleteDropdown_StatsForm
-                  athletes={selectedAthletes}
-                  selectedAthlete={selectedStatsAthlete}
-                  onSelectAthlete={handleStatsAthleteSelect}
-                />
-              </View>
-
-              {/* Stats Form */}
-              {selectedStatsAthlete && (
-                <View className="space-y-4">
-                  {/* Shooting Statistics */}
-                  <ShootingStats_StatsForm
-                    totalFieldGoals={
-                      playerStats[selectedStatsAthlete.id]?.totalFieldGoals || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    twoPointFG={
-                      playerStats[selectedStatsAthlete.id]?.twoPointFG || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    threePointFG={
-                      playerStats[selectedStatsAthlete.id]?.threePointFG || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    freeThrows={
-                      playerStats[selectedStatsAthlete.id]?.freeThrows || {
-                        made: 0,
-                        attempted: 0
-                      }
-                    }
-                    onUpdate={handleShootingStatsUpdate}
-                  />
-
-                  {/* Rebounding Statistics */}
-                  <ReboundingStats_StatsForm
-                    offensive={
-                      playerStats[selectedStatsAthlete.id]?.rebounds
-                        ?.offensive || 0
-                    }
-                    defensive={
-                      playerStats[selectedStatsAthlete.id]?.rebounds
-                        ?.defensive || 0
-                    }
-                    onUpdate={handleReboundingStatsUpdate}
-                  />
-
-                  {/* Other Statistics */}
-                  <OtherStats_StatsForm
-                    assists={playerStats[selectedStatsAthlete.id]?.assists || 0}
-                    steals={playerStats[selectedStatsAthlete.id]?.steals || 0}
-                    blocks={playerStats[selectedStatsAthlete.id]?.blocks || 0}
-                    turnovers={
-                      playerStats[selectedStatsAthlete.id]?.turnovers || 0
-                    }
-                    fouls={playerStats[selectedStatsAthlete.id]?.fouls || 0}
-                    onUpdate={handleOtherStatsUpdate}
-                  />
-
-                  {/* Add Button */}
-                  <TouchableOpacity className="flex-row items-center justify-center rounded-lg bg-red-500 px-6 py-4">
-                    <Ionicons name="add" size={20} color="white" />
-                    <Text className="ml-2 text-lg font-semibold text-white">
-                      Add
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Complete Stats Sheet */}
-              <View className="mt-6">
-                <Text className="mb-4 text-lg font-semibold text-black">
-                  Complete Stats Sheet
-                </Text>
-                <View className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  {/* Stats Sheet Header */}
-                  <View className="border-b border-gray-200 bg-gray-100 p-3">
-                    <Text className="text-center font-bold text-black">
-                      BUCAL MEN'S BASKETBALL SEASON 6
-                    </Text>
-                    <Text className="mt-1 text-center text-sm text-gray-600">
-                      {game.gameName}
-                    </Text>
-                    <Text className="text-center text-sm text-gray-600">
-                      {game.date}
-                    </Text>
-                  </View>
-
-                  {/* Player Stats Table */}
-                  <View className="p-3">
-                    {selectedAthletes.map(athlete => {
-                      const stats = playerStats[athlete.id];
-                      return (
-                        <View
-                          key={athlete.id}
-                          className="border-b border-gray-100 py-2"
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex-1">
-                              <Text className="font-semibold text-black">
-                                #{athlete.number} {athlete.name}
-                              </Text>
-                              <Text className="text-sm text-gray-500">
-                                {athlete.position}
-                              </Text>
-                            </View>
-                            <View className="flex-row space-x-4">
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  PTS
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {calculateTotalPoints(stats)}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  REB
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {(stats?.rebounds?.offensive || 0) +
-                                    (stats?.rebounds?.defensive || 0)}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  AST
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.assists || 0}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  STL
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.steals || 0}
-                                </Text>
-                              </View>
-                              <View className="items-center">
-                                <Text className="text-xs text-gray-500">
-                                  BLK
-                                </Text>
-                                <Text className="font-bold text-black">
-                                  {stats?.blocks || 0}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* Bottom Navigation */}
-        <View className="flex-row items-center justify-around border-t border-gray-200 bg-white py-3">
-          <TouchableOpacity className="items-center">
-            <Ionicons name="home-outline" size={24} color="#666" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="shirt-outline" size={24} color="#EC1D25" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="fitness-outline" size={24} color="#666" />
-          </TouchableOpacity>
-          <TouchableOpacity className="items-center">
-            <Ionicons name="basketball-outline" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      {activeTab === 'realtime' ? (
+        <RealTimeStatsTab
+          selectedAthletes={selectedAthletes}
+          selectedPlayerId={selectedPlayerId}
+          currentQuarter={currentQuarter}
+          playerStats={playerStats}
+          onPlayerSelect={(id) => {
+            setSelectedPlayerId(id);
+            ensureQuarterStats(id, currentQuarter);
+          }}
+          onStatsUpdate={handleRealTimeStatsUpdate}
+          onExport={handleExport}
+          exporting={exporting}
+        />
+      ) : (
+        <StatsFormTab
+          game={game}
+          selectedAthletes={selectedAthletes}
+          selectedStatsAthlete={selectedStatsAthlete}
+          currentQuarter={currentQuarter}
+          playerStats={playerStats}
+          onAthleteSelect={handleStatsAthleteSelect}
+          onShootingStatsUpdate={handleShootingStatsUpdate}
+          onReboundingStatsUpdate={handleReboundingStatsUpdate}
+          onOtherStatsUpdate={handleOtherStatsUpdate}
+          onSave={saveStatsToDatabase}
+        />
+      )}
     </View>
   );
+  ////////////////////////////// END OF JSX RETURN ////////////////
 }
+////////////////////////////// END OF MAIN COMPONENT ////////////////

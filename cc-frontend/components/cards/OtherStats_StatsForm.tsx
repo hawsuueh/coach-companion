@@ -12,6 +12,27 @@ interface OtherStatsProps {
   ) => void;
 }
 
+const StatInput = ({
+  label,
+  value,
+  onUpdate
+}: {
+  label: string;
+  value: number;
+  onUpdate: (value: number) => void;
+}) => (
+  <View className="mb-4">
+    <Text className="mb-2 text-lg font-semibold text-black">{label}</Text>
+    <TextInput
+      className="rounded border border-gray-300 bg-white px-3 py-2 text-black"
+      value={value.toString()}
+      onChangeText={text => onUpdate(parseInt(text) || 0)}
+      keyboardType="numeric"
+      placeholder="Enter Value"
+    />
+  </View>
+);
+
 export default function OtherStats_StatsForm({
   assists,
   steals,
@@ -20,27 +41,6 @@ export default function OtherStats_StatsForm({
   fouls,
   onUpdate
 }: OtherStatsProps) {
-  const StatInput = ({
-    label,
-    value,
-    onUpdate
-  }: {
-    label: string;
-    value: number;
-    onUpdate: (value: number) => void;
-  }) => (
-    <View className="mb-4">
-      <Text className="mb-2 text-lg font-semibold text-black">{label}</Text>
-      <TextInput
-        className="rounded border border-gray-300 bg-white px-3 py-2 text-black"
-        value={value.toString()}
-        onChangeText={text => onUpdate(parseInt(text) || 0)}
-        keyboardType="numeric"
-        placeholder="Enter Value"
-      />
-    </View>
-  );
-
   return (
     <View className="rounded-lg bg-gray-100 p-4">
       <Text className="mb-4 text-xl font-bold text-black">

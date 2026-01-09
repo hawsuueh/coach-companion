@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Headings */
+  .text-h1 {
+    @apply font-poetsen text-[24px] leading-[1.2] tracking-[0.2px];
+  }
+  .text-h2 {
+    @apply font-poetsen text-[20px] leading-[1.2] tracking-[0.2px];
+  }
+
+  /* Titles */
+  .text-title1 {
+    @apply font-inter-bold text-[16px] leading-[1.2] tracking-[0.2px];
+  }
+
+  /* Labels */
+  .text-label1 {
+    @apply font-inter-light text-[16px] leading-[1.2] tracking-[0.2px] opacity-50;
+  }
+  .text-label2 {
+    @apply font-inter-light text-[14px] leading-[1.2] tracking-[0.2px];
+  }
+  .text-label3 {
+    @apply font-inter-light text-[12px] leading-[1.2] tracking-[0.2px];
+  }
+  .text-label4 {
+    @apply font-inter-light text-[14px] italic leading-[1.2] tracking-[0.2px];
+  }
+
+  /* Body */
+  .text-body1 {
+    @apply font-inter text-[16px] leading-[1.5] tracking-[0.2px];
+  }
+  .text-body2 {
+    @apply font-inter text-[14px] leading-[1.5] tracking-[0.2px];
+  }
+  .text-body3 {
+    @apply font-inter text-[12px] leading-[1.5] tracking-[0.2px];
+  }
+}
