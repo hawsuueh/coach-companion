@@ -455,28 +455,6 @@ const PracticeScreen: React.FC = () => {
             <Animated.View layout={LinearTransition}>
               <Pressable
                 style={styles.category_header}
-                onPress={() => toggleSection('regimens')}
-              >
-                <Text style={styles.category_text}>
-                  {expandedSections.regimens ? '▼ ' : '▶ '} My Regimens
-                </Text>
-              </Pressable>
-
-              {expandedSections.regimens && (
-                <View>
-                  <View>
-                    {/* Practice Regimens go here
-                  Show the list of athletes
-                  inside the athlete cards, show Practice Regimen (the regimens assigned to that specific athlete)
-                  */}
-                  </View>
-                </View>
-              )}
-            </Animated.View>
-
-            <Animated.View layout={LinearTransition}>
-              <Pressable
-                style={styles.category_header}
                 onPress={() => toggleSection('practices')}
               >
                 <Text style={styles.category_text}>

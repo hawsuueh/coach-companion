@@ -1,3 +1,4 @@
+// athlete profile consisting of assigned regimens
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {

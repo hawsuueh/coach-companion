@@ -18,8 +18,8 @@ function splitData(
   feature: StatKey,
   threshold: number
 ): { left: TrainingSample[]; right: TrainingSample[] } {
-  const left = data.filter((d) => d.features[feature] <= threshold);
-  const right = data.filter((d) => d.features[feature] > threshold);
+  const left = data.filter(d => d.features[feature] <= threshold);
+  const right = data.filter(d => d.features[feature] > threshold);
   return { left, right };
 }
 
@@ -27,7 +27,7 @@ function generateWeights(n: number): number[] {
   const base = [1.0, 0.7, 0.3, 0.2, 0.1];
   const slice = base.slice(0, n);
   const total = slice.reduce((sum, w) => sum + w, 0);
-  return slice.map((w) => w / total); // normalize to sum = 1
+  return slice.map(w => w / total); // normalize to sum = 1
 }
 
 function getDrillWeights(drill: { good_for: StatKey[] }): {
@@ -36,7 +36,7 @@ function getDrillWeights(drill: { good_for: StatKey[] }): {
   const tiers = {
     1: [1.0],
     2: [0.7, 0.3],
-    3: [0.5, 0.3, 0.2],
+    3: [0.5, 0.3, 0.2]
   };
   const weights =
     tiers[drill.good_for.length as 1 | 2 | 3] ??
@@ -68,14 +68,14 @@ export function predictForestWeighted(
   drills: { id: number; good_for: StatKey[] }[]
 ): number[] {
   const rawVotes: { [id: number]: number } = {};
-  forest.forEach((tree) => {
-    predictTree(tree, input).forEach((id) => {
+  forest.forEach(tree => {
+    predictTree(tree, input).forEach(id => {
       rawVotes[id] = (rawVotes[id] || 0) + 1;
     });
   });
 
   const attentionScores = input;
-  const drillMap = new Map(drills.map((d) => [d.id, d]));
+  const drillMap = new Map(drills.map(d => [d.id, d]));
 
   const scored = Object.entries(rawVotes)
     .map(([idStr, count]) => {
@@ -96,10 +96,10 @@ export function predictForestWeighted(
         id,
         score: count * relevance,
         coverageScore,
-        good_for: drill?.good_for ?? [],
+        good_for: drill?.good_for ?? []
       };
     })
-    .filter((entry) => entry.score > 0)
+    .filter(entry => entry.score > 0)
     .sort((a, b) => b.score - a.score);
 
   // This represents the player's biggest weakness
@@ -114,7 +114,7 @@ export function predictForestWeighted(
 
   for (const entry of scored) {
     // Check which stats this drill helps that aren't covered yet
-    const newStats = entry.good_for.filter((stat) => !coveredStats.has(stat));
+    const newStats = entry.good_for.filter(stat => !coveredStats.has(stat));
 
     // Calculate how urgent these "new" stats are
     const currentDrillUrgency = newStats.reduce(
@@ -135,7 +135,7 @@ export function predictForestWeighted(
       selected.length < 3
     ) {
       selected.push(entry.id);
-      newStats.forEach((stat) => coveredStats.add(stat));
+      newStats.forEach(stat => coveredStats.add(stat));
     }
 
     if (selected.length >= 6) break;
@@ -146,8 +146,8 @@ export function predictForestWeighted(
 
 function giniImpurity(samples: TrainingSample[]): number {
   const labelCounts: { [id: number]: number } = {};
-  samples.forEach((s) => {
-    s.labels.forEach((id) => {
+  samples.forEach(s => {
+    s.labels.forEach(id => {
       labelCounts[id] = (labelCounts[id] || 0) + 1;
     });
   });
@@ -175,7 +175,7 @@ function findBestSplit(
 
   for (const feature of features) {
     const thresholds = Array.from(
-      new Set(samples.map((s) => s.features[feature]))
+      new Set(samples.map(s => s.features[feature]))
     );
     for (const t of thresholds) {
       const { left, right } = splitData(samples, feature, t);
@@ -203,8 +203,8 @@ function buildTree(
 ): TreeNode {
   if (depth >= maxDepth || samples.length <= 1) {
     const labelCounts: { [id: number]: number } = {};
-    samples.forEach((s) => {
-      s.labels.forEach((id) => {
+    samples.forEach(s => {
+      s.labels.forEach(id => {
         labelCounts[id] = (labelCounts[id] || 0) + 1;
       });
     });
@@ -222,7 +222,7 @@ function buildTree(
     feature: split.feature,
     threshold: split.threshold,
     left: buildTree(left, features, depth + 1, maxDepth),
-    right: buildTree(right, features, depth + 1, maxDepth),
+    right: buildTree(right, features, depth + 1, maxDepth)
   };
 }
 function predictTree(
@@ -241,7 +241,7 @@ function predictTree(
 export function buildForest(
   samples: TrainingSample[],
   features: StatKey[],
-  numTrees = 10
+  numTrees = 20
 ): TreeNode[] {
   const forest: TreeNode[] = [];
   for (let i = 0; i < numTrees; i++) {
@@ -258,8 +258,8 @@ export function predictForest(
   input: { [key in StatKey]: number }
 ): number[] {
   const votes: { [id: number]: number } = {};
-  forest.forEach((tree) => {
-    predictTree(tree, input).forEach((id) => {
+  forest.forEach(tree => {
+    predictTree(tree, input).forEach(id => {
       votes[id] = (votes[id] || 0) + 1;
     });
   });

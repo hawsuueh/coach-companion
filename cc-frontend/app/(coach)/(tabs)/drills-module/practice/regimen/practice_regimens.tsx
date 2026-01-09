@@ -1,3 +1,4 @@
+// main view of Regimens button
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -13,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AthleteCard from '../../performance/athlete_card';
-import athlete_list from '../../performance/athlete_list'; // Keeping as is per your note
+import athlete_list from '../../performance/athlete_list';
 import { getAllAssignedRegimenByRegimenId } from '../../services/assigned_regimen';
 import { getAllAssignedRegimenDrillByAssignedRegimenId } from '../../services/assigned_regimen_drill';
 import {
@@ -250,6 +251,9 @@ const styles = StyleSheet.create({
   activeTabText: { color: '#fff' },
   scrollContent: { padding: 16 },
   grid: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 20,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between'

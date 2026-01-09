@@ -5,7 +5,7 @@ export interface AssignedRegimenDatabase {
   regimen_id: number;
   assigned_athlete_id: number;
   // status of entire assigned regimen
-  status: string;
+  status: 'pending' | 'completed' | 'missed' | 'assigned';
   // return of the performanceUtils
   attention_areas: string[];
 }
@@ -158,4 +158,21 @@ export const deleteAssignedRegimenByRegimenId = async (regimenId: number) => {
     return null;
   }
   return true;
+};
+
+// check if a regimen is missed
+export const checkAndMapMissedStatus = (
+  status: string,
+  dueDate: string
+): string => {
+  if (status === 'completed') return 'completed';
+
+  const now = new Date();
+  const deadline = new Date(dueDate);
+
+  if (now > deadline) {
+    return 'missed';
+  }
+
+  return status;
 };
