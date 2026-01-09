@@ -68,6 +68,8 @@ const RegimenFormModal: React.FC<RegimenFormModalProps> = ({
   onSave,
   initialRegimen: initialDrill
 }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const [dbPractices, setDbPractices] = useState<DatabasePractice[]>([]);
   const [dbDrills, setDbDrills] = useState<DatabaseDrill[]>([]);
   useEffect(() => {
@@ -100,12 +102,12 @@ const RegimenFormModal: React.FC<RegimenFormModalProps> = ({
     setPickerVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || selectedAthletes.length === 0) {
       Alert.alert('Error', 'Please fill in the name and select athletes.');
       return;
     }
-
+    setIsGenerating(true);
     let finalAthleteIds: string[] = [];
     if (assignmentType === 'all') {
       finalAthleteIds = athleteList.map(a => a.athlete_no.toString());

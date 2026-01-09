@@ -33,9 +33,6 @@ export default function AthleteDetailScreen() {
   );
   // State to hold the currently selected game for detailed view
   const [selectedGame, setSelectedGame] = useState<GameRecord | null>(null);
-  // state for modal visibility of specific game selection
-  const [isGameSelectionModalVisible, setIsGameSelectionModalVisible] =
-    useState(false);
 
   // State to hold the attention score results
   const [attentionPriorities, setAttentionPriorities] = useState<

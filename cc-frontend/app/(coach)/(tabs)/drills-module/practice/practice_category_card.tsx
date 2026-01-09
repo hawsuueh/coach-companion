@@ -5,7 +5,7 @@ import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 interface PracticeCategoryModalProps {
   name: string;
   description: string;
-  practiceId: number; // Pass the ID to the modal
+  practiceId: number;
   onEdit: (id: number) => void; // Callback for edit
   onDelete: (id: number, name: string) => void; // Callback for delete
 }
@@ -51,7 +51,6 @@ export default function PracticeCategoryModal({
 }
 
 const screenWidth = Dimensions.get('window').width;
-const screenHeight = Dimensions.get('window').height;
 
 const styles = StyleSheet.create({
   container: {

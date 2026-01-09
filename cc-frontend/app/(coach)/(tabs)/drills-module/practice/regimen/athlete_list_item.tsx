@@ -1,6 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+// creates list items of athletes for the practice_regimens
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface AthleteListItemProps {
   athlete: any;
@@ -11,7 +12,7 @@ interface AthleteListItemProps {
 export default function AthleteListItem({
   athlete,
   status,
-  onPress,
+  onPress
 }: AthleteListItemProps) {
   return (
     <Pressable style={styles.listItem} onPress={onPress}>
@@ -32,7 +33,7 @@ export default function AthleteListItem({
           <View
             style={[
               styles.statusBadge,
-              status === "completed" ? styles.done : styles.pending,
+              status === 'completed' ? styles.done : styles.pending
             ]}
           >
             <Text style={styles.statusText}>{status.toUpperCase()}</Text>
@@ -46,57 +47,57 @@ export default function AthleteListItem({
 
 const styles = StyleSheet.create({
   listItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "white",
+    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: '#F0F0F0'
   },
   leftSection: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
   },
   avatarText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14
   },
   name: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333'
   },
   subtext: {
     fontSize: 12,
-    color: "#888",
+    color: '#888'
   },
   rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: 8
   },
-  done: { backgroundColor: "#E8F5E9" },
-  pending: { backgroundColor: "#FFF3E0" },
+  done: { backgroundColor: '#E8F5E9' },
+  pending: { backgroundColor: '#FFF3E0' },
   statusText: {
     fontSize: 10,
-    fontWeight: "bold",
-    color: "#444",
-  },
+    fontWeight: 'bold',
+    color: '#444'
+  }
 });

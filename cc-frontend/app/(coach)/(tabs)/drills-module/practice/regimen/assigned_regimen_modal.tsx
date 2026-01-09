@@ -1,5 +1,6 @@
-import Feather from "@expo/vector-icons/Feather";
-import React, { useEffect, useState } from "react";
+// View of a specific assigned regimen (what athletes see when they need to complete a regimen)
+import Feather from '@expo/vector-icons/Feather';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,20 +8,20 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
-} from "react-native";
+  View
+} from 'react-native';
 import {
   getAssignedRegimenById,
-  updateAssignedRegimen,
-} from "../../services/assigned_regimen";
+  updateAssignedRegimen
+} from '../../services/assigned_regimen';
 import {
   AssignedRegimenDrillDatabase,
   getAllAssignedRegimenDrillByAssignedRegimenId,
-  updateAssignedRegimenDrill,
-} from "../../services/assigned_regimen_drill";
-import { DatabaseDrill, getAllDrills } from "../../services/drill";
-import { getRegimenById, RegimenDatabase } from "../../services/regimen";
-import DrillModal from "../drill_modal";
+  updateAssignedRegimenDrill
+} from '../../services/assigned_regimen_drill';
+import { DatabaseDrill, getAllDrills } from '../../services/drill';
+import { getRegimenById, RegimenDatabase } from '../../services/regimen';
+import DrillModal from '../drill_modal';
 
 interface Props {
   assignedRegimenId: number;
@@ -54,10 +55,11 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
         const [regimenData, drillDefs, drillAssigns] = await Promise.all([
           getRegimenById(assignmentRecord.regimen_id),
           getAllDrills(),
-          getAllAssignedRegimenDrillByAssignedRegimenId(assignedRegimenId),
+          getAllAssignedRegimenDrillByAssignedRegimenId(assignedRegimenId)
         ]);
 
         if (regimenData) setRegimen(regimenData[0]);
+
         if (drillDefs) setDbDrills(drillDefs);
         if (drillAssigns) setDrillAssignments(drillAssigns);
       }
@@ -71,32 +73,28 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
   ) => {
     try {
       const newStatus =
-        drillAssignment.status === "pending" ? "completed" : "pending";
+        drillAssignment.status === 'pending' ? 'completed' : 'pending';
 
       // 1. Update the individual drill
       await updateAssignedRegimenDrill(drillAssignment.id!, {
         ...drillAssignment,
-        status: newStatus,
+        status: newStatus
       });
 
       // 2. Refresh local drill state to get the most recent statuses
-      const updatedDrills = await getAllAssignedRegimenDrillByAssignedRegimenId(
-        assignedRegimenId
-      );
+      const updatedDrills =
+        await getAllAssignedRegimenDrillByAssignedRegimenId(assignedRegimenId);
       if (updatedDrills) {
         setDrillAssignments(updatedDrills);
 
         // 3. Logic to toggle the parent Regimen status
-        const allCompleted = updatedDrills.every(
-          (d) => d.status === "completed"
-        );
-        const currentRegimenStatus = allCompleted ? "completed" : "pending";
+        const allCompleted = updatedDrills.every(d => d.status === 'completed');
+        const currentRegimenStatus = allCompleted ? 'completed' : 'pending';
 
         // 4. Update the parent assigned_regimen
         // We need to fetch the current assigned_regimen first to preserve attention_areas and other fields
-        const parentRecordResponse = await getAssignedRegimenById(
-          assignedRegimenId
-        );
+        const parentRecordResponse =
+          await getAssignedRegimenById(assignedRegimenId);
         if (parentRecordResponse && parentRecordResponse.length > 0) {
           const parentRecord = parentRecordResponse[0];
 
@@ -104,7 +102,7 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
           if (parentRecord.status !== currentRegimenStatus) {
             await updateAssignedRegimen(assignedRegimenId, {
               ...parentRecord,
-              status: currentRegimenStatus,
+              status: currentRegimenStatus
             });
             console.log(
               `Parent regimen status updated to: ${currentRegimenStatus}`
@@ -113,21 +111,19 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
         }
       }
     } catch (error) {
-      console.error("Error toggling drill status:", error);
+      console.error('Error toggling drill status:', error);
     }
   };
 
   const markAllCompleted = async () => {
-    const updates = drillAssignments.map(async (d) => {
-      if (d.id && d.status !== "completed") {
-        return updateAssignedRegimenDrill(d.id, { ...d, status: "completed" });
+    const updates = drillAssignments.map(async d => {
+      if (d.id && d.status !== 'completed') {
+        return updateAssignedRegimenDrill(d.id, { ...d, status: 'completed' });
       }
     });
 
     await Promise.all(updates);
-    setDrillAssignments((prev) =>
-      prev.map((d) => ({ ...d, status: "completed" }))
-    );
+    setDrillAssignments(prev => prev.map(d => ({ ...d, status: 'completed' })));
   };
 
   if (loading)
@@ -143,7 +139,7 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
         <View style={styles.infoRow}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              {typeof regimen?.focus === "string"
+              {typeof regimen?.focus === 'string'
                 ? regimen.focus
                 : regimen?.focus.category}
             </Text>
@@ -156,12 +152,10 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
         <Text style={styles.sectionTitle}>Drills Checklist</Text>
         <FlatList
           data={drillAssignments}
-          keyExtractor={(item) =>
-            item.id?.toString() || Math.random().toString()
-          }
+          keyExtractor={item => item.id?.toString() || Math.random().toString()}
           renderItem={({ item }) => {
-            const drill = dbDrills.find((d) => d.id === item.drill_id);
-            const isDone = item.status === "completed";
+            const drill = dbDrills.find(d => d.id === item.drill_id);
+            const isDone = item.status === 'completed';
 
             return (
               <View style={[styles.drillCard, isDone && styles.drillCardDone]}>
@@ -173,11 +167,11 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
                     <View
                       style={[
                         styles.dot,
-                        { backgroundColor: isDone ? "#4caf50" : "#fb8c00" },
+                        { backgroundColor: isDone ? '#4caf50' : '#fb8c00' }
                       ]}
                     />
                     <Text style={styles.statusText}>
-                      {isDone ? "Finished" : "In Progress"}
+                      {isDone ? 'Finished' : 'In Progress'}
                     </Text>
                   </View>
                 </View>
@@ -196,12 +190,12 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
                   <Pressable
                     style={[
                       styles.checkButton,
-                      isDone && { backgroundColor: "#8E8E93" },
+                      isDone && { backgroundColor: '#8E8E93' }
                     ]}
                     onPress={() => toggleDrillStatus(item)}
                   >
                     <Feather
-                      name={isDone ? "rotate-ccw" : "check"}
+                      name={isDone ? 'rotate-ccw' : 'check'}
                       size={20}
                       color="white"
                     />
@@ -225,13 +219,13 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
             showCompleteButton={true}
             onMarkComplete={() => {
               const assignment = drillAssignments.find(
-                (d) => d.id === selectedDrillAssignmentId
+                d => d.id === selectedDrillAssignmentId
               );
               if (assignment) toggleDrillStatus(assignment);
             }}
             isCompleted={
-              drillAssignments.find((d) => d.id === selectedDrillAssignmentId)
-                ?.status === "completed"
+              drillAssignments.find(d => d.id === selectedDrillAssignmentId)
+                ?.status === 'completed'
             }
           />
         )}
@@ -241,75 +235,75 @@ const AssignedRegimenModal: React.FC<Props> = ({ assignedRegimenId }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
   header: {
     padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: '#eee'
   },
-  title: { fontSize: 24, fontWeight: "800", color: "#1A1C1E", marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: '800', color: '#1A1C1E', marginBottom: 8 },
   infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
   },
   badge: {
-    backgroundColor: "#EC1D2515",
+    backgroundColor: '#EC1D2515',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 6
   },
   badgeText: {
-    color: "#EC1D25",
-    fontWeight: "700",
+    color: '#EC1D25',
+    fontWeight: '700',
     fontSize: 12,
-    textTransform: "uppercase",
+    textTransform: 'uppercase'
   },
-  dateText: { color: "#8E8E93", fontSize: 13 },
+  dateText: { color: '#8E8E93', fontSize: 13 },
   content: { flex: 1, paddingHorizontal: 16 },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#1A1C1E",
+    fontWeight: '700',
+    color: '#1A1C1E',
     marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 12
   },
   drillCard: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     elevation: 2,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowRadius: 5
   },
-  drillCardDone: { backgroundColor: "#F1F3F5", opacity: 0.8 },
+  drillCardDone: { backgroundColor: '#F1F3F5', opacity: 0.8 },
   drillInfo: { flex: 1 },
   drillName: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 4,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 4
   },
-  textDone: { textDecorationLine: "line-through", color: "#8E8E93" },
-  statusRow: { flexDirection: "row", alignItems: "center" },
+  textDone: { textDecorationLine: 'line-through', color: '#8E8E93' },
+  statusRow: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  statusText: { fontSize: 12, color: "#666" },
-  actionRow: { flexDirection: "row", alignItems: "center" },
+  statusText: { fontSize: 12, color: '#666' },
+  actionRow: { flexDirection: 'row', alignItems: 'center' },
   viewButton: { padding: 8, marginRight: 8 },
-  checkButton: { backgroundColor: "#4caf50", padding: 8, borderRadius: 8 },
+  checkButton: { backgroundColor: '#4caf50', padding: 8, borderRadius: 8 },
   buttonAll: {
-    backgroundColor: "#1A1C1E",
+    backgroundColor: '#1A1C1E',
     margin: 16,
     padding: 18,
     borderRadius: 12,
-    alignItems: "center",
+    alignItems: 'center'
   },
-  buttonAllText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  buttonAllText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });
 
 export default AssignedRegimenModal;
