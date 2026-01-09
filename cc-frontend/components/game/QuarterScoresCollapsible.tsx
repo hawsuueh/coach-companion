@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useCallback } from 'react';
 
 interface QuarterScores {
   q1: number;
@@ -20,6 +20,11 @@ interface QuarterScoresCollapsibleProps {
   };
   isExpanded: boolean;
   onToggle: () => void;
+  onScoreChange: (
+    team: 'home' | 'away',
+    quarter: keyof Omit<QuarterScores, 'total'>,
+    value: string
+  ) => void;
 }
 
 const QuarterScoresCollapsible: React.FC<QuarterScoresCollapsibleProps> = ({
@@ -27,8 +32,22 @@ const QuarterScoresCollapsible: React.FC<QuarterScoresCollapsibleProps> = ({
   awayTeamName,
   quarterScores,
   isExpanded,
-  onToggle
+  onToggle,
+  onScoreChange
 }) => {
+  const renderScoreInput = (
+    team: 'home' | 'away',
+    quarter: keyof Omit<QuarterScores, 'total'>,
+    value: number
+  ) => (
+    <TextInput
+      className="w-12 text-center text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 rounded"
+      keyboardType="numeric"
+      value={value.toString()}
+      onChangeText={(text) => onScoreChange(team, quarter, text)}
+      selectTextOnFocus
+    />
+  );
   return (
     <View className="px-4 py-2">
       <TouchableOpacity
@@ -76,52 +95,36 @@ const QuarterScoresCollapsible: React.FC<QuarterScoresCollapsibleProps> = ({
 
               {/* Home Team Row */}
               <View className="mb-1 flex-row items-center">
-                <Text className="flex-1 pr-2 text-xs text-black">
+                <Text className="flex-1 pr-2 text-xs text-black" numberOfLines={1}>
                   {homeTeamName}
                 </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.home.q1}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.home.q2}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.home.q3}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.home.q4}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.home.ot}
-                </Text>
-                <Text className="w-12 text-center text-sm font-semibold text-gray-900">
-                  {quarterScores.home.total}
-                </Text>
+                <View className="flex-row items-center">
+                  {renderScoreInput('home', 'q1', quarterScores.home.q1)}
+                  {renderScoreInput('home', 'q2', quarterScores.home.q2)}
+                  {renderScoreInput('home', 'q3', quarterScores.home.q3)}
+                  {renderScoreInput('home', 'q4', quarterScores.home.q4)}
+                  {renderScoreInput('home', 'ot', quarterScores.home.ot)}
+                  <Text className="w-12 text-center text-sm font-semibold text-gray-900 bg-red-50 py-1">
+                    {quarterScores.home.total}
+                  </Text>
+                </View>
               </View>
 
               {/* Away Team Row */}
               <View className="flex-row items-center">
-                <Text className="flex-1 pr-2 text-xs text-black">
+                <Text className="flex-1 pr-2 text-xs text-black" numberOfLines={1}>
                   {awayTeamName}
                 </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.away.q1}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.away.q2}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.away.q3}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.away.q4}
-                </Text>
-                <Text className="w-12 text-center text-sm font-medium text-gray-700">
-                  {quarterScores.away.ot}
-                </Text>
-                <Text className="w-12 text-center text-sm font-semibold text-gray-900">
-                  {quarterScores.away.total}
-                </Text>
+                <View className="flex-row items-center">
+                  {renderScoreInput('away', 'q1', quarterScores.away.q1)}
+                  {renderScoreInput('away', 'q2', quarterScores.away.q2)}
+                  {renderScoreInput('away', 'q3', quarterScores.away.q3)}
+                  {renderScoreInput('away', 'q4', quarterScores.away.q4)}
+                  {renderScoreInput('away', 'ot', quarterScores.away.ot)}
+                  <Text className="w-12 text-center text-sm font-semibold text-gray-900 bg-red-50 py-1">
+                    {quarterScores.away.total}
+                  </Text>
+                </View>
               </View>
             </View>
           </ScrollView>

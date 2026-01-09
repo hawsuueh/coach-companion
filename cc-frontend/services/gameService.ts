@@ -10,6 +10,17 @@ export interface DatabaseGame {
   opponent_name: string | null;
   batch_no: number | null;
   custom_game_label: string | null;
+  home_q1: number | null;
+  home_q2: number | null;
+  home_q3: number | null;
+  home_q4: number | null;
+  home_total_score: number | null;
+  away_q1: number | null;
+  away_q2: number | null;
+  away_q3: number | null;
+  away_q4: number | null;
+  away_ot: number | null;
+  away_total_score: number | null;
 }
 
 export interface Game {
@@ -22,6 +33,10 @@ export interface Game {
   seasonNo?: number;
   batchNo?: number | null;
   customGameLabel?: string;
+  scores: {
+    home: { q1: number; q2: number; q3: number; q4: number; ot: number; total: number };
+    away: { q1: number; q2: number; q3: number; q4: number; ot: number; total: number };
+  };
 }
 
 export interface Matchup {
@@ -66,7 +81,25 @@ export const transformDatabaseGame = (dbGame: DatabaseGame): Game => {
     seasonLabel,
     seasonNo: dbGame.season_no || undefined,
     batchNo: dbGame.batch_no,
-    customGameLabel: dbGame.custom_game_label || undefined
+    customGameLabel: dbGame.custom_game_label || undefined,
+    scores: {
+      home: {
+        q1: dbGame.home_q1 || 0,
+        q2: dbGame.home_q2 || 0,
+        q3: dbGame.home_q3 || 0,
+        q4: dbGame.home_q4 || 0,
+        ot: 0,
+        total: dbGame.home_total_score || 0
+      },
+      away: {
+        q1: dbGame.away_q1 || 0,
+        q2: dbGame.away_q2 || 0,
+        q3: dbGame.away_q3 || 0,
+        q4: dbGame.away_q4 || 0,
+        ot: dbGame.away_ot || 0,
+        total: dbGame.away_total_score || 0
+      }
+    }
   };
 
 };
@@ -309,6 +342,48 @@ export const createGame = async (
     return { success: true, gameNo: data.game_no };
   } catch (error) {
     console.error('Error in createGame:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+};
+/**
+ * Update game scoreboard
+ * @param gameNo - Game number
+ * @param scores - Scoreboard data
+ * @returns Success status
+ */
+export const updateGameScoreboard = async (
+  gameNo: number,
+  scores: {
+    home: { q1: number; q2: number; q3: number; q4: number; ot: number; total: number };
+    away: { q1: number; q2: number; q3: number; q4: number; ot: number; total: number };
+  }
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase
+      .from('Game')
+      .update({
+        home_q1: scores.home.q1,
+        home_q2: scores.home.q2,
+        home_q3: scores.home.q3,
+        home_q4: scores.home.q4,
+        home_total_score: scores.home.total,
+        away_q1: scores.away.q1,
+        away_q2: scores.away.q2,
+        away_q3: scores.away.q3,
+        away_q4: scores.away.q4,
+        away_ot: scores.away.ot,
+        away_total_score: scores.away.total
+      })
+      .eq('game_no', gameNo);
+
+    if (error) {
+      console.error('Error updating game scoreboard:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in updateGameScoreboard:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 };

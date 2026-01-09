@@ -19,7 +19,6 @@ export interface PlayerStats {
   fouls: number;
 }
 
-export type PlayerQuarterStats = Record<number, PlayerStats>;
 
 export interface GameMetadata {
   gameName: string;
@@ -41,7 +40,7 @@ export interface QuarterScores {
 export interface ExportGameStatsParams {
   game: GameMetadata;
   selectedAthletes: Athlete[];
-  playerStats: Record<string, PlayerQuarterStats>;
+  playerStats: Record<string, PlayerStats>;
   quarterScores: QuarterScores;
 }
 
@@ -54,50 +53,8 @@ export const calculateTotalPoints = (stats: PlayerStats | undefined): number => 
   return twoPointPoints + threePointPoints + freeThrowPoints;
 };
 
-export const calculateTotalPointsForPlayer = (
-  statsByQuarter: PlayerQuarterStats | undefined
-): number => {
-  if (!statsByQuarter) {
-    return 0;
-  }
 
-  return Object.values(statsByQuarter).reduce(
-    (sum, stats) => sum + calculateTotalPoints(stats),
-    0
-  );
-};
 
-export const aggregateNumberStat = (
-  statsByQuarter: PlayerQuarterStats | undefined,
-  selector: (stats: PlayerStats) => number
-): number => {
-  if (!statsByQuarter) {
-    return 0;
-  }
-
-  return Object.values(statsByQuarter).reduce(
-    (sum, stats) => sum + selector(stats),
-    0
-  );
-};
-
-export const aggregateShootingTotals = (
-  statsByQuarter: PlayerQuarterStats | undefined,
-  accessor: (stats: PlayerStats) => { made: number; attempted: number }
-) => {
-  let made = 0;
-  let attempted = 0;
-
-  if (statsByQuarter) {
-    Object.values(statsByQuarter).forEach(stats => {
-      const segment = accessor(stats);
-      made += segment.made || 0;
-      attempted += segment.attempted || 0;
-    });
-  }
-
-  return { made, attempted };
-};
 
 export const formatPercentage = (made: number, attempted: number): string => {
   if (!attempted) {
@@ -130,41 +87,32 @@ export const exportGameStatsToPDF = async (
 
   // Prepare player data for export
   const playersForExport: PlayerExportRow[] = sortedAthletes.map(athlete => {
-    const statsByQuarter = playerStats[athlete.id];
-    const fieldGoals = aggregateShootingTotals(
-      statsByQuarter,
-      stats => stats.totalFieldGoals
-    );
-    const twoPoint = aggregateShootingTotals(
-      statsByQuarter,
-      stats => stats.twoPointFG
-    );
-    const threePoint = aggregateShootingTotals(
-      statsByQuarter,
-      stats => stats.threePointFG
-    );
-    const freeThrows = aggregateShootingTotals(
-      statsByQuarter,
-      stats => stats.freeThrows
-    );
+    const stats = playerStats[athlete.id] || {
+      totalFieldGoals: { made: 0, attempted: 0 },
+      twoPointFG: { made: 0, attempted: 0 },
+      threePointFG: { made: 0, attempted: 0 },
+      freeThrows: { made: 0, attempted: 0 },
+      rebounds: { offensive: 0, defensive: 0 },
+      assists: 0,
+      steals: 0,
+      blocks: 0,
+      turnovers: 0,
+      fouls: 0
+    };
 
-    const offensiveRebounds = aggregateNumberStat(
-      statsByQuarter,
-      stats => stats.rebounds?.offensive || 0
-    );
-    const defensiveRebounds = aggregateNumberStat(
-      statsByQuarter,
-      stats => stats.rebounds?.defensive || 0
-    );
-    const assists = aggregateNumberStat(statsByQuarter, stats => stats.assists || 0);
-    const steals = aggregateNumberStat(statsByQuarter, stats => stats.steals || 0);
-    const blocks = aggregateNumberStat(statsByQuarter, stats => stats.blocks || 0);
-    const turnovers = aggregateNumberStat(
-      statsByQuarter,
-      stats => stats.turnovers || 0
-    );
-    const fouls = aggregateNumberStat(statsByQuarter, stats => stats.fouls || 0);
-    const totalPoints = calculateTotalPointsForPlayer(statsByQuarter);
+    const fieldGoals = stats.totalFieldGoals;
+    const twoPoint = stats.twoPointFG;
+    const threePoint = stats.threePointFG;
+    const freeThrows = stats.freeThrows;
+
+    const offensiveRebounds = stats.rebounds?.offensive || 0;
+    const defensiveRebounds = stats.rebounds?.defensive || 0;
+    const assists = stats.assists || 0;
+    const steals = stats.steals || 0;
+    const blocks = stats.blocks || 0;
+    const turnovers = stats.turnovers || 0;
+    const fouls = stats.fouls || 0;
+    const totalPoints = calculateTotalPoints(stats);
 
     return {
       jerseyNumber: athlete.number || '-',

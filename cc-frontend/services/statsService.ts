@@ -5,7 +5,6 @@ export interface DatabaseAthleteGame {
   athlete_game_no: number;
   athlete_no: number;
   game_no: number;
-  quarter_no: number | null;
   points: number | null;
   field_goals_made: number | null;
   field_goals_attempted: number | null;
@@ -70,38 +69,33 @@ export const getAthleteGameStatsByGame = async (
 };
 
 /**
- * Insert or update athlete game stats for a specific quarter
+ * Insert or update athlete game stats (Cumulative for the whole game)
  * @param athleteNo - Athlete number
  * @param gameNo - Game number
- * @param quarterNo - Quarter number
  * @param stats - Stats to save
  * @returns Success boolean
  */
 export const upsertAthleteGameStats = async (
   athleteNo: number,
   gameNo: number,
-  quarterNo: number,
   stats: AthleteGameStatsInput
 ): Promise<boolean> => {
   try {
-    // Check if stats already exist for this athlete/game/quarter combination
+    // Check if stats already exist for this athlete/game combination
     const { data: existingStats, error: checkError } = await supabase
       .from('athlete_game')
       .select('athlete_game_no')
       .eq('athlete_no', athleteNo)
       .eq('game_no', gameNo)
-      .eq('quarter_no', quarterNo)
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') {
-      // PGRST116 is "not found" error, which is expected if no stats exist
       throw checkError;
     }
 
     const statsData = {
       athlete_no: athleteNo,
       game_no: gameNo,
-      quarter_no: quarterNo,
       ...stats
     };
 
@@ -309,11 +303,8 @@ export const getAthleteGameStatsHistory = async (
       game.turnovers += (stat.turnovers || 0);
       game.fouls += (stat.fouls || 0);
 
-      // Quarter Breakdown
-      if (stat.quarter_no === 1) game.quarterPoints.q1 += (stat.points || 0);
-      if (stat.quarter_no === 2) game.quarterPoints.q2 += (stat.points || 0);
-      if (stat.quarter_no === 3) game.quarterPoints.q3 += (stat.points || 0);
-      if (stat.quarter_no === 4) game.quarterPoints.q4 += (stat.points || 0);
+      // Quarter Breakdown is no longer available in athlete_game table
+      // It can be added back if the schema includes q1_points, q2_points, etc.
     });
 
     return Array.from(gamesMap.values());
