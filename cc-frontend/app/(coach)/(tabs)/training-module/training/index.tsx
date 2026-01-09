@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, FlatList, Text } from 'react-native';
 import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
@@ -6,61 +6,46 @@ import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
 import { Ionicons, Entypo } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { getTrainingsVM } from '@/view-models/training-module';
 
 export default function Training() {
   const [searchText, setSearchText] = useState('');
+  const [trainings, setTrainings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { coachNo } = useAuth();
+
+  useEffect(() => {
+    const fetchTrainings = async () => {
+      setLoading(true);
+      const vm = await getTrainingsVM(coachNo);
+      setTrainings(vm);
+      setLoading(false);
+    };
+    fetchTrainings();
+  }, [coachNo]);
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
-  };
-
-  const handleFloatingPress = () => {
-    console.log('Floating button pressed');
   };
 
   const handleTrainingPress = (trainingId: string) => {
     router.push(`/training-module/training/${trainingId}` as Href);
   };
 
-  // Sample data (replace with actual data later)
-  const trainings = [
-    {
-      trainingId: '1',
-      trainingName: 'Core Strength Training',
-      dateTime: 'Sept 15, 2025 - 7:00 AM'
-    },
-    {
-      trainingId: '2',
-      trainingName: 'Upper Body Strength',
-      dateTime: 'Sept 16, 2025 - 5:00 PM'
-    },
-    {
-      trainingId: '3',
-      trainingName: 'Explosive Power Workout',
-      dateTime: 'Sept 17, 2025 - 6:30 AM'
-    },
-    {
-      trainingId: '4',
-      trainingName: 'Core Strength Training',
-      dateTime: 'Sept 15, 2025 - 7:00 AM'
-    },
-    {
-      trainingId: '5',
-      trainingName: 'Upper Body Strength',
-      dateTime: 'Sept 16, 2025 - 5:00 PM'
-    },
-    {
-      trainingId: '6',
-      trainingName: 'Explosive Power Workout',
-      dateTime: 'Sept 17, 2025 - 6:30 AM'
-    }
-  ];
-
   // Filter trainings by search text (case-insensitive)
   const filteredTrainings = trainings.filter(item =>
     item.trainingName.toLowerCase().includes(searchText.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-body1 text-black">Loading trainings...</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
@@ -85,12 +70,13 @@ export default function Training() {
         renderItem={({ item }) => (
           <List1
             title={item.trainingName}
-            subtitle={item.dateTime}
+            // ✅ VM already formats date + time + duration
+            subtitle={`${item.dateTime} • ${item.duration}`}
             onPress={() => handleTrainingPress(item.trainingId)}
             onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
           />
         )}
-        contentContainerStyle={{ paddingBottom: 5 }} // extra space for FAB
+        contentContainerStyle={{ paddingBottom: 5 }}
         ListEmptyComponent={
           <View className="mt-10 items-center">
             <Text className="text-base text-gray-500">No trainings found</Text>

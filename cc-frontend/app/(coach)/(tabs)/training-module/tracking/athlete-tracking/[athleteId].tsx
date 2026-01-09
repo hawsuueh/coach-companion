@@ -1,58 +1,66 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
 import AthleteCard from '@/components/training-module/cards/AthleteCard';
 import DropdownList from '@/components/training-module/lists/DropdownList';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
+import { getAthleteTrackingVM } from '@/view-models/training-module';
 
 export default function AthleteTracking() {
   const { athleteId } = useLocalSearchParams<{ athleteId: string }>();
   const { setTitle } = useHeader();
 
-  const athlete = {
-    athleteId,
-    name: 'Doe, John',
-    position: 'Guard'
-  };
-
-  const trainingTracking = [
-    {
-      trackingId: '1',
-      trainingId: '1',
-      number: '23',
-      name: 'Core Strength Training',
-      dateTime: 'Sept 15, 2025 - 7:00 AM',
-      status: 'assigned'
-    },
-    {
-      trackingId: '2',
-      trainingId: '2',
-      name: 'Upper Body Strength',
-      dateTime: 'Sept 16, 2025 - 5:00 PM',
-      status: 'assigned'
-    },
-    {
-      trackingId: '3',
-      trainingId: '3',
-      name: 'Explosive Power Workout',
-      dateTime: 'Sept 17, 2025 - 6:30 AM',
-      status: 'missed'
-    }
-  ];
+  const [athlete, setAthlete] = useState<any>(null);
+  const [trainingTracking, setTrainingTracking] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setTitle('Athlete Tracking');
-  });
+  }, [setTitle]);
 
-  // Helper function to format dropdown data
+  useEffect(() => {
+    if (!athleteId) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const vm = await getAthleteTrackingVM(athleteId);
+        setAthlete(vm.athlete);
+        setTrainingTracking(vm.trainingTracking);
+      } catch (err) {
+        console.error('Error fetching athlete tracking', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [athleteId]);
+
   const formatData = (status: string) =>
     trainingTracking
       .filter(a => a.status === status)
       .map(a => ({
-        id: a.trackingId,
+        id: a.athleteTrainingTrackingId?.toString() ?? '',
         contentTitle: a.name,
         contentRightText: a.dateTime
       }));
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-body1 text-black">
+          Loading athlete tracking...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!athlete) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text>No athlete found</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-primary">

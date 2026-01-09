@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, Text } from 'react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import TrainingCard from '@/components/training-module/cards/TrainingCard';
 import ExerciseProgressBar from '@/components/training-module/progress/ExerciseProgressBar';
 import MainButton from '@/components/training-module/buttons/MainButton';
@@ -10,8 +10,12 @@ import NumberListCard from '@/components/training-module/cards/NumberListCard';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import { useCountdownTimer } from '@/hooks/useCountdownTimer';
 import { useExerciseTimer } from '@/hooks/useExerciseTimer';
-import { mockAthleteTraining } from '@/mocks/mockAthleteTraining';
-import { mockAthleteTrainingExercises } from '@/mocks/mockAthleteTrainingExercises';
+import {
+  getAthleteTrainingExecutionVM,
+  finishAthleteTrainingVM,
+  trackExerciseSetVM
+} from '@/view-models/training-module';
+import { AthleteTraining } from '@/types/training';
 
 export default function AthleteTrainingExerciseExecution() {
   const router = useRouter();
@@ -21,32 +25,30 @@ export default function AthleteTrainingExerciseExecution() {
     athleteTrainingId: string;
   }>();
 
-  /* ---------------- LOCAL STATE ---------------- */
   const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [athleteTraining, setAthleteTraining] =
+    useState<AthleteTraining | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  /* ---------------- ATHLETE TRAINING INFO ---------------- */
-  const [athleteTraining, setAthleteTraining] = useState(
-    mockAthleteTraining(athleteTrainingId)
-  );
-
-  /* ---------------- DUMMY DATA (CAMEL CASE + SETS DIVIDED) ---------------- */
-  const [athleteTrainingExercises, setAthleteTrainingExercises] = useState(
-    mockAthleteTrainingExercises
-  );
-
-  // Set header2 title whenever this screen loads
   useEffect(() => {
-    if (athleteTraining?.name) {
-      setTitle('Training');
-    }
-  }, [athleteTraining, setTitle]);
+    setTitle('Training');
+  }, [setTitle]);
 
-  /* ---------------- FLATTENED EXERCISE SETS ---------------- */
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const vm = await getAthleteTrainingExecutionVM(athleteTrainingId);
+      setAthleteTraining(vm);
+      setLoading(false);
+    };
+    fetchData();
+  }, [athleteTrainingId]);
+
   const exerciseExecutionList = useMemo(() => {
-    return athleteTrainingExercises.flatMap(exercise => {
+    if (!athleteTraining?.exercises) return [];
+    return athleteTraining.exercises.flatMap((exercise: any) => {
       const perSetDuration = Math.floor(exercise.duration / exercise.sets);
-
       return Array.from({ length: exercise.sets }).map((_, setIndex) => ({
         ...exercise,
         setIndex: setIndex + 1,
@@ -55,42 +57,69 @@ export default function AthleteTrainingExerciseExecution() {
         setDuration: perSetDuration
       }));
     });
-  }, [athleteTrainingExercises]);
+  }, [athleteTraining]);
 
-  /* ---------------- CURRENT EXERCISE ---------------- */
   const currentExercise = exerciseExecutionList[currentIndex];
   const isLastExercise = currentIndex === exerciseExecutionList.length - 1;
 
-  /* ---------------- TOTAL TRAINING TIMER ---------------- */
-  const { remainingSeconds: overallRemaining, start: startOverallCountdown } =
-    useCountdownTimer(athleteTraining.duration);
+  const {
+    remainingSeconds: overallRemaining,
+    start: startOverallCountdown,
+    reset: resetOverallCountdown
+  } = useCountdownTimer(0);
 
-  /* ---------------- CURRENT EXERCISE TIMER ---------------- */
+  useEffect(() => {
+    if (athleteTraining?.duration) {
+      resetOverallCountdown(athleteTraining.duration);
+    }
+  }, [athleteTraining?.duration]);
+
   const startExerciseCountdown = () => {
     if (!currentExercise) return;
     exerciseTimer.start(currentExercise.setDuration);
   };
 
-  /* ---------------- HANDLERS ---------------- */
   const handleStart = () => {
-    startOverallCountdown(); // start overall countdown
-    startExerciseCountdown(); // start first exercise countdown
+    startOverallCountdown();
+    startExerciseCountdown();
     setHasStarted(true);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!currentExercise) return;
 
     const elapsedSeconds = exerciseTimer.stop();
+    console.log('Raw timer stop value', elapsedSeconds);
 
-    setAthleteTrainingExercises(prev =>
-      prev.map(ex =>
+    let newTotal = 0;
+
+    // ✅ Update local state and compute new total
+    setAthleteTraining(prev => {
+      if (!prev) return prev;
+      const updatedExercises = prev.exercises.map(ex =>
         ex.athleteTrainingExerciseId ===
         currentExercise.athleteTrainingExerciseId
-          ? { ...ex, timeElapsed: ex.timeElapsed + elapsedSeconds }
+          ? { ...ex, timeElapsed: (ex.timeElapsed ?? 0) + elapsedSeconds }
           : ex
-      )
-    );
+      );
+
+      const updatedExercise = updatedExercises.find(
+        ex =>
+          ex.athleteTrainingExerciseId ===
+          currentExercise.athleteTrainingExerciseId
+      );
+      newTotal = updatedExercise?.timeElapsed ?? elapsedSeconds;
+
+      // Persist to Supabase with the new total
+      trackExerciseSetVM(currentExercise.athleteTrainingExerciseId, newTotal);
+
+      return { ...prev, exercises: updatedExercises };
+    });
+
+    console.log('Updating exercise tracking', {
+      id: currentExercise.athleteTrainingExerciseId,
+      elapsed: newTotal
+    });
 
     if (!isLastExercise) {
       setCurrentIndex(prev => prev + 1);
@@ -98,50 +127,82 @@ export default function AthleteTrainingExerciseExecution() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const elapsedSeconds = exerciseTimer.stop();
+    console.log('Raw timer stop value', elapsedSeconds);
+
+    let newTotal = 0;
 
     if (currentExercise) {
-      setAthleteTrainingExercises(prev =>
-        prev.map(ex =>
+      setAthleteTraining(prev => {
+        if (!prev) return prev;
+        const updatedExercises = prev.exercises.map(ex =>
           ex.athleteTrainingExerciseId ===
           currentExercise.athleteTrainingExerciseId
-            ? { ...ex, timeElapsed: ex.timeElapsed + elapsedSeconds }
+            ? { ...ex, timeElapsed: (ex.timeElapsed ?? 0) + elapsedSeconds }
             : ex
-        )
-      );
+        );
+
+        const updatedExercise = updatedExercises.find(
+          ex =>
+            ex.athleteTrainingExerciseId ===
+            currentExercise.athleteTrainingExerciseId
+        );
+        newTotal = updatedExercise?.timeElapsed ?? elapsedSeconds;
+
+        // Persist to Supabase with the new total
+        trackExerciseSetVM(currentExercise.athleteTrainingExerciseId, newTotal);
+
+        return { ...prev, exercises: updatedExercises };
+      });
+
+      console.log('Updating exercise tracking', {
+        id: currentExercise.athleteTrainingExerciseId,
+        elapsed: newTotal
+      });
     }
 
-    const now = new Date();
+    await finishAthleteTrainingVM(
+      athleteTrainingId,
+      athleteTraining!.duration - overallRemaining
+    );
 
-    setAthleteTraining(prev => ({
-      ...prev,
-      status: 'done',
-      timeElapsed: prev.duration - overallRemaining,
-      dateExecuted: now.toISOString().split('T')[0]
-    }));
+    setAthleteTraining(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        status: 'done',
+        timeElapsed: prev.duration - overallRemaining,
+        dateExecuted: new Date().toISOString().split('T')[0]
+      };
+    });
 
     router.replace(`/training-module/training/${athleteTrainingId}/summary`);
   };
 
-  useEffect(() => {
-    console.log('UPDATED athleteTraining:', athleteTraining);
-  }, [athleteTraining]);
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-title1 text-black">Loading training...</Text>
+      </View>
+    );
+  }
 
-  useEffect(() => {
-    console.log('UPDATED athleteTraining:', athleteTrainingExercises);
-  }, [athleteTrainingExercises]);
+  if (!athleteTraining) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-white">No training found</Text>
+      </View>
+    );
+  }
 
-  /* ---------------- RENDER ---------------- */
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
-      <View>
-        <TrainingCard
-          name={athleteTraining.name}
-          date={athleteTraining.date}
-          time={athleteTraining.time}
-        />
-      </View>
+      <TrainingCard
+        name={athleteTraining.name}
+        date={athleteTraining.date}
+        time={athleteTraining.time}
+      />
 
       <ExerciseProgressBar
         total={exerciseExecutionList.length}
@@ -154,20 +215,20 @@ export default function AthleteTrainingExerciseExecution() {
       </View>
 
       <Text className="text-body2 mb-1 text-center text-gray-500">
-        Set {currentExercise.setIndex} of {currentExercise.totalSets} •{' '}
-        {currentExercise.reps} reps
+        Set {currentExercise?.setIndex} of {currentExercise?.totalSets} •{' '}
+        {currentExercise?.reps} reps
       </Text>
 
       <Text className="text-title1 mb-2 text-center">
-        {currentExercise.name}
+        {currentExercise?.name}
       </Text>
 
-      <VideoCard youtubeUrl={currentExercise.videoUrl} />
+      <VideoCard youtubeUrl={currentExercise?.videoUrl} />
 
       <View className="mb-8 mt-4">
         <NumberListCard
           title="Instructions"
-          items={currentExercise.instructions}
+          items={currentExercise?.instructions ?? []}
           maxHeight={130}
         />
       </View>

@@ -11,7 +11,7 @@ export type AthleteTrainingTracking = {
   athlete_training_id: string;
   status: 'assigned' | 'done' | 'missed';
   time_elapsed: number;
-  date: string | null;
+  date_executed: string | null;
 };
 
 export type AthleteTrainingExerciseTracking = {

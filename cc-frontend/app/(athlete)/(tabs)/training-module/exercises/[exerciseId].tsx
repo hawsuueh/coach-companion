@@ -1,39 +1,49 @@
+// ExerciseDetails.tsx
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList } from 'react-native';
-import { useRouter, Href, Link } from 'expo-router';
+import { View, Text } from 'react-native';
 import VideoCard from '@/components/training-module/cards/VideoCard';
 import NumberListCard from '@/components/training-module/cards/NumberListCard';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
+import { getExerciseVM } from '@/view-models/training-module';
 
 export default function ExerciseDetails() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
-  const router = useRouter();
   const { setTitle } = useHeader();
 
-  // Dummy exercise
-  const exercise = {
-    exerciseId: exerciseId,
-    name: 'Plank Hold',
-    url: 'https://www.youtube.com/watch?v=pSHjTRCQxIw',
-    instructions: ['Lie on bench', 'Lower Bar', 'Press up'],
-    equipment: 'Barbell',
-    type: 'Strength',
-    bodypart: 'Chest',
-    primaryMuscle: ['Pectoralis Major', 'Anterior Deltoids', 'Triceps Brachii'],
-    secondaryMuscle: [
-      'Pectoralis Minor',
-      'Serratus Anterior',
-      'Rotator Cuff',
-      'Biceps Brachii',
-      'Core Muscles'
-    ]
-  };
+  // single object, not array
+  const [exercise, setExercise] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Set header2 title whenever this screen loads
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const vm = await getExerciseVM(exerciseId); // ✅ pass exerciseId
+      setExercise(vm);
+      setLoading(false);
+    };
+    fetchData();
+  }, [exerciseId]);
+
   useEffect(() => {
     setTitle('Exercise Details');
   });
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-title1 text-black">Loading exercise...</Text>
+      </View>
+    );
+  }
+
+  if (!exercise) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-white">No exercise found</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">
@@ -43,6 +53,7 @@ export default function ExerciseDetails() {
       </View>
 
       <View className="mb-5">
+        {/* use url from VM */}
         <VideoCard youtubeUrl={exercise.url} />
       </View>
 

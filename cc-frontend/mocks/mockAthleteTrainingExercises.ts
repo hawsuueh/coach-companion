@@ -2,7 +2,7 @@
 export const mockAthleteTrainingExercises = [
   {
     athleteTrainingExerciseId: '1',
-    exerciseId: 'ex-101',
+    exerciseId: '1',
     name: 'Defensive Slides',
     videoUrl: 'https://www.youtube.com/watch?v=Y6nKz7Ff2fM',
     instructions: [
@@ -20,7 +20,7 @@ export const mockAthleteTrainingExercises = [
   },
   {
     athleteTrainingExerciseId: '2',
-    exerciseId: 'ex-102',
+    exerciseId: '2',
     name: 'Suicide Sprints',
     videoUrl: 'https://www.youtube.com/watch?v=YFZJp5kX9bY',
     instructions: [
@@ -39,7 +39,7 @@ export const mockAthleteTrainingExercises = [
   },
   {
     athleteTrainingExerciseId: '3',
-    exerciseId: 'ex-103',
+    exerciseId: '3',
     name: 'Plank Hold',
     videoUrl: 'https://www.youtube.com/watch?v=pSHjTRCQxIw',
     instructions: [
@@ -57,7 +57,7 @@ export const mockAthleteTrainingExercises = [
   },
   {
     athleteTrainingExerciseId: '4',
-    exerciseId: 'ex-104',
+    exerciseId: '4',
     name: 'Jump Squats',
     videoUrl: 'https://www.youtube.com/watch?v=U4s4mEQ5VqU',
     instructions: [

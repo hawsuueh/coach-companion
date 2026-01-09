@@ -10,6 +10,7 @@ import FloatingButton from '@/components/training-module/buttons/FloatingButton'
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import { TimerCard } from '@/components/training-module/cards/TimerCard';
+import { getTrainingDetailsVM } from '@/view-models/training-module';
 
 export default function TrainingDetails() {
   const { trainingId } = useLocalSearchParams<{ trainingId: string }>();
@@ -17,63 +18,54 @@ export default function TrainingDetails() {
   const [searchText, setSearchText] = useState('');
   const { setTitle } = useHeader();
 
-  // Dummy training (metadata)
-  const training = {
-    trainingId: trainingId,
-    name: 'Core Strength Training',
-    date: 'Sept 15, 2025',
-    time: '7:00 AM',
-    duration: 3600
-  };
+  const [training, setTraining] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Dummy athlete_training data
-  const athleteTrainings = [
-    {
-      athleteTrainingId: '1',
-      number: '23',
-      name: 'John Doe',
-      position: 'Guard'
-    },
-    {
-      athleteTrainingId: '2',
-      number: '10',
-      name: 'Alex Smith',
-      position: 'Forward'
-    },
-    {
-      athleteTrainingId: '3',
-      number: '7',
-      name: 'James Lee',
-      position: 'Center'
-    },
-    {
-      athleteTrainingId: '4',
-      number: '15',
-      name: 'Michael Cruz',
-      position: 'Guard'
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const vm = await getTrainingDetailsVM(trainingId);
+      setTraining(vm);
+      setLoading(false);
+    };
+    fetchData();
+  }, [trainingId]);
+
+  useEffect(() => {
+    if (training?.name) {
+      setTitle('Training Details');
     }
-  ];
+  }, [training, setTitle]);
 
-  const filteredAthletes = athleteTrainings.filter(item =>
-    item.name.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredAthletes =
+    training?.athletes?.filter((item: any) =>
+      item.name.toLowerCase().includes(searchText.toLowerCase())
+    ) || [];
 
   const handleFilterPress = () => console.log('Filter athletes');
-  const handleFloatingPress = () =>
-    console.log('Floating button pressed in training details');
-
   const handleAthletePress = (athleteTrainingId: string) => {
     router.push(
       `/training-module/training/${trainingId}/${athleteTrainingId}` as Href
     );
   };
 
-  // Set header2 title whenever this screen loads
-  useEffect(() => {
-    if (training?.name) {
-      setTitle('Training Details');
-    }
-  }, [training, setTitle]);
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-body1 text-black">
+          Loading training details...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!training) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-black">Training not found</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-primary px-4 pt-4">

@@ -1,57 +1,66 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, FlatList, Text } from 'react-native';
 import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
+import DeleteModal from '@/components/training-module/modal/DeleteModal';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
+import {
+  getExercisesVM,
+  deleteExerciseVM
+} from '@/view-models/training-module';
 
 export default function Exercises() {
   const [searchText, setSearchText] = useState('');
   const router = useRouter();
+  const [exercises, setExercises] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
+    null
+  );
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  const handleLongPress = (exerciseId: string) => {
+    setSelectedExerciseId(exerciseId);
+    setDeleteModalVisible(true); // ✅ open modal
+  };
+
+  const handleDelete = async () => {
+    if (!selectedExerciseId) return;
+    const result = await deleteExerciseVM(selectedExerciseId);
+    if (result.success) {
+      setExercises(prev =>
+        prev.filter(ex => ex.exerciseId !== selectedExerciseId)
+      );
+    } else {
+      console.error(result.error);
+    }
+    setDeleteModalVisible(false);
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const vm = await getExercisesVM();
+      setExercises(vm);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-primary">
+        <Text className="text-body1 text-black">Loading exercises...</Text>
+      </View>
+    );
+  }
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
   };
-
-  const handleFloatingPress = () => {
-    console.log('Floating button pressed');
-  };
-
-  // Sample data (replace with actual data later)
-  const exercises = [
-    {
-      exerciseId: '1',
-      exerciseName: 'Plank Hold',
-      description: 'Strengthens chest, shoulders, and triceps'
-    },
-    {
-      exerciseId: '2',
-      exerciseName: 'Squats',
-      description: 'Targets quads, hamstrings, and glutes'
-    },
-    {
-      exerciseId: '3',
-      exerciseName: 'Plank',
-      description: 'Improves core strength and stability'
-    },
-    {
-      exerciseId: '4',
-      exerciseName: 'Lunges',
-      description: 'Enhances balance and strengthens legs'
-    },
-    {
-      exerciseId: '5',
-      exerciseName: 'Burpees',
-      description: 'Full-body exercise for strength and endurance'
-    },
-    {
-      exerciseId: '6',
-      exerciseName: 'Jump Rope',
-      description: 'Boosts cardiovascular endurance and coordination'
-    }
-  ];
 
   const handleExercisePress = (exerciseId: string) => {
     router.push(`/training-module/exercises/${exerciseId}` as Href);
@@ -86,13 +95,13 @@ export default function Exercises() {
             title={item.exerciseName}
             subtitle={item.description}
             onPress={() => handleExercisePress(item.exerciseId)}
-            onLongPress={() => console.log(`Long pressed ${item.exerciseName}`)}
+            onLongPress={() => handleLongPress(item.exerciseId)} // ✅ use handler
           />
         )}
-        contentContainerStyle={{ paddingBottom: 5 }} // extra space for FAB
+        contentContainerStyle={{ paddingBottom: 5 }}
         ListEmptyComponent={
           <View className="mt-10 items-center">
-            <Text className="text-base text-gray-500">No trainings found</Text>
+            <Text className="text-base text-gray-500">No exercises found</Text>
           </View>
         }
       />
@@ -104,6 +113,13 @@ export default function Exercises() {
       >
         <FloatingButton icon="add" IconComponent={FontAwesome6} />
       </Link>
+
+      {/* Delete Modal */}
+      <DeleteModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        onDelete={handleDelete}
+      />
     </View>
   );
 }
