@@ -181,17 +181,124 @@ export const updateAthleteAttributes = async (
   }
 };
 /**
+ * Check if an athlete with the same email exists globally or same player number exists in a batch
+ * @param email - Email to check
+ * @param playerNo - Jersey number to check
+ * @param batchNo - Batch ID to check within
+ * @returns Object with existence status and message
+ */
+export const checkDuplicateAthlete = async (
+  email: string,
+  playerNo: number,
+  batchNo: number
+): Promise<{ exists: boolean; field?: 'email' | 'player_no'; message?: string }> => {
+  try {
+    // 1. Check for duplicate email (Global)
+    const { data: emailData, error: emailError } = await supabase
+      .from('Athlete')
+      .select('athlete_no')
+      .ilike('gmail', email.trim())
+      .maybeSingle();
+
+    if (emailError) throw emailError;
+    if (emailData) {
+      return { exists: true, field: 'email', message: 'An athlete with this email already exists.' };
+    }
+
+    // 2. Check for duplicate player number in the current batch
+    const { data: batchData, error: batchError } = await supabase
+      .from('athlete_batch')
+      .select('Athlete!inner(player_no)')
+      .eq('batch_no', batchNo)
+      .eq('Athlete.player_no', playerNo);
+
+    if (batchError) throw batchError;
+    if (batchData && batchData.length > 0) {
+      return { exists: true, field: 'player_no', message: `Jersey #${playerNo} is already taken in this batch.` };
+    }
+
+    return { exists: false };
+  } catch (error) {
+    console.error('Error checking duplicates:', error);
+    return { exists: false }; // Fail safe to allow creation if check fails
+  }
+};
+
+/**
  * Create a new athlete and associate with a batch
- * @param athlete - Athlete data (excluding ID)
+ * @param athlete - Athlete data (excluding ID) plus credentials
  * @param batchNo - Batch number to associate with
  * @returns Object with success status and optional error or new ID
  */
 export const createAthlete = async (
-  athlete: Omit<DatabaseAthlete, 'athlete_no'>,
+  athlete: Omit<DatabaseAthlete, 'athlete_no'> & { email?: string; password?: string },
   batchNo: number
 ): Promise<{ success: boolean; error?: string; athleteNo?: number }> => {
   try {
-    // 1. Insert into Athlete table
+    let accountNo: number | null = null;
+
+    // 1. If email and password provided, create Auth user and Account
+    if (athlete.email && athlete.password) {
+      const sanitizedEmail = athlete.email.trim().toLowerCase();
+      console.log(`📧 Attempting Auth Signup for: [${sanitizedEmail}]`); // Brackets to see hidden spaces
+
+      // Use a separate client for signup to avoid changing the current session
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempSupabase = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } }
+      );
+
+      // Create Supabase Auth user
+      const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+        email: sanitizedEmail,
+        password: athlete.password
+      });
+
+      if (authError) {
+        console.error('❌ Auth Error Details:', JSON.stringify(authError, null, 2));
+        return { success: false, error: `Auth Error: ${authError.message}` };
+      }
+
+      if (!authData.user) {
+        return { success: false, error: 'Failed to create auth user' };
+      }
+
+      // Get Athlete role number
+      const { data: roleData, error: roleError } = await supabase
+        .from('Role')
+        .select('role_no')
+        .ilike('user_role', 'Athlete')
+        .single();
+
+      if (roleError) {
+        console.error('Error fetching Athlete role:', roleError);
+        return { success: false, error: 'System configuration error: Athlete role not found' };
+      }
+
+      // Create Account record
+      const { data: accountData, error: accountError } = await supabase
+        .from('Account')
+        .insert({
+          user_id: authData.user.id,
+          first_name: athlete.first_name,
+          middle_name: athlete.middle_name,
+          last_name: athlete.last_name,
+          role_no: roleData.role_no
+        })
+        .select('account_no')
+        .single();
+
+      if (accountError) {
+        console.error('Error creating account:', accountError);
+        return { success: false, error: 'Failed to create athlete account' };
+      }
+
+      accountNo = accountData.account_no;
+    }
+
+    // 2. Insert into Athlete table
     const { data: athleteData, error: athleteError } = await supabase
       .from('Athlete')
       .insert([
@@ -200,10 +307,12 @@ export const createAthlete = async (
           middle_name: athlete.middle_name,
           last_name: athlete.last_name,
           position: athlete.position,
-          player_no: athlete.player_no
+          player_no: athlete.player_no,
+          account_no: accountNo,
+          gmail: athlete.email || null
         }
       ])
-      .select('athlete_no') // we immediately select the athlete_no that we recently created because we are gonna use it to link to a BATCH
+      .select('athlete_no')
       .single();
 
     if (athleteError) {
@@ -217,7 +326,7 @@ export const createAthlete = async (
 
     const newAthleteNo = athleteData.athlete_no;
 
-    // 2. Associate with Batch (athlete_batch table)
+    // 3. Associate with Batch (athlete_batch table)
     const { error: batchError } = await supabase
       .from('athlete_batch')
       .insert([
@@ -229,8 +338,6 @@ export const createAthlete = async (
 
     if (batchError) {
       console.error('Error associating athlete with batch:', batchError);
-      // Optional: We could try to delete the created athlete here to maintain integrity,
-      // but for now we'll just report the error. Front-end could handle cleanup.
       return {
         success: false,
         error: 'Created athlete but failed to add to batch'
