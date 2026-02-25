@@ -18,7 +18,7 @@ export const getExercisesService = async () => {
     return [];
   }
 
-  return data;
+  return JSON.parse(JSON.stringify(data));
 };
 
 export const getExerciseService = async (exerciseId: string) => {
@@ -33,14 +33,15 @@ export const getExerciseService = async (exerciseId: string) => {
     `
     )
     .eq('exercise_id', exerciseId)
-    .maybeSingle(); // ✅ returns one row or null
+    .maybeSingle();
 
   if (error) {
     console.error('Supabase error:', error);
     return null;
   }
 
-  return data;
+  // Deep clone to avoid Hermes "property is not configurable" error
+  return data ? JSON.parse(JSON.stringify(data)) : null;
 };
 
 // Insert Exercise

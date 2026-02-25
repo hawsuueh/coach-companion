@@ -6,7 +6,7 @@ import {
   deleteExerciseService,
   getEquipmentsService,
   getMusclesService
-} from '@/services/training-module';
+} from '@/services/training-module/exercises.service';
 
 // Get all exercises
 export const getExercisesVM = async () => {

@@ -7,7 +7,7 @@ import NumberedTextArea from '@/components/training-module/inputs/NumberedTextAr
 import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelectDropdown';
 import MainButton from '@/components/training-module/buttons/MainButton';
 import { useRouter } from 'expo-router';
-import { addExerciseService } from '@/services/training-module';
+import { addExerciseService } from '@/services/training-module/exercises.service';
 import { getEquipmentOptionsVM } from '@/view-models/training-module';
 import { getMuscleOptionsVM } from '@/view-models/training-module';
 

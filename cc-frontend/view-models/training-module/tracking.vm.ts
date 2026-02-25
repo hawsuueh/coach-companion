@@ -2,7 +2,7 @@ import {
   getTrainingTrackingService,
   getAthletesService,
   getAthleteTrackingService
-} from '@/services/training-module';
+} from '@/services/training-module/tracking.service';
 import { formatDate } from '@/utils/formatDate';
 import { formatTime } from '@/utils/formatTime';
 

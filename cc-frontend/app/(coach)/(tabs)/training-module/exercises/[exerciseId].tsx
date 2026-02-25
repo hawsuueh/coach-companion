@@ -12,6 +12,9 @@ import { getExerciseVM } from '@/view-models/training-module';
 
 export default function ExerciseDetails() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
+  const safeExerciseId = Array.isArray(exerciseId)
+    ? exerciseId[0]
+    : (exerciseId ?? '');
   const { setTitle } = useHeader();
 
   // ✅ single object, not array
@@ -21,12 +24,12 @@ export default function ExerciseDetails() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const vm = await getExerciseVM(exerciseId); // pass exerciseId
+      const vm = await getExerciseVM(safeExerciseId);
       setExercise(vm);
       setLoading(false);
     };
     fetchData();
-  }, [exerciseId]);
+  }, [safeExerciseId]);
 
   useEffect(() => {
     if (exercise?.name) {
@@ -70,7 +73,7 @@ export default function ExerciseDetails() {
       <Link
         href={{
           pathname: '/(coach)/(tabs)/training-module/(modals)/edit-exercise',
-          params: { exerciseId: exerciseId }
+          params: { exerciseId: safeExerciseId }
         }}
         asChild
       >
