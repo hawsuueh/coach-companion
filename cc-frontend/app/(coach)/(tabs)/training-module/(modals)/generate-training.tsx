@@ -10,7 +10,6 @@ import TimeInput from '@/components/training-module/inputs/TimeInput';
 import MainButton from '@/components/training-module/buttons/MainButton';
 import { useRouter } from 'expo-router';
 import { getAthletesAndEquipmentsVM } from '@/view-models/training-module';
-import { generateTrainingService } from '@/services/training-generator.service';
 
 export default function GenerateTrainingModal() {
   const { setTitle } = useHeader();
@@ -48,24 +47,7 @@ export default function GenerateTrainingModal() {
     fetchData();
   }, []);
 
-  const handleGenerate = async () => {
-    try {
-      const training = await generateTrainingService({
-        coachNo: 1, // or get from logged-in coach context
-        trainingName,
-        date: dates[0], // pick first selected date
-        time: startTime,
-        duration: Number(duration),
-        athleteNos: selectedAthletes.map(Number),
-        selectedEquipments
-      });
-
-      console.log('Training generated:', training.training_id);
-      router.back();
-    } catch (err) {
-      console.error('Error generating training', err);
-    }
-  };
+  const handleGenerate = () => {};
 
   const handleAthleteSelectChange = (values: string[]) => {
     setSelectedAthletes(values);

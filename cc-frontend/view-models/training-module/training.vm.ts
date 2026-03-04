@@ -15,6 +15,13 @@ import {
 import { formatDate } from '@/utils/formatDate';
 import { formatTime } from '@/utils/formatTime';
 import { formatDuration } from '@/utils/formatDuration';
+import { RecommendationEngine } from '@/ml/training-module/recommendation-engine';
+import {
+  fetchMLTrainingDataset,
+  fetchAthleteStatsAndProfile,
+  fetchExercisesForAlgo,
+  saveGeneratedTrainingSession
+} from '@/services/training-module/ml.service'; // We'll create this next
 
 // Coach
 // Get Trainings
@@ -245,4 +252,58 @@ export const getAthletesAndEquipmentsVM = async () => {
   }));
 
   return { athleteDropdown, equipmentDropdown };
+};
+
+export const generateTrainingSessionVM = async (
+  coachNo: string | number,
+  trainingName: string,
+  athleteIds: string[],
+  equipmentIds: string[],
+  dates: string[],
+  startTime: string,
+  duration: string
+) => {
+  try {
+    // 1. Fetch Global Training Data to initialize the Forest
+    // This provides the "historical context" the ML needs to learn
+    const dataset = await fetchMLTrainingDataset();
+    const engine = new RecommendationEngine(dataset);
+
+    // 2. Fetch all exercises that match the selected equipment
+    const allExercises = await fetchExercisesForAlgo(equipmentIds);
+
+    // 3. Process each athlete individually
+    const results = await Promise.all(
+      athleteIds.map(async athleteNo => {
+        // Fetch stats (last 5 games) and Profile (injuries, focus scores)
+        const { last5Games, profile } =
+          await fetchAthleteStatsAndProfile(athleteNo);
+
+        // Run Hybrid Recommendation (Random Forest -> Rules -> Content Match)
+        const recommendedExercises = engine.generateTraining(
+          last5Games,
+          profile,
+          allExercises
+        );
+
+        return { athleteNo, exercises: recommendedExercises };
+      })
+    );
+
+    // 4. Save the finalized training to Supabase
+    // This will populate 'training', 'athlete_training', and 'athlete_training_exercise'
+    const success = await saveGeneratedTrainingSession({
+      coachNo,
+      trainingName,
+      dates,
+      startTime,
+      duration: parseInt(duration), // ensuring it's a number
+      results
+    });
+
+    return success;
+  } catch (err) {
+    console.error('Generation VM Error:', err);
+    throw err;
+  }
 };
