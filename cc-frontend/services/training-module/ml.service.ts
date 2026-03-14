@@ -1,5 +1,6 @@
 import supabase from '@/config/supabaseClient';
 import { Exercise } from '@/ml/training-module/types';
+import { parseTimeToDB, parseDurationToSeconds } from '@/utils/formatTime';
 
 import {
   GameStats,
@@ -127,64 +128,103 @@ export const saveGeneratedTrainingSession = async (params: {
   trainingName: string;
   dates: string[];
   startTime: string;
-  duration: number;
+  duration: string;
   results: { athleteNo: string; exercises: any[] }[];
 }) => {
   const { coachNo, trainingName, dates, startTime, duration, results } = params;
 
-  // We loop through dates because the coach might have selected multiple days in the calendar
-  for (const date of dates) {
-    // 1. Insert into 'training' table
-    const { data: training, error: tError } = await supabase
-      .from('training')
-      .insert({
-        coach_no: coachNo,
-        name: trainingName,
-        date: date,
-        time: startTime,
-        duration: duration
-      })
-      .select()
-      .single();
+  console.log('Total athletes to process:', results.length);
 
-    if (tError) throw tError;
+  const formattedTime = parseTimeToDB(startTime);
+  const durationInSeconds = parseDurationToSeconds(duration);
 
-    for (const res of results) {
-      // 2. Insert into 'athlete_training'
-      const { data: at, error: atError } = await supabase
-        .from('athlete_training')
+  try {
+    for (const date of dates) {
+      // 3. Create the Training Header
+      const { data: training, error: tError } = await supabase
+        .from('training')
         .insert({
-          athlete_id: res.athleteNo,
-          training_id: training.training_id
+          coach_no: coachNo,
+          name: trainingName,
+          date: date,
+          time: formattedTime,
+          duration: durationInSeconds
         })
         .select()
         .single();
 
-      if (atError) throw atError;
+      if (tError) {
+        console.error('❌ Error creating training header:', tError);
+        throw tError; // If the header fails, we can't do anything else
+      }
 
-      // 3. Insert into 'athlete_training_exercise'
-      // The ML recommended 8 exercises; we save them with default sets/reps
-      const exerciseInserts = res.exercises.map(ex => ({
-        athlete_training_id: at.athlete_training_id,
-        exercise_id: ex.exercise_id,
-        sets: 3, // Default baseline
-        reps: 12, // Default baseline
-        duration: 60 // Default 60 seconds per set
-      }));
+      const trainingId = training.training_id;
 
-      const { error: ateError } = await supabase
-        .from('athlete_training_exercise')
-        .insert(exerciseInserts);
+      // 4. Loop through athletes using try/catch INSIDE the loop
+      for (const res of results) {
+        try {
+          console.log(
+            `Processing athlete_no: ${res.athleteNo} for training_id: ${trainingId}`
+          );
 
-      if (ateError) throw ateError;
+          // Link athlete to training
+          const { data: at, error: atError } = await supabase
+            .from('athlete_training')
+            .insert({
+              athlete_no: res.athleteNo,
+              training_id: trainingId
+            })
+            .select()
+            .single();
 
-      // 4. Initialize 'athlete_training_tracking' status
-      await supabase.from('athlete_training_tracking').insert({
-        athlete_training_id: at.athlete_training_id,
-        status: 'assigned'
-      });
+          if (atError) {
+            // We log the error but don't "throw" so we don't kill the other 3 athletes
+            console.error(
+              `⚠️ Error linking athlete ${res.athleteNo}:`,
+              atError.message
+            );
+            continue;
+          }
+
+          // 5. Insert Exercises
+          const exerciseInserts = res.exercises.map(ex => ({
+            athlete_training_id: at.athlete_training_id,
+            exercise_id: ex.exercise_id,
+            sets: 3,
+            reps: 12,
+            duration: 60
+          }));
+
+          const { error: ateError } = await supabase
+            .from('athlete_training_exercise')
+            .insert(exerciseInserts);
+
+          if (ateError)
+            console.error(
+              `⚠️ Error inserting exercises for ${res.athleteNo}:`,
+              ateError.message
+            );
+
+          // 6. Initialize tracking
+          await supabase.from('athlete_training_tracking').insert({
+            athlete_training_id: at.athlete_training_id,
+            status: 'assigned'
+          });
+
+          console.log(
+            `✅ Successfully saved training for athlete: ${res.athleteNo}`
+          );
+        } catch (innerErr) {
+          console.error(
+            `❌ Unexpected error for athlete ${res.athleteNo}:`,
+            innerErr
+          );
+        }
+      }
     }
+    return true;
+  } catch (err) {
+    console.error('Critical error in saveGeneratedTrainingSession:', err);
+    throw err;
   }
-
-  return true;
 };

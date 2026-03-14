@@ -297,7 +297,7 @@ export const generateTrainingSessionVM = async (
       trainingName,
       dates,
       startTime,
-      duration: parseInt(duration), // ensuring it's a number
+      duration,
       results
     });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import TextInput from '@/components/training-module/inputs/TextInput';
@@ -9,7 +9,11 @@ import MultiSelectCalendar from '@/components/training-module/inputs/MultiSelect
 import TimeInput from '@/components/training-module/inputs/TimeInput';
 import MainButton from '@/components/training-module/buttons/MainButton';
 import { useRouter } from 'expo-router';
-import { getAthletesAndEquipmentsVM } from '@/view-models/training-module';
+// Import the new ML generation function
+import {
+  getAthletesAndEquipmentsVM,
+  generateTrainingSessionVM
+} from '@/view-models/training-module/training.vm';
 
 export default function GenerateTrainingModal() {
   const { setTitle } = useHeader();
@@ -25,6 +29,9 @@ export default function GenerateTrainingModal() {
   const [athleteData, setAthleteData] = useState<any[]>([]);
   const [equipmentData, setEquipmentData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // New state to track ML processing
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     setTitle('Generate Training');
@@ -47,7 +54,51 @@ export default function GenerateTrainingModal() {
     fetchData();
   }, []);
 
-  const handleGenerate = () => {};
+  // The updated handleGenerate function
+  const handleGenerate = async () => {
+    // 1. Validation
+    if (
+      !trainingName ||
+      selectedAthletes.length === 0 ||
+      dates.length === 0 ||
+      !startTime ||
+      !duration
+    ) {
+      Alert.alert(
+        'Missing Fields',
+        'Please fill in all the required training details.'
+      );
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // 2. Call the ML Orchestrator in the VM
+      // coachNo should ideally come from your Auth context/session
+      const coachNo = '1';
+
+      await generateTrainingSessionVM(
+        coachNo,
+        trainingName,
+        selectedAthletes,
+        selectedEquipments,
+        dates,
+        startTime,
+        duration
+      );
+
+      Alert.alert('Success', 'Training plans generated successfully via ML!');
+      router.back();
+    } catch (err) {
+      console.error('Generation failed:', err);
+      Alert.alert(
+        'Error',
+        'An error occurred while generating the training plan.'
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleAthleteSelectChange = (values: string[]) => {
     setSelectedAthletes(values);
@@ -59,12 +110,24 @@ export default function GenerateTrainingModal() {
 
   return (
     <View className="mb-4 mt-4 flex-1 bg-primary">
+      {/* Loading Overlay for ML Processing */}
+      {isGenerating && (
+        <View className="absolute z-50 h-full w-full items-center justify-center bg-black/40">
+          <View className="items-center justify-center rounded-2xl bg-white p-6 shadow-lg">
+            <ActivityIndicator size="large" color="#1E3A8A" />
+            <Text className="mt-4 text-lg font-bold">Machine Learning</Text>
+            <Text className="text-sm text-gray-500">
+              Analyzing athlete performance...
+            </Text>
+          </View>
+        </View>
+      )}
+
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Training Name */}
         <View className="mb-4 mt-4 px-6">
           <TextInput
             label="Training Name"
@@ -73,7 +136,6 @@ export default function GenerateTrainingModal() {
           />
         </View>
 
-        {/* Athletes */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
             data={athleteData}
@@ -85,7 +147,6 @@ export default function GenerateTrainingModal() {
           />
         </View>
 
-        {/* Equipments */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
             data={equipmentData}
@@ -99,7 +160,6 @@ export default function GenerateTrainingModal() {
           />
         </View>
 
-        {/* Date Input */}
         <View className="px-6">
           <DateInput
             dates={dates}
@@ -107,7 +167,6 @@ export default function GenerateTrainingModal() {
           />
         </View>
 
-        {/* Calendar */}
         {showCalendar && (
           <View className="mb-4">
             <MultiSelectCalendar
@@ -117,7 +176,6 @@ export default function GenerateTrainingModal() {
           </View>
         )}
 
-        {/* Time Inputs */}
         <View className="mb-4 mt-3 px-6">
           <TimeInput
             label="Start Time"
@@ -136,12 +194,13 @@ export default function GenerateTrainingModal() {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 items-center justify-center bg-primary pt-4">
+      <View className="absolute bottom-0 left-0 right-0 items-center justify-center bg-primary pb-6 pt-4">
         <MainButton
-          text="Generate"
+          text={isGenerating ? 'Processing...' : 'Generate'}
           width="50%"
           height={40}
           onPress={handleGenerate}
+          disabled={isGenerating}
         />
       </View>
     </View>
