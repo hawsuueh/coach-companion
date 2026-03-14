@@ -284,8 +284,7 @@ export const createAthlete = async (
           user_id: authData.user.id,
           first_name: athlete.first_name,
           middle_name: athlete.middle_name,
-          last_name: athlete.last_name,
-          role_no: roleData.role_no
+          last_name: athlete.last_name
         })
         .select('account_no')
         .single();
@@ -293,6 +292,19 @@ export const createAthlete = async (
       if (accountError) {
         console.error('Error creating account:', accountError);
         return { success: false, error: 'Failed to create athlete account' };
+      }
+
+      // Insert into Account_Role junction table
+      const { error: accountRoleError } = await supabase
+        .from('Account_Role')
+        .insert({
+          account_no: accountData.account_no,
+          role_no: roleData.role_no
+        });
+
+      if (accountRoleError) {
+        console.error('Error assigning athlete role:', accountRoleError);
+        return { success: false, error: 'Failed to assign athlete role' };
       }
 
       accountNo = accountData.account_no;
