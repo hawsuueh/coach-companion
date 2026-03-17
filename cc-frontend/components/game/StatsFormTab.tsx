@@ -23,7 +23,8 @@ interface Game {
   seasonLabel?: string;
 }
 
-interface PlayerStats {
+// Redefining PlayerStats and related types to match cumulative schema
+export interface PlayerStats {
   totalFieldGoals: { made: number; attempted: number };
   twoPointFG: { made: number; attempted: number };
   threePointFG: { made: number; attempted: number };
@@ -36,14 +37,12 @@ interface PlayerStats {
   fouls: number;
 }
 
-type PlayerQuarterStats = Record<number, PlayerStats>;
-
 interface StatsFormTabProps {
   game: Game;
   selectedAthletes: Athlete[];
   selectedStatsAthlete: Athlete | null;
   currentQuarter: number;
-  playerStats: Record<string, PlayerQuarterStats>;
+  playerStats: Record<string, PlayerStats>;
   onAthleteSelect: (athlete: Athlete) => void;
   onShootingStatsUpdate: (
     statType: 'total' | 'twoPoint' | 'threePoint' | 'freeThrows',
@@ -58,7 +57,7 @@ interface StatsFormTabProps {
     field: 'assists' | 'steals' | 'blocks' | 'turnovers' | 'fouls',
     value: number
   ) => void;
-  onSave: (athleteId: string, quarter: number, stats: PlayerStats) => void;
+  onSave: (athleteId: string, stats: PlayerStats) => void;
 }
 
 // Helper functions
@@ -70,31 +69,15 @@ const calculateTotalPoints = (stats: PlayerStats | undefined) => {
   return twoPointPoints + threePointPoints + freeThrowPoints;
 };
 
-const calculateTotalPointsForPlayer = (
-  statsByQuarter: PlayerQuarterStats | undefined
-): number => {
-  if (!statsByQuarter) {
-    return 0;
-  }
-
-  return Object.values(statsByQuarter).reduce(
-    (sum, stats) => sum + calculateTotalPoints(stats),
-    0
-  );
-};
 
 const aggregateNumberStat = (
-  statsByQuarter: PlayerQuarterStats | undefined,
+  stats: PlayerStats | undefined,
   selector: (stats: PlayerStats) => number
 ): number => {
-  if (!statsByQuarter) {
+  if (!stats) {
     return 0;
   }
-
-  return Object.values(statsByQuarter).reduce(
-    (sum, stats) => sum + selector(stats),
-    0
-  );
+  return selector(stats);
 };
 
 const StatsFormTab: React.FC<StatsFormTabProps> = ({
@@ -130,20 +113,16 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
             {/* Shooting Statistics */}
             <ShootingStats_StatsForm
               totalFieldGoals={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]
-                  ?.totalFieldGoals || { made: 0, attempted: 0 }
+                playerStats[selectedStatsAthlete.id]?.totalFieldGoals || { made: 0, attempted: 0 }
               }
               twoPointFG={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]
-                  ?.twoPointFG || { made: 0, attempted: 0 }
+                playerStats[selectedStatsAthlete.id]?.twoPointFG || { made: 0, attempted: 0 }
               }
               threePointFG={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]
-                  ?.threePointFG || { made: 0, attempted: 0 }
+                playerStats[selectedStatsAthlete.id]?.threePointFG || { made: 0, attempted: 0 }
               }
               freeThrows={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.freeThrows ||
-                { made: 0, attempted: 0 }
+                playerStats[selectedStatsAthlete.id]?.freeThrows || { made: 0, attempted: 0 }
               }
               onUpdate={onShootingStatsUpdate}
             />
@@ -151,12 +130,10 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
             {/* Rebounding Statistics */}
             <ReboundingStats_StatsForm
               offensive={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.rebounds
-                  ?.offensive || 0
+                playerStats[selectedStatsAthlete.id]?.rebounds?.offensive || 0
               }
               defensive={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.rebounds
-                  ?.defensive || 0
+                playerStats[selectedStatsAthlete.id]?.rebounds?.defensive || 0
               }
               onUpdate={onReboundingStatsUpdate}
             />
@@ -164,19 +141,19 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
             {/* Other Statistics */}
             <OtherStats_StatsForm
               assists={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.assists || 0
+                playerStats[selectedStatsAthlete.id]?.assists || 0
               }
               steals={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.steals || 0
+                playerStats[selectedStatsAthlete.id]?.steals || 0
               }
               blocks={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.blocks || 0
+                playerStats[selectedStatsAthlete.id]?.blocks || 0
               }
               turnovers={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.turnovers || 0
+                playerStats[selectedStatsAthlete.id]?.turnovers || 0
               }
               fouls={
-                playerStats[selectedStatsAthlete.id]?.[currentQuarter]?.fouls || 0
+                playerStats[selectedStatsAthlete.id]?.fouls || 0
               }
               onUpdate={onOtherStatsUpdate}
             />
@@ -187,12 +164,11 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
               onPress={() => {
                 if (
                   selectedStatsAthlete &&
-                  playerStats[selectedStatsAthlete.id]?.[currentQuarter]
+                  playerStats[selectedStatsAthlete.id]
                 ) {
                   onSave(
                     selectedStatsAthlete.id,
-                    currentQuarter,
-                    playerStats[selectedStatsAthlete.id][currentQuarter]
+                    playerStats[selectedStatsAthlete.id]
                   );
                   Alert.alert('Success', 'Stats saved successfully!');
                 }
@@ -243,30 +219,28 @@ const StatsFormTab: React.FC<StatsFormTabProps> = ({
 
               {/* Rows */}
               {selectedAthletes.map(athlete => {
-                const statsByQuarter = playerStats[athlete.id];
-                const totalPoints = calculateTotalPointsForPlayer(
-                  statsByQuarter
-                );
+                const stats = playerStats[athlete.id];
+                const totalPoints = calculateTotalPoints(stats);
                 const offensiveRebounds = aggregateNumberStat(
-                  statsByQuarter,
-                  stats => stats.rebounds?.offensive || 0
+                  stats,
+                  s => s.rebounds?.offensive || 0
                 );
                 const defensiveRebounds = aggregateNumberStat(
-                  statsByQuarter,
-                  stats => stats.rebounds?.defensive || 0
+                  stats,
+                  s => s.rebounds?.defensive || 0
                 );
                 const totalRebounds = offensiveRebounds + defensiveRebounds;
                 const assists = aggregateNumberStat(
-                  statsByQuarter,
-                  stats => stats.assists || 0
+                  stats,
+                  s => s.assists || 0
                 );
                 const steals = aggregateNumberStat(
-                  statsByQuarter,
-                  stats => stats.steals || 0
+                  stats,
+                  s => s.steals || 0
                 );
                 const blocks = aggregateNumberStat(
-                  statsByQuarter,
-                  stats => stats.blocks || 0
+                  stats,
+                  s => s.blocks || 0
                 );
                 return (
                   <View

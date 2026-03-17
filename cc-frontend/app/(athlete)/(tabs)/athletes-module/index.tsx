@@ -100,7 +100,7 @@ export default function AthleteModuleIndex() {
 
         <Text className="mt-8 text-gray-400 text-sm text-center">
           Logged in as: <Text className="font-semibold text-gray-600">{profile?.first_name} {profile?.last_name}</Text>{"\n"}
-          Account No: <Text className="font-semibold text-gray-600">{profile?.account_no || 'N/A'}</Text> | Role: <Text className="font-semibold text-gray-600 uppercase">{profile?.role || 'N/A'}</Text>
+          Account No: <Text className="font-semibold text-gray-600">{profile?.account_no || 'N/A'}</Text> | Role: <Text className="font-semibold text-gray-600 uppercase">{profile?.roles?.join(', ') || 'N/A'}</Text>
         </Text>
       </View>
     );
