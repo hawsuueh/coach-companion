@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/config/supabaseClient';
 import { getUserProfile, getCoachNoByAccount, UserProfile } from '@/services/authService';
-import { getAthleteNoByAccount } from '@/services/athleteService';
 
 // Types
 interface DatabaseCoach {
@@ -17,9 +16,6 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   coachNo: number | null; // Coach number if user is a coach
-  athleteNo: number | null; // Athlete number if user is an athlete
-  activeRole: string | null; // Currently selected role
-  setActiveRole: (role: string) => Promise<void>; // Switch between roles
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (
     email: string,
@@ -29,7 +25,6 @@ interface AuthContextType {
     role: string
   ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
-  refreshAthleteNo: () => Promise<void>;
 }
 
 // Create the context
@@ -42,49 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [coachNo, setCoachNo] = useState<number | null>(null);
-  const [athleteNo, setAthleteNo] = useState<number | null>(null);
-  const [activeRole, setActiveRoleState] = useState<string | null>(null);
-
-  // Load role-specific data (coachNo/athleteNo) based on active role
-  const loadRoleData = async (role: string, accountNo: number) => {
-    const normalizedRole = role.toLowerCase();
-    console.log('🔍 Loading role data for:', normalizedRole, 'Account:', accountNo);
-
-    if (normalizedRole === 'coach') {
-      const coachNumber = await getCoachNoByAccount(accountNo);
-      setCoachNo(coachNumber);
-      setAthleteNo(null);
-    } else if (normalizedRole === 'athlete') {
-      const athleteNumber = await getAthleteNoByAccount(accountNo);
-      console.log('🏃 Athlete Number found:', athleteNumber);
-      setAthleteNo(athleteNumber);
-      setCoachNo(null);
-    } else {
-      // director or other roles
-      setCoachNo(null);
-      setAthleteNo(null);
-    }
-  };
-
-  // Switch active role
-  const setActiveRole = async (role: string) => {
-    setActiveRoleState(role);
-    if (profile) {
-      await loadRoleData(role, profile.account_no);
-    }
-  };
-
-  // Refresh Athlete No
-  const refreshAthleteNo = async () => {
-    if (profile?.account_no && activeRole?.toLowerCase() === 'athlete') {
-      console.log('🔄 Refreshing athleteNo for account:', profile.account_no);
-      const athleteNumber = await getAthleteNoByAccount(profile.account_no);
-      console.log('✅ Found athleteNo:', athleteNumber);
-      setAthleteNo(athleteNumber);
-    } else {
-      console.log('⚠️ Cannot refresh athleteNo. Profile:', profile);
-    }
-  };
 
   // Sign In
   const signIn = async (email: string, password: string) => {
@@ -136,27 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (roleError) return { error: 'Invalid role selected' };
 
       // 3. Create profile in your Account table
-      const { data: accountData, error: profileError } = await supabase
-        .from('Account')
-        .insert({
-          user_id: authData.user.id,
-          first_name: firstName,
-          last_name: lastName
-        })
-        .select('account_no')
-        .single();
+      const { error: profileError } = await supabase.from('Account').insert({
+        user_id: authData.user.id,
+        first_name: firstName,
+        last_name: lastName,
+        role_no: roleData.role_no
+      });
 
       if (profileError) return { error: 'Failed to create profile' };
-
-      // 4. Insert into Account_Role junction table
-      const { error: accountRoleError } = await supabase
-        .from('Account_Role')
-        .insert({
-          account_no: accountData.account_no,
-          role_no: roleData.role_no
-        });
-
-      if (accountRoleError) return { error: 'Failed to assign role' };
 
       return {};
     } catch (error) {
@@ -176,9 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setUser(null);
       setProfile(null);
-      setActiveRoleState(null);
-      setCoachNo(null);
-      setAthleteNo(null);
 
       console.log('✅ Sign out completed - all data cleared');
     } catch (error) {
@@ -208,29 +144,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
-
-        // Handle roles
-        if (userProfile && userProfile.roles.length > 0) {
-          console.log('🔍 User roles:', userProfile.roles, 'for Account:', userProfile.account_no);
-
-          if (userProfile.roles.length === 1) {
-            // Single role - auto-select it
-            const role = userProfile.roles[0];
-            setActiveRoleState(role);
-            await loadRoleData(role, userProfile.account_no);
-          } else {
-            // Multiple roles - don't auto-select, let user choose on login screen
-            setActiveRoleState(null);
-            setCoachNo(null);
-            setAthleteNo(null);
-          }
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+          setCoachNo(coachNumber);
         } else {
           setCoachNo(null);
-          setAthleteNo(null);
         }
       } else {
         setCoachNo(null);
-        setAthleteNo(null);
       }
 
       setLoading(false);
@@ -259,28 +182,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userProfile = await getUserProfile(session.user.id);
         setProfile(userProfile);
-
-        // Handle roles on auth state change
-        if (userProfile && userProfile.roles.length > 0) {
-          if (userProfile.roles.length === 1) {
-            const role = userProfile.roles[0];
-            setActiveRoleState(role);
-            await loadRoleData(role, userProfile.account_no);
-          } else {
-            // Multiple roles - don't auto-select
-            setActiveRoleState(null);
-            setCoachNo(null);
-            setAthleteNo(null);
-          }
+        
+        // Get coach_no if user is a coach
+        if (userProfile) {
+          const coachNumber = await getCoachNoByAccount(userProfile.account_no);
+          setCoachNo(coachNumber);
         } else {
           setCoachNo(null);
-          setAthleteNo(null);
         }
       } else {
         setProfile(null);
-        setActiveRoleState(null);
         setCoachNo(null);
-        setAthleteNo(null);
       }
 
       setLoading(false);
@@ -295,13 +207,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     coachNo,
-    athleteNo,
-    activeRole,
-    setActiveRole,
     signIn,
     signUp,
-    signOut,
-    refreshAthleteNo
+    signOut
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

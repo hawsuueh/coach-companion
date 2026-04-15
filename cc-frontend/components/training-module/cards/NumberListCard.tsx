@@ -1,18 +1,16 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 
 type NumberListCardProps = {
   title?: string;
   items: string[];
   containerClassName?: string;
-  maxHeight?: number;
 };
 
 const NumberListCard = ({
   title = 'List',
   items,
-  containerClassName = '',
-  maxHeight = 200
+  containerClassName = ''
 }: NumberListCardProps) => {
   return (
     <View
@@ -21,15 +19,14 @@ const NumberListCard = ({
       {/* Title */}
       <Text className="text-title1 mb-3">{title}</Text>
 
-      {/* Scrollable Content */}
-      <ScrollView style={{ maxHeight }} showsVerticalScrollIndicator={true}>
-        {items.map((item, index) => (
-          <View key={index} className="mb-2 flex-row">
-            <Text className="text-body1 mr-2">{index + 1}.</Text>
-            <Text className="text-body1 flex-1">{item}</Text>
-          </View>
-        ))}
-      </ScrollView>
+      {/* Numbered List */}
+      {items.map((item, index) => (
+        <View key={index} className="mb-1 flex-row">
+          <Text className="text-body1 mr-2">{index + 1}.</Text>
+
+          <Text className="text-body1 flex-1">{item}</Text>
+        </View>
+      ))}
     </View>
   );
 };

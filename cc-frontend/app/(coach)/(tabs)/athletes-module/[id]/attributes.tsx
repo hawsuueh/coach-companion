@@ -11,6 +11,7 @@ import { getAthleteById, transformDatabaseAthlete } from '@/services/athleteServ
 ////////////////////////////// END OF IMPORTS ////////////////
 
 
+
 /////////////////////////////// START OF DATABASE INTERFACES /////////////
 // Using imported types from athleteService for DatabaseAthlete
 

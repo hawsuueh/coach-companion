@@ -1,25 +1,36 @@
 /////////////////////////////// START OF IMPORTS //////////////////////////////////////////////////////////
-
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
+  ScrollView,
   Text,
+  TouchableOpacity,
   View,
   Alert,
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
-
+import StatCard from '../../../../../../components/cards/StatCard';
+import SimpleStatRow from '../../../../../../components/cards/SimpleStatRow';
+import AthleteDropdown_StatsForm from '../../../../../../components/inputs/AthleteDropdown_StatsForm';
+import ShootingStats_StatsForm from '../../../../../../components/cards/ShootingStats_StatsForm';
+import ReboundingStats_StatsForm from '../../../../../../components/cards/ReboundingStats_StatsForm';
+import OtherStats_StatsForm from '../../../../../../components/cards/OtherStats_StatsForm';
 import QuarterSelector from '../../../../../../components/game/QuarterSelector';
 import GameHeader from '../../../../../../components/game/GameHeader';
+import PlayerSelectionGrid from '../../../../../../components/game/PlayerSelectionGrid';
 import TabNavigation from '../../../../../../components/navigation/TabNavigation';
 import StatsFormTab from '../../../../../../components/game/StatsFormTab';
 import RealTimeStatsTab from '../../../../../../components/game/RealTimeStatsTab';
 import LoadingScreen from '../../../../../../components/common/LoadingScreen';
 import ErrorScreen from '../../../../../../components/common/ErrorScreen';
+import ExportButton from '../../../../../../components/buttons/ExportButton';
 import QuarterScoresCollapsible from '../../../../../../components/game/QuarterScoresCollapsible';
 import { useHeader } from '@/components/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 // Utility imports
-import { exportGameStatsToPDF, type PlayerStats } from '@/utils/pdfExport';
+import { exportGameStatsToPDF, type PlayerStats, type PlayerQuarterStats } from '@/utils/pdfExport';
 // Service imports
 import { getGameByIdWithBatchValidation, transformDatabaseGame, type DatabaseGame, type Game } from '@/services/gameService';
 import { transformDatabaseAthlete, type DatabaseAthlete, type Athlete } from '@/services/athleteService';
@@ -30,7 +41,7 @@ import { getAthleteGameStatsByGame, upsertAthleteGameStats, type DatabaseAthlete
 
 /////////////////////////////// START OF INTERFACES /////////////
 // Using imported types from services for Database interfaces and helper functions
-// PlayerStats is now imported from @/utils/pdfExport
+// PlayerStats and PlayerQuarterStats are now imported from @/utils/pdfExport
 
 // For default values of the player stats object
 const createEmptyPlayerStats = (): PlayerStats => ({
@@ -47,7 +58,7 @@ const createEmptyPlayerStats = (): PlayerStats => ({
 });
 
 // the purpose of this function is to calculate the total points for a player
-const calculateTotalPoints = (stats: PlayerStats | undefined) => { 
+const calculateTotalPoints = (stats: PlayerStats | undefined) => { // "stats:" is like the parameter name 
   if (!stats) return 0;
   const twoPointPoints = (stats.twoPointFG?.made || 0) * 2;
   const threePointPoints = (stats.threePointFG?.made || 0) * 3;
@@ -55,6 +66,8 @@ const calculateTotalPoints = (stats: PlayerStats | undefined) => {
   return twoPointPoints + threePointPoints + freeThrowPoints;
 };
 ////////////////////////////// END OF INTERFACES ////////////////
+
+////////////////////////////// END OF HELPER FUNCTIONS ////////////////
 
 
 /////////////////////////////// START OF MAIN COMPONENT /////////////
@@ -74,8 +87,11 @@ export default function GameRecordingScreen() {
     position: string;
   } | null>(null);
   const [playerStats, setPlayerStats] = useState<
-    Record<string, PlayerStats>
+    Record<string, PlayerQuarterStats>
   >({});
+
+  // Purpose: The Record<K, T> type is useful for creating an object with known key-value pairs where the keys are of type K and the values are of type T. It helps to define the shape of an object clearly and concisely.
+  // Example: const myObject: Record<string, number> = { 'key1': 1, 'key2': 2, 'key3': 3 };
 
 
   const [showQuarterScores, setShowQuarterScores] = useState(true);
@@ -116,11 +132,6 @@ export default function GameRecordingScreen() {
       // Game is valid, transform and set it
       const transformedGame = transformDatabaseGame(gameData);
       setGame(transformedGame);
-
-      // Initialize scoreboard from database
-      if (transformedGame.scores) {
-        setQuarterScores(transformedGame.scores);
-      }
     } catch (err) {
       console.error('Error fetching game:', err);
       setError('Failed to load game details');
@@ -128,6 +139,7 @@ export default function GameRecordingScreen() {
   };
 
   // Fetch roster athletes for this game
+  // Whatever game_no you select → get all athletes in that game's roster
   const fetchRosterAthletes = async () => {
     try {
       const athletes = await getRosterWithAthletes(Number(id));
@@ -139,59 +151,57 @@ export default function GameRecordingScreen() {
     }
   };
 
-  // Fetch existing game stats for athletes (Cumulative)
+  // Fetch existing game stats for athletes
   const fetchGameStats = async () => {
     try {
       const data = await getAthleteGameStatsByGame(Number(id));
 
       if (data && data.length > 0) {
         // Transform database stats to UI format
-        const athleteStatsContainer: Record<string, PlayerStats> = {};
+        const athleteStatsContainer: Record<string, PlayerQuarterStats> = {};
 
         data.forEach((stat: DatabaseAthleteGame) => {
           const athleteId = stat.athlete_no.toString();
+          const quarterNo = stat.quarter_no ? Number(stat.quarter_no) : 1;
 
-          // In the cumulative schema, there is only ONE row per athlete
-          athleteStatsContainer[athleteId] = {
-            totalFieldGoals: {
-              made: stat.field_goals_made || 0,
-              attempted: stat.field_goals_attempted || 0,
-            },
-            twoPointFG: {
-              made: stat.two_point_made || 0,
-              attempted: stat.two_point_attempted || 0,
-            },
-            threePointFG: {
-              made: stat.three_point_made || 0,
-              attempted: stat.three_point_attempted || 0,
-            },
-            freeThrows: {
-              made: stat.free_throws_made || 0,
-              attempted: stat.free_throws_attempted || 0,
-            },
-            rebounds: {
-              offensive: stat.offensive_rebounds || 0,
-              defensive: stat.defensive_rebounds || 0,
-            },
-            assists: stat.assists || 0,
-            steals: stat.steals || 0,
-            blocks: stat.blocks || 0,
-            turnovers: stat.turnovers || 0,
-            fouls: stat.fouls || 0,
-          };
+          if (!athleteStatsContainer[athleteId]) {
+            athleteStatsContainer[athleteId] = {};
+          }
+
+          if (!athleteStatsContainer[athleteId][quarterNo]) {
+            athleteStatsContainer[athleteId][quarterNo] = createEmptyPlayerStats();
+          }
+
+          const currentStats = athleteStatsContainer[athleteId][quarterNo];
+          currentStats.totalFieldGoals.made += stat.field_goals_made || 0;
+          currentStats.totalFieldGoals.attempted += stat.field_goals_attempted || 0;
+          currentStats.twoPointFG.made += stat.two_point_made || 0;
+          currentStats.twoPointFG.attempted += stat.two_point_attempted || 0;
+          currentStats.threePointFG.made += stat.three_point_made || 0;
+          currentStats.threePointFG.attempted += stat.three_point_attempted || 0;
+          currentStats.freeThrows.made += stat.free_throws_made || 0;
+          currentStats.freeThrows.attempted += stat.free_throws_attempted || 0;
+          currentStats.rebounds.offensive += stat.offensive_rebounds || 0;
+          currentStats.rebounds.defensive += stat.defensive_rebounds || 0;
+          currentStats.assists += stat.assists || 0;
+          currentStats.steals += stat.steals || 0;
+          currentStats.blocks += stat.blocks || 0;
+          currentStats.turnovers += stat.turnovers || 0;
+          currentStats.fouls += stat.fouls || 0;
         });
 
         setPlayerStats(athleteStatsContainer);
-        console.log('Loaded cumulative stats from database:', athleteStatsContainer);
+        console.log('Loaded per-quarter stats from database:', athleteStatsContainer);
       }
     } catch (err) {
       console.error('Error fetching game stats:', err);
+      // Don't set error for stats fetch, just log it
     }
   };
 
-  // Save stats to database (Cumulative)
+  // Save stats to database
   const saveStatsToDatabase = useCallback(
-    async (athleteId: string, stats: PlayerStats) => {
+    async (athleteId: string, quarter: number, stats: PlayerStats) => {
     try {
       if (!id || typeof id !== 'string') return;
 
@@ -221,15 +231,25 @@ export default function GameRecordingScreen() {
         fouls: stats.fouls || 0
       };
 
+      console.log('Saving stats to database:', {
+        athleteId,
+        quarter,
+        statsData,
+        originalStats: stats
+      });
+
       const success = await upsertAthleteGameStats(
         parseInt(athleteId),
         parseInt(id),
+        quarter,
         statsData
       );
 
       if (!success) {
         throw new Error('Failed to save stats');
       }
+
+      console.log('Stats saved successfully for athlete:', athleteId);
     } catch (err) {
       console.error('Error saving stats:', err);
       Alert.alert('Error', 'Failed to save stats to database');
@@ -238,75 +258,119 @@ export default function GameRecordingScreen() {
   ////////////////////////////// END OF DATA FETCHING FUNCTIONS ////////////////
 
   /////////////////////////////// START OF UTILITY FUNCTIONS /////////////
-  // Handle manual score changes for the team scoreboard
-  const handleScoreChange = async (
-    team: 'home' | 'away',
-    quarter: 'q1' | 'q2' | 'q3' | 'q4' | 'ot',
-    value: string
-  ) => {
-    const numericValue = parseInt(value) || 0;
-    
-    setQuarterScores(prev => {
-      const newScores = { ...prev };
-      newScores[team] = { ...newScores[team], [quarter]: numericValue };
-      
-      // Automatic total calculation
-      newScores[team].total = 
-        newScores[team].q1 + 
-        newScores[team].q2 + 
-        newScores[team].q3 + 
-        newScores[team].q4 + 
-        newScores[team].ot;
-      
-      // Auto-save to database
-      if (id) {
-        import('@/services/gameService').then(m => 
-          m.updateGameScoreboard(parseInt(id as string), newScores)
-        );
-      }
-      
-      return newScores;
+  // Update quarter scores automatically using per-quarter stats
+  const updateQuarterScores = () => {
+    const homeScores = {
+      q1: 0,
+      q2: 0,
+      q3: 0,
+      q4: 0,
+      ot: 0,
+      total: 0
+    };
+
+    Object.values(playerStats).forEach(athleteQuarterStats => {
+      Object.entries(athleteQuarterStats).forEach(([quarterKey, stats]) => {
+        const quarterNumber = Number(quarterKey);
+        const points = calculateTotalPoints(stats);
+
+        switch (quarterNumber) {
+          case 1:
+            homeScores.q1 += points;
+            break;
+          case 2:
+            homeScores.q2 += points;
+            break;
+          case 3:
+            homeScores.q3 += points;
+            break;
+          case 4:
+            homeScores.q4 += points;
+            break;
+          default:
+            homeScores.ot += points;
+            break;
+        }
+      });
     });
+
+    homeScores.total =
+      homeScores.q1 +
+      homeScores.q2 +
+      homeScores.q3 +
+      homeScores.q4 +
+      homeScores.ot;
+
+    setQuarterScores(prev => ({
+      home: homeScores,
+      away: prev.away
+    }));
   };
 
-  // Ensure player total stats entry exists
-  const ensurePlayerStats = (playerId: string) => {
+  // Initialize player stats if not exists
+  // this is to make the players in the playerStats object have a default value of 0 for all stats
+  const ensureQuarterStats = (playerId: string, quarter: number) => {
     setPlayerStats(currentState => {
       const existingAthleteStats = currentState[playerId];
-      if (existingAthleteStats) return currentState;
+      const quarterExists = existingAthleteStats?.[quarter];
+
+      if (quarterExists) {
+        return currentState;
+      }
+
+      const updatedAthleteStats: PlayerQuarterStats = {
+        ...(existingAthleteStats || {}),
+        [quarter]: createEmptyPlayerStats()
+      };
 
       return {
         ...currentState,
-        [playerId]: createEmptyPlayerStats()
+        [playerId]: updatedAthleteStats
       };
     });
   };
 
-  // Smart auto-save function with debouncing (Cumulative)
+  // Smart auto-save function with debouncing
   const scheduleAutoSave = useCallback(
-    (athleteId: string) => {
+    (athleteId: string, quarter: number) => {
+    // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    pendingSavesRef.current.add(athleteId);
+    // Add to pending saves
+    pendingSavesRef.current.add(`${athleteId}::${quarter}`);
 
+    // Set new timeout for 1.5 seconds
     saveTimeoutRef.current = setTimeout(async () => {
       const athletesToSave = Array.from(pendingSavesRef.current);
       pendingSavesRef.current.clear();
 
-      for (const authId of athletesToSave) {
-        // Get the current state at save time
+      // Save all pending athletes - get fresh state at save time
+      for (const athleteKey of athletesToSave) {
+        const [idPart, quarterPart] = athleteKey.split('::');
+        const parsedQuarter = Number(quarterPart);
+        if (!idPart || Number.isNaN(parsedQuarter)) {
+          continue;
+        }
+
+        // Get the current state at save time, not when scheduled
         setPlayerStats(currentStats => {
-          const stats = currentStats[authId];
-          if (stats) {
-            saveStatsToDatabase(authId, stats);
+          const statsForQuarter = currentStats[idPart]?.[parsedQuarter];
+          if (statsForQuarter) {
+            console.log('Auto-save capturing fresh state:', {
+              athleteId: idPart,
+              quarter: parsedQuarter,
+              steals: statsForQuarter.steals,
+              timestamp: new Date().toISOString()
+            });
+            saveStatsToDatabase(idPart, parsedQuarter, statsForQuarter);
           }
-          return currentStats;
+          return currentStats; // Don't change state, just capture it
         });
       }
-    }, 1500);
-  }, [saveStatsToDatabase]);
+    }, 1500); // 1.5 second delay
+  }, [saveStatsToDatabase]); // Remove playerStats dependency to avoid stale closures
   ////////////////////////////// END OF UTILITY FUNCTIONS ////////////////
 
   /////////////////////////////// START OF USE EFFECTS /////////////
@@ -337,7 +401,10 @@ export default function GameRecordingScreen() {
     };
   }, [id]);
 
-  // Manual scoring removes automatic sync - keeping this comment as reference
+  // Update quarter scores whenever player stats change
+  useEffect(() => {
+    updateQuarterScores();
+  }, [playerStats]);
   ////////////////////////////// END OF USE EFFECTS ////////////////
 
   /////////////////////////////// START OF EVENT HANDLERS /////////////
@@ -402,13 +469,11 @@ export default function GameRecordingScreen() {
   // Quarter selector handler
   const handleQuarterChange = (quarter: number) => {
     setCurrentQuarter(quarter);
-    // Athlete stats are cumulative, so we no longer need to ensure entries for specific quarters
-    // However, we still want to ensure the athlete has a base object if they are selected
     if (selectedPlayerId) {
-      ensurePlayerStats(selectedPlayerId);
+      ensureQuarterStats(selectedPlayerId, quarter);
     }
     if (selectedStatsAthlete) {
-      ensurePlayerStats(selectedStatsAthlete.id);
+      ensureQuarterStats(selectedStatsAthlete.id, quarter);
     }
   };
 
@@ -420,7 +485,7 @@ export default function GameRecordingScreen() {
     position: string;
   }) => {
     setSelectedStatsAthlete(athlete);
-    ensurePlayerStats(athlete.id);
+    ensureQuarterStats(athlete.id, currentQuarter);
   };
 
   const handleShootingStatsUpdate = (
@@ -440,22 +505,27 @@ export default function GameRecordingScreen() {
             : 'freeThrows';
 
     setPlayerStats(prev => {
-      const athleteStats = prev[selectedStatsAthlete.id] ?? createEmptyPlayerStats();
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
 
       return {
         ...prev,
         [selectedStatsAthlete.id]: {
           ...athleteStats,
-          [statKey]: {
-            ...athleteStats[statKey],
-            [field]: value
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [statKey]: {
+              ...currentQuarterStats[statKey],
+              [field]: value
+            }
           }
         }
       };
     });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleReboundingStatsUpdate = (
@@ -465,22 +535,27 @@ export default function GameRecordingScreen() {
     if (!selectedStatsAthlete) return;
 
     setPlayerStats(prev => {
-      const athleteStats = prev[selectedStatsAthlete.id] ?? createEmptyPlayerStats();
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
 
       return {
         ...prev,
         [selectedStatsAthlete.id]: {
           ...athleteStats,
-          rebounds: {
-            ...athleteStats.rebounds,
-            [field]: value
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            rebounds: {
+              ...currentQuarterStats.rebounds,
+              [field]: value
+            }
           }
         }
       };
     });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
   const handleOtherStatsUpdate = (
@@ -490,67 +565,71 @@ export default function GameRecordingScreen() {
     if (!selectedStatsAthlete) return;
 
     setPlayerStats(prev => {
-      const athleteStats = prev[selectedStatsAthlete.id] ?? createEmptyPlayerStats();
+      const athleteStats = prev[selectedStatsAthlete.id] ?? {};
+      const currentQuarterStats =
+        athleteStats[currentQuarter] ?? createEmptyPlayerStats();
 
       return {
         ...prev,
         [selectedStatsAthlete.id]: {
           ...athleteStats,
-          [field]: value
+          [currentQuarter]: {
+            ...currentQuarterStats,
+            [field]: value
+          }
         }
       };
     });
 
     // Trigger auto-save
-    scheduleAutoSave(selectedStatsAthlete.id);
+    scheduleAutoSave(selectedStatsAthlete.id, currentQuarter);
   };
 
-  // Real-time tab handlers
-  const handlePlayerSelectByRealTime = (athleteId: string) => {
-    setSelectedPlayerId(athleteId);
-    ensurePlayerStats(athleteId);
-  };
+  // Unified stat update handler for RealTimeStatsTab
+  const handleRealTimeStatsUpdate = (
+    playerId: string,
+    quarter: number,
+    field: string,
+    subfield: string | null,
+    value: number
+  ) => {
+    setPlayerStats(prev => {
+      const athleteStats = prev[playerId] ?? {};
+      const quarterStats = athleteStats[quarter] ?? createEmptyPlayerStats();
 
-  // Unified stat update handler for RealTimeStatsTab (Cumulative)
-  const handleRealTimeStatsUpdate = useCallback(
-    (
-      playerId: string,
-      field: string,
-      subfield: string | null,
-      value: number
-    ) => {
-      setPlayerStats(prev => {
-        const player = prev[playerId] ?? createEmptyPlayerStats();
-        let updatedPlayer = { ...player };
+      let updatedQuarterStats = { ...quarterStats };
 
-        if (subfield) {
-          // Handle nested fields like twoPointFG.made, rebounds.offensive
-          updatedPlayer = {
-            ...player,
-            [field]: {
-              ...(player[field as keyof PlayerStats] as any),
-              [subfield]: value
-            }
-          };
-        } else {
-          // Handle simple fields like assists, steals
-          updatedPlayer = {
-            ...player,
-            [field]: value
-          };
-        }
-
-        const newState = {
-          ...prev,
-          [playerId]: updatedPlayer
+      if (subfield) {
+        // Handle nested fields like twoPointFG.made, rebounds.offensive
+        updatedQuarterStats = {
+          ...quarterStats,
+          [field]: {
+            ...(quarterStats[field as keyof PlayerStats] as any),
+            [subfield]: value
+          }
         };
+      } else {
+        // Handle simple fields like assists, steals
+        updatedQuarterStats = {
+          ...quarterStats,
+          [field]: value
+        };
+      }
 
-        scheduleAutoSave(playerId);
-        return newState;
-      });
-    },
-    [scheduleAutoSave]
-  );
+      const result = {
+        ...prev,
+        [playerId]: {
+          ...athleteStats,
+          [quarter]: updatedQuarterStats
+        }
+      };
+
+      // Trigger auto-save
+      scheduleAutoSave(playerId, quarter);
+
+      return result;
+    });
+  };
   ////////////////////////////// END OF EVENT HANDLERS ////////////////
 
   /////////////////////////////// START OF LOADING AND ERROR STATES /////////////
@@ -607,7 +686,6 @@ export default function GameRecordingScreen() {
         quarterScores={quarterScores}
         isExpanded={showQuarterScores}
         onToggle={() => setShowQuarterScores(!showQuarterScores)}
-        onScoreChange={handleScoreChange}
       />
 
       {/* Tab Navigation */}
@@ -623,10 +701,13 @@ export default function GameRecordingScreen() {
       {activeTab === 'realtime' ? (
         <RealTimeStatsTab
           selectedAthletes={selectedAthletes}
-          selectedPlayerId={selectedPlayerId || ''}
+          selectedPlayerId={selectedPlayerId}
           currentQuarter={currentQuarter}
           playerStats={playerStats}
-          onPlayerSelect={handlePlayerSelectByRealTime}
+          onPlayerSelect={(id) => {
+            setSelectedPlayerId(id);
+            ensureQuarterStats(id, currentQuarter);
+          }}
           onStatsUpdate={handleRealTimeStatsUpdate}
           onExport={handleExport}
           exporting={exporting}

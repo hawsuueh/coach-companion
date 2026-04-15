@@ -48,7 +48,7 @@ function DrawerItem({
 
 export default function SideDrawer() {
   const router = useRouter();
-  const { user, profile, activeRole, setActiveRole, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { isDrawerOpen, closeDrawer } = useDrawer();
   const slideAnim = React.useRef(new Animated.Value(-300)).current;
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
@@ -105,8 +105,6 @@ export default function SideDrawer() {
     });
   };
 
-  const hasMultipleRoles = (profile?.roles || []).length > 1;
-
   const handleProfilePress = () => {
     console.log('Profile/Account pressed');
     animateClose();
@@ -117,15 +115,6 @@ export default function SideDrawer() {
     console.log('Settings pressed');
     animateClose();
     // TODO: Navigate to settings screen
-  };
-
-  const handleSwitchRole = () => {
-    animateClose();
-    // Navigate back to login screen where role picker will show
-    setTimeout(() => {
-      setActiveRole(''); // Clear active role so the picker shows
-      router.replace('/');
-    }, 300);
   };
 
   const handleLogoutPress = () => {
@@ -249,11 +238,11 @@ export default function SideDrawer() {
                 <Text className="text-sm text-gray-600" numberOfLines={1}>
                   {user?.email || 'user@email.com'}
                 </Text>
-                {activeRole && (
+                {profile?.role && (
                   <View className="mt-2 self-start rounded-full bg-red-100 px-3 py-1">
                     <Text className="text-xs font-medium text-red-700">
-                      {activeRole.charAt(0).toUpperCase() +
-                        activeRole.slice(1)}
+                      {profile.role.charAt(0).toUpperCase() +
+                        profile.role.slice(1)}
                     </Text>
                   </View>
                 )}
@@ -275,15 +264,6 @@ export default function SideDrawer() {
                 onPress={handleSettingsPress}
                 color="#333"
               />
-
-              {hasMultipleRoles && (
-                <DrawerItem
-                  icon="swap-horizontal-outline"
-                  title="Switch Role"
-                  onPress={handleSwitchRole}
-                  color="#333"
-                />
-              )}
 
               {/* Spacer */}
               <View className="flex-1" />

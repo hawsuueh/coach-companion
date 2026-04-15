@@ -80,7 +80,6 @@ export default function AthleteDetailScreen() {
   }, [id]);
 
   const handleAttributesPress = () => {
-     // This takes the current athlete's ID and goes into the [id] folder's attributes file
     if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/attributes` as any
@@ -88,7 +87,6 @@ export default function AthleteDetailScreen() {
   };
 
   const handleInjuryRecordsPress = () => {
-    // This takes the current athlete's ID and goes into the [id] folder's injuries file
     if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/injuries` as any
@@ -96,7 +94,6 @@ export default function AthleteDetailScreen() {
   };
 
   const handleGameRecordsPress = () => {
-    // This takes the current athlete's ID and goes into the [id] folder's game-records file
     if (!athlete) return;
     router.push(
       `/(coach)/(tabs)/athletes-module/${athlete.id}/game-records` as any

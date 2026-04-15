@@ -5,12 +5,7 @@ export interface UserProfile {
   account_no: number;
   first_name: string | null;
   last_name: string | null;
-  roles: string[]; // e.g. ['coach', 'sports director']
-}
-
-export interface UserRole {
-  role_no: number;
-  user_role: string;
+  role: string; // 'coach', 'athlete', 'director'
 }
 
 /**
@@ -21,41 +16,31 @@ export interface UserRole {
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     console.log('👤 Fetching profile for user:', userId);
-
-    // 1. Get account info
-    const { data: accountData, error: accountError } = await supabase
+    const { data, error } = await supabase
       .from('Account')
-      .select('account_no, first_name, last_name')
+      .select(
+        `
+          account_no,
+          first_name,
+          last_name,
+          Role(user_role)
+        `
+      )
       .eq('user_id', userId)
       .single();
 
-    if (accountError) {
-      console.log('❌ Account fetch error:', accountError);
-      throw accountError;
+    if (error) {
+      console.log('❌ Profile fetch error:', error);
+      throw error;
     }
 
-    // 2. Get roles from Account_Role junction table
-    const { data: roleData, error: roleError } = await supabase
-      .from('Account_Role')
-      .select('Role(user_role)')
-      .eq('account_no', accountData.account_no);
-
-    if (roleError) {
-      console.log('❌ Roles fetch error:', roleError);
-      throw roleError;
-    }
-
-    const roles = roleData
-      .map((r: any) => r.Role?.user_role?.toLowerCase())
-      .filter(Boolean);
-
-    console.log('📋 Raw profile data:', accountData, 'Roles:', roles);
+    console.log('📋 Raw profile data:', data);
 
     const profile: UserProfile = {
-      account_no: accountData.account_no,
-      first_name: accountData.first_name,
-      last_name: accountData.last_name,
-      roles: roles.length > 0 ? roles : ['']
+      account_no: data.account_no,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      role: (data.Role as any)?.user_role || ''
     };
 
     console.log('✅ Processed profile:', profile);

@@ -1,17 +1,14 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 import TextInput from '@/components/training-module/inputs/TextInput';
 import NumberedTextArea from '@/components/training-module/inputs/NumberedTextArea';
+import SingleSelectDropdown from '@/components/training-module/inputs/SingleSelectDropdown';
 import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelectDropdown';
 import MainButton from '@/components/training-module/buttons/MainButton';
 import { useRouter } from 'expo-router';
-import { getExerciseVM, updateExerciseVM } from '@/view-models/training-module';
-import { getEquipmentOptionsVM } from '@/view-models/training-module';
-import { getMuscleOptionsVM } from '@/view-models/training-module';
-import supabase from '@/config/supabaseClient';
 
 export default function EditExerciseModal() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
@@ -29,94 +26,63 @@ export default function EditExerciseModal() {
   const [selectedSecondaryMuscle, setSelectedSecondaryMuscle] = useState<
     string[]
   >([]);
-
-  // 🔹 Dropdown options
-  const [equipmentOptions, setEquipmentOptions] = useState<any[]>([]);
-  const [muscleOptions, setMuscleOptions] = useState<any[]>([]);
+  const [exerciseType, setExerciseType] = useState<string | null>(null);
 
   // 🔹 Loading state
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Dummy exercise (simulating DB result)
+  const exercise = {
+    exerciseId,
+    name: 'Bench Press',
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    instructions: ['Lie on bench', 'Lower bar', 'Press up'],
+    equipment: ['2'], // must match dropdown values
+    type: '1',
+    primaryMuscle: ['1'],
+    secondaryMuscle: ['3']
+  };
+
+  // 🔹 Populate modal when exercise loads
   useEffect(() => {
     setTitle('Edit Exercise');
 
-    const fetchData = async () => {
-      setLoading(true);
+    // simulate fetch
+    setExerciseName(exercise.name);
+    setExerciseUrl(exercise.url);
+    setInstructions(exercise.instructions);
+    setSelectedEquipments(exercise.equipment);
+    setExerciseType(exercise.type);
+    setSelectedPrimaryMuscle(exercise.primaryMuscle);
+    setSelectedSecondaryMuscle(exercise.secondaryMuscle);
 
-      // 1. Fetch exercise details (only base fields)
-      const vm = await getExerciseVM(exerciseId);
-      if (vm) {
-        setExerciseName(vm.name);
-        setExerciseUrl(vm.url);
-        setInstructions(vm.instructions);
-      }
+    setLoading(false);
+  }, [exerciseId]);
 
-      // 2. Fetch relations for prefill
-      const { data: relData } = await supabase
-        .from('exercise')
-        .select(
-          `
-    exercise_equipment ( equipment_id ),
-    exercise_muscle ( muscle_id, is_primary )
-  `
-        )
-        .eq('exercise_id', exerciseId)
-        .maybeSingle();
+  // 🔹 Dropdown options
+  const equipmentOptions = [
+    { label: 'Bodyweight', value: '1' },
+    { label: 'Barbell', value: '2' },
+    { label: 'Smith Machine', value: '3' }
+  ];
 
-      if (relData) {
-        setSelectedEquipments(
-          relData.exercise_equipment?.map((eq: any) =>
-            eq.equipment_id.toString()
-          ) || []
-        );
-        setSelectedPrimaryMuscle(
-          relData.exercise_muscle
-            ?.filter((m: any) => m.is_primary)
-            .map((m: any) => m.muscle_id.toString()) || []
-        );
-        setSelectedSecondaryMuscle(
-          relData.exercise_muscle
-            ?.filter((m: any) => !m.is_primary)
-            .map((m: any) => m.muscle_id.toString()) || []
-        );
-      }
+  const exerciseTypeOptions = [
+    { label: 'Strength', value: '1' },
+    { label: 'Endurance', value: '2' },
+    { label: 'Hypertrophy', value: '3' }
+  ];
 
-      // 3. Fetch dropdown options
-      const eqOptions = await getEquipmentOptionsVM();
-      const mOptions = await getMuscleOptionsVM();
-      setEquipmentOptions(eqOptions);
-      setMuscleOptions(mOptions);
+  const muscleOptions = [
+    { label: 'Pectoralis Major', value: '1' },
+    { label: 'Rectus Femoris', value: '2' },
+    { label: 'Deltoids', value: '3' }
+  ];
 
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [exerciseId, setTitle]);
-
-  const handleSave = async () => {
-    const result = await updateExerciseVM(
-      exerciseId,
-      exerciseName,
-      exerciseUrl,
-      instructions,
-      selectedEquipments,
-      selectedPrimaryMuscle,
-      selectedSecondaryMuscle
-    );
-
-    if (result.success) {
-      Alert.alert('Success', 'Exercise updated successfully');
-      router.back();
-    } else {
-      Alert.alert('Error', 'Failed to update exercise');
-      console.error(result.error);
-    }
-  };
-
+  // 🔹 Loading guard
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-primary">
-        <Text className="text-body1 text-black">Loading exercise...</Text>
+        <Text>Loading exercise...</Text>
       </View>
     );
   }
@@ -128,6 +94,7 @@ export default function EditExerciseModal() {
         contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Exercise Name */}
         <View className="mb-4 mt-4 px-6">
           <TextInput
             label="Exercise Name"
@@ -136,6 +103,7 @@ export default function EditExerciseModal() {
           />
         </View>
 
+        {/* Video URL */}
         <View className="mb-4 px-6">
           <TextInput
             label="Video Link"
@@ -144,6 +112,7 @@ export default function EditExerciseModal() {
           />
         </View>
 
+        {/* Instructions */}
         <View className="mb-4 px-6">
           <NumberedTextArea
             label="Instructions"
@@ -152,6 +121,7 @@ export default function EditExerciseModal() {
           />
         </View>
 
+        {/* Equipments */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
             data={equipmentOptions}
@@ -163,6 +133,17 @@ export default function EditExerciseModal() {
           />
         </View>
 
+        {/* Exercise Type */}
+        <View className="mb-4 px-6">
+          <SingleSelectDropdown
+            data={exerciseTypeOptions}
+            value={exerciseType}
+            onChange={setExerciseType}
+            placeholder="Exercise Type"
+          />
+        </View>
+
+        {/* Primary Muscle */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
             data={muscleOptions}
@@ -174,6 +155,7 @@ export default function EditExerciseModal() {
           />
         </View>
 
+        {/* Secondary Muscle */}
         <View className="mb-4 px-6">
           <MultiSelectDropdown
             data={muscleOptions}
@@ -186,8 +168,14 @@ export default function EditExerciseModal() {
         </View>
       </ScrollView>
 
+      {/* Save Button */}
       <View className="absolute bottom-0 left-0 right-0 items-center bg-primary py-4">
-        <MainButton text="Save" width="50%" height={40} onPress={handleSave} />
+        <MainButton
+          text="Save"
+          width="50%"
+          height={40}
+          onPress={() => router.back()}
+        />
       </View>
     </View>
   );

@@ -26,14 +26,16 @@ interface PlayerStats {
   fouls: number;
 }
 
+type PlayerQuarterStats = Record<number, PlayerStats>; // This represents ONE player's stats across ALL quarters
+
 interface RealTimeStatsTabProps {
   selectedAthletes: Athlete[];
   selectedPlayerId: string;
   currentQuarter: number;
-  playerStats: Record<string, PlayerStats>; // This represents ALL players, each with their cumulative stats
+  playerStats: Record<string, PlayerQuarterStats>; // This represents ALL players, each with their stats across ALL quarters
   
   onPlayerSelect: (athleteId: string) => void;
-  onStatsUpdate: (playerId: string, field: string, subfield: string | null, value: number) => void;
+  onStatsUpdate: (playerId: string, quarter: number, field: string, subfield: string | null, value: number) => void;
   onExport: () => void;
   exporting: boolean;
 }
@@ -110,12 +112,12 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               type="shooting"
               stats={
                 selectedPlayerId
-                  ? playerStats[selectedPlayerId]?.twoPointFG
+                  ? playerStats[selectedPlayerId]?.[currentQuarter]?.twoPointFG
                   : { made: 0, attempted: 0 }
               }
               onUpdate={(field, value) => {
                 if (selectedPlayerId) {
-                  onStatsUpdate(selectedPlayerId, 'twoPointFG', field, value);
+                  onStatsUpdate(selectedPlayerId, currentQuarter, 'twoPointFG', field, value);
                 }
               }}
             />
@@ -126,12 +128,12 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               type="shooting"
               stats={
                 selectedPlayerId
-                  ? playerStats[selectedPlayerId]?.threePointFG
+                  ? playerStats[selectedPlayerId]?.[currentQuarter]?.threePointFG
                   : { made: 0, attempted: 0 }
               }
               onUpdate={(field, value) => {
                 if (selectedPlayerId) {
-                  onStatsUpdate(selectedPlayerId, 'threePointFG', field, value);
+                  onStatsUpdate(selectedPlayerId, currentQuarter, 'threePointFG', field, value);
                 }
               }}
             />
@@ -142,12 +144,12 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               type="shooting"
               stats={
                 selectedPlayerId
-                  ? playerStats[selectedPlayerId]?.freeThrows
+                  ? playerStats[selectedPlayerId]?.[currentQuarter]?.freeThrows
                   : { made: 0, attempted: 0 }
               }
               onUpdate={(field, value) => {
                 if (selectedPlayerId) {
-                  onStatsUpdate(selectedPlayerId, 'freeThrows', field, value);
+                  onStatsUpdate(selectedPlayerId, currentQuarter, 'freeThrows', field, value);
                 }
               }}
             />
@@ -158,12 +160,12 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               type="rebounds"
               stats={
                 selectedPlayerId
-                  ? playerStats[selectedPlayerId]?.rebounds
+                  ? playerStats[selectedPlayerId]?.[currentQuarter]?.rebounds
                   : { offensive: 0, defensive: 0 }
               }
               onUpdate={(field, value) => {
                 if (selectedPlayerId) {
-                  onStatsUpdate(selectedPlayerId, 'rebounds', field, value);
+                  onStatsUpdate(selectedPlayerId, currentQuarter, 'rebounds', field, value);
                 }
               }}
             />
@@ -177,11 +179,11 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               <SimpleStatRow
                 label="Assists"
                 value={
-                  playerStats[selectedPlayerId]?.assists || 0
+                  playerStats[selectedPlayerId]?.[currentQuarter]?.assists || 0
                 }
                 onUpdate={value => {
                   if (selectedPlayerId) {
-                    onStatsUpdate(selectedPlayerId, 'assists', null, value);
+                    onStatsUpdate(selectedPlayerId, currentQuarter, 'assists', null, value);
                   }
                 }}
               />
@@ -189,11 +191,11 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               <SimpleStatRow
                 label="Steals"
                 value={
-                  playerStats[selectedPlayerId]?.steals || 0
+                  playerStats[selectedPlayerId]?.[currentQuarter]?.steals || 0
                 }
                 onUpdate={value => {
                   if (selectedPlayerId) {
-                    onStatsUpdate(selectedPlayerId, 'steals', null, value);
+                    onStatsUpdate(selectedPlayerId, currentQuarter, 'steals', null, value);
                   }
                 }}
               />
@@ -201,11 +203,11 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               <SimpleStatRow
                 label="Blocks"
                 value={
-                  playerStats[selectedPlayerId]?.blocks || 0
+                  playerStats[selectedPlayerId]?.[currentQuarter]?.blocks || 0
                 }
                 onUpdate={value => {
                   if (selectedPlayerId) {
-                    onStatsUpdate(selectedPlayerId, 'blocks', null, value);
+                    onStatsUpdate(selectedPlayerId, currentQuarter, 'blocks', null, value);
                   }
                 }}
               />
@@ -213,12 +215,12 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               <SimpleStatRow
                 label="Turnovers"
                 value={
-                  playerStats[selectedPlayerId]?.turnovers ||
+                  playerStats[selectedPlayerId]?.[currentQuarter]?.turnovers ||
                   0
                 }
                 onUpdate={value => {
                   if (selectedPlayerId) {
-                    onStatsUpdate(selectedPlayerId, 'turnovers', null, value);
+                    onStatsUpdate(selectedPlayerId, currentQuarter, 'turnovers', null, value);
                   }
                 }}
               />
@@ -226,11 +228,11 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
               <SimpleStatRow
                 label="Fouls"
                 value={
-                  playerStats[selectedPlayerId]?.fouls || 0
+                  playerStats[selectedPlayerId]?.[currentQuarter]?.fouls || 0
                 }
                 onUpdate={value => {
                   if (selectedPlayerId) {
-                    onStatsUpdate(selectedPlayerId, 'fouls', null, value);
+                    onStatsUpdate(selectedPlayerId, currentQuarter, 'fouls', null, value);
                   }
                 }}
               />
@@ -240,7 +242,7 @@ const RealTimeStatsTab: React.FC<RealTimeStatsTabProps> = ({
                 <Text className="font-medium text-black">Total Points</Text>
                 <Text className="text-lg font-bold text-red-500">
                   {calculateTotalPoints(
-                    playerStats[selectedPlayerId]
+                    playerStats[selectedPlayerId]?.[currentQuarter]
                   )}
                 </Text>
               </View>

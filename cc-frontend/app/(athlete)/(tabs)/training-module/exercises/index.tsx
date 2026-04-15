@@ -1,35 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, FlatList, Text } from 'react-native';
-import { useRouter, Href } from 'expo-router';
+import { useRouter, Href, Link } from 'expo-router';
 import SearchBar from '@/components/training-module/inputs/SearchBar';
 import IconButton from '@/components/training-module/buttons/IconButton';
 import List1 from '@/components/training-module/lists/List1';
-import { Ionicons } from '@expo/vector-icons';
-import { getExercisesVM } from '@/view-models/training-module';
+import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 
 export default function Exercises() {
   const [searchText, setSearchText] = useState('');
   const router = useRouter();
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const vm = await getExercisesVM();
-      setExercises(vm);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-primary">
-        <Text className="text-title1 text-black">Loading exercises...</Text>
-      </View>
-    );
-  }
 
   const handleFilterPress = () => {
     console.log('Filter button pressed');
@@ -38,6 +17,40 @@ export default function Exercises() {
   const handleFloatingPress = () => {
     console.log('Floating button pressed');
   };
+
+  // Sample data (replace with actual data later)
+  const exercises = [
+    {
+      exerciseId: '1',
+      exerciseName: 'Push-Ups',
+      description: 'Strengthens chest, shoulders, and triceps'
+    },
+    {
+      exerciseId: '2',
+      exerciseName: 'Squats',
+      description: 'Targets quads, hamstrings, and glutes'
+    },
+    {
+      exerciseId: '3',
+      exerciseName: 'Plank',
+      description: 'Improves core strength and stability'
+    },
+    {
+      exerciseId: '4',
+      exerciseName: 'Lunges',
+      description: 'Enhances balance and strengthens legs'
+    },
+    {
+      exerciseId: '5',
+      exerciseName: 'Burpees',
+      description: 'Full-body exercise for strength and endurance'
+    },
+    {
+      exerciseId: '6',
+      exerciseName: 'Jump Rope',
+      description: 'Boosts cardiovascular endurance and coordination'
+    }
+  ];
 
   const handleExercisePress = (exerciseId: string) => {
     router.push(`/training-module/exercises/${exerciseId}` as Href);
