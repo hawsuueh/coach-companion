@@ -6,57 +6,83 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  FlatList
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+
+const ROLE_ROUTES: Record<string, string> = {
+  coach: '/(coach)/(tabs)/home',
+  athlete: '/(athlete)/(tabs)/home',
+  director: '/(director)/(tabs)/home',
+  'sports director': '/(director)/(tabs)/home'
+};
+
+const ROLE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  coach: 'clipboard-outline',
+  athlete: 'fitness-outline',
+  director: 'briefcase-outline',
+  'sports director': 'briefcase-outline'
+};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRolePicker, setShowRolePicker] = useState(false);
 
   const router = useRouter();
-  const { signIn, user, profile, loading: authLoading } = useAuth();
+  const { signIn, user, profile, activeRole, setActiveRole, loading: authLoading } = useAuth();
 
   // Auto-redirect based on auth state
   useEffect(() => {
     console.log('🔄 Redirect check:', {
       user: !!user,
       profile: profile,
+      activeRole,
       authLoading
     });
 
     // Don't do anything while auth is still loading
     if (authLoading) return;
 
-    // If user is logged in, redirect to appropriate dashboard
+    // If user is logged in and has a profile
     if (user && profile) {
-      const routes = {
-        coach: '/(coach)/(tabs)/home',
-        athlete: '/(athlete)/(tabs)/home',
-        director: '/(director)/(tabs)/home',
-        'sports director': '/(director)/(tabs)/home'
-      };
+      const roles = profile.roles || [];
 
-      const userRole = profile.role?.toLowerCase() as keyof typeof routes;
-      console.log('🚀 Redirecting to:', userRole, routes[userRole]);
-
-      if (routes[userRole]) {
-        router.replace(routes[userRole] as any);
+      if (roles.length === 1) {
+        // Single role - redirect immediately
+        const route = ROLE_ROUTES[roles[0]];
+        if (route) {
+          console.log('🚀 Single role, redirecting to:', roles[0]);
+          router.replace(route as any);
+        }
+      } else if (roles.length > 1 && activeRole) {
+        // Multiple roles and user has selected one - redirect
+        const route = ROLE_ROUTES[activeRole];
+        if (route) {
+          console.log('🚀 Role selected, redirecting to:', activeRole);
+          router.replace(route as any);
+        }
+      } else if (roles.length > 1 && !activeRole) {
+        // Multiple roles but none selected - show role picker
+        setShowRolePicker(true);
       }
     }
 
     // If user was logged out (session cleared), stay on login screen
     if (!user && !profile && !authLoading) {
       console.log('🚪 User logged out - staying on login screen');
-      // Clear any form errors when returning to login
       setError('');
       setEmail('');
       setPassword('');
+      setShowRolePicker(false);
     }
-  }, [user, profile, authLoading, router]);
+  }, [user, profile, activeRole, authLoading, router]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -81,6 +107,11 @@ export default function LoginScreen() {
     }
   };
 
+  const handleRoleSelect = async (role: string) => {
+    setShowRolePicker(false);
+    await setActiveRole(role);
+  };
+
   // Show loading screen while checking authentication
   if (authLoading) {
     return (
@@ -98,19 +129,19 @@ export default function LoginScreen() {
       className="flex-1"
     >
       {/* Overlay */}
-      <View className="absolute inset-0 bg-white/80" />
+      <View className="absolute inset-0 bg-black/40" />
 
       <View className="flex-1 px-6">
         {/* Header with logos */}
         <View className="flex-row justify-between pt-12">
           <Image
             source={require('@/assets/logos/logo-cc.png')}
-            className="h-24 w-24"
+            className="h-20 w-20"
             resizeMode="contain"
           />
           <Image
             source={require('@/assets/logos/logo-unc.png')}
-            className="h-24 w-24"
+            className="h-20 w-20"
             resizeMode="contain"
           />
         </View>
@@ -118,78 +149,217 @@ export default function LoginScreen() {
         {/* Main content */}
         <View className="flex-1 items-center justify-center">
           {/* Title */}
-          <View className="mb-12 items-center">
-            <Text className="text-5xl font-extrabold leading-tight text-black">
+          <View className="mb-10 items-center">
+            <Text
+              className="text-5xl leading-tight text-white"
+              style={{ fontFamily: 'poetsen' }}
+            >
               Coach
             </Text>
-            <Text className="text-5xl font-extrabold leading-tight text-black">
+            <Text
+              className="text-5xl leading-tight text-white"
+              style={{ fontFamily: 'poetsen' }}
+            >
               Companion
             </Text>
-
-            <Text className="mt-4 text-2xl font-bold text-black">LOGIN</Text>
-            <Text className="mt-1 text-base text-gray-600">
-              Please sign in to continue
-            </Text>
+            <View className="mt-3 h-1 w-12 rounded-full bg-[#EC1D25]" />
           </View>
 
-          {/* Error message */}
-          {error ? (
-            <View className="mb-6 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-center text-red-700">{error}</Text>
-            </View>
-          ) : null}
+          {/* Login Card */}
+          <View
+            className="w-full rounded-2xl bg-white px-5 py-8"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8
+            }}
+          >
+            <Text
+              className="mb-1 text-center text-xl font-bold text-gray-800"
+              style={{ fontFamily: 'inter-bold' }}
+            >
+              Welcome Back
+            </Text>
+            <Text
+              className="mb-6 text-center text-sm text-gray-400"
+              style={{ fontFamily: 'inter-light' }}
+            >
+              Sign in to your account
+            </Text>
 
-          {/* Inputs */}
-          <View className="mb-8 w-full">
+            {/* Error message */}
+            {error ? (
+              <View className="mb-4 flex-row items-center rounded-xl bg-red-50 px-4 py-3">
+                <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                <Text
+                  className="ml-2 flex-1 text-sm text-red-600"
+                  style={{ fontFamily: 'inter' }}
+                >
+                  {error}
+                </Text>
+              </View>
+            ) : null}
+
             {/* Email input */}
-            <View className="mb-4 flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
-              <Text className="mr-3 text-gray-400">✉</Text>
+            <View
+              className="mb-4 flex-row items-center rounded-xl bg-gray-50 px-4"
+              style={{ height: 52 }}
+            >
+              <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
               <TextInput
-                placeholder="Email"
+                placeholder="Email address"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                className="flex-1 text-base text-gray-900"
-                placeholderTextColor="#9CA3AF"
+                className="ml-3 flex-1 text-base text-gray-900"
+                placeholderTextColor="#C0C0C0"
+                style={{ fontFamily: 'inter' }}
               />
             </View>
 
             {/* Password input */}
-            <View className="flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm">
-              <Text className="mr-3 text-gray-400">🔒</Text>
+            <View
+              className="mb-6 flex-row items-center rounded-xl bg-gray-50 px-4"
+              style={{ height: 52 }}
+            >
+              <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
               <TextInput
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                className="flex-1 text-base text-gray-900"
-                placeholderTextColor="#9CA3AF"
+                className="ml-3 flex-1 text-base text-gray-900"
+                placeholderTextColor="#C0C0C0"
+                style={{ fontFamily: 'inter' }}
               />
             </View>
-          </View>
 
-          {/* Login button */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            disabled={loading || authLoading}
-            className={`rounded-full px-16 py-4 shadow-md ${
-              loading || authLoading ? 'bg-gray-400' : 'bg-gray-800'
-            }`}
-          >
-            {loading ? (
-              <View className="flex-row items-center">
-                <ActivityIndicator size="small" color="white" />
-                <Text className="ml-2 text-lg font-bold text-white">
-                  Signing in...
+            {/* Login button */}
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={loading || authLoading}
+              className="items-center justify-center rounded-xl py-4"
+              style={{
+                backgroundColor: loading || authLoading ? '#FCA5A5' : '#EC1D25',
+                shadowColor: '#EC1D25',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 4
+              }}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View className="flex-row items-center">
+                  <ActivityIndicator size="small" color="white" />
+                  <Text
+                    className="ml-2 text-base text-white"
+                    style={{ fontFamily: 'inter-bold' }}
+                  >
+                    Signing in...
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  className="text-base tracking-wider text-white"
+                  style={{ fontFamily: 'inter-bold' }}
+                >
+                  LOGIN
                 </Text>
-              </View>
-            ) : (
-              <Text className="text-lg font-bold text-white">LOGIN</Text>
-            )}
-          </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View className="items-center pb-8">
+          <Text
+            className="text-xs text-white/60"
+            style={{ fontFamily: 'inter-light' }}
+          >
+            Coach Companion v1.0
+          </Text>
         </View>
       </View>
+
+      {/* Role Picker Modal - shown when user has multiple roles */}
+      <Modal
+        visible={showRolePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 items-center justify-center bg-black/60 px-6">
+          <View
+            className="w-full rounded-2xl bg-white px-6 py-8"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.2,
+              shadowRadius: 16,
+              elevation: 10
+            }}
+          >
+            {/* Header */}
+            <View className="mb-6 items-center">
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-red-50">
+                <Ionicons name="people-outline" size={30} color="#EC1D25" />
+              </View>
+              <Text
+                className="text-xl text-gray-800"
+                style={{ fontFamily: 'inter-bold' }}
+              >
+                Login As
+              </Text>
+              <Text
+                className="mt-1 text-center text-sm text-gray-400"
+                style={{ fontFamily: 'inter-light' }}
+              >
+                You have multiple roles. Choose one to continue.
+              </Text>
+            </View>
+
+            {/* Role Options */}
+            {(profile?.roles || []).map((role, index) => (
+              <TouchableOpacity
+                key={role}
+                onPress={() => handleRoleSelect(role)}
+                className="flex-row items-center rounded-xl bg-gray-50 px-4 py-4"
+                style={{
+                  marginBottom: index < (profile?.roles?.length || 0) - 1 ? 12 : 0
+                }}
+                activeOpacity={0.7}
+              >
+                <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-[#EC1D25]">
+                  <Ionicons
+                    name={ROLE_ICONS[role] || 'person-outline'}
+                    size={22}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-base text-gray-800"
+                    style={{ fontFamily: 'inter-bold' }}
+                  >
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                  </Text>
+                  <Text
+                    className="text-xs text-gray-400"
+                    style={{ fontFamily: 'inter-light' }}
+                  >
+                    Continue as {role}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }

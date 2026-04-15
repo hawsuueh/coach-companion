@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useHeader } from '@/components/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { createAthlete } from '@/services/athleteService';
+import { createAthlete, checkDuplicateAthlete } from '@/services/athleteService';
 import { getBatchesByCoach, getCurrentBatch } from '@/services/batchService';
 import { useEffect } from 'react';
 
@@ -18,9 +18,21 @@ export default function AddAthleteScreen() {
   const [lastName, setLastName] = useState('');
   const [playerNo, setPlayerNo] = useState('');
   const [position, setPosition] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [activeBatchNo, setActiveBatchNo] = useState<number | null>(null);
+  
+  // Selector State
+  const [showPositions, setShowPositions] = useState(false);
+  const positions = [
+    { label: 'Point Guard (PG)', value: 'PG' },
+    { label: 'Shooting Guard (SG)', value: 'SG' },
+    { label: 'Small Forward (SF)', value: 'SF' },
+    { label: 'Power Forward (PF)', value: 'PF' },
+    { label: 'Center (C)', value: 'C' }
+  ];
 
   // Set header title
   useEffect(() => {
@@ -71,7 +83,19 @@ export default function AddAthleteScreen() {
       return false;
     }
     if (!position.trim()) {
-      Alert.alert('Validation Error', 'Position is required');
+      Alert.alert('Validation Error', 'Please select a Position');
+      return false;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      Alert.alert('Validation Error', 'A valid Email is required');
+      return false;
+    }
+    if (!email.trim().toLowerCase().endsWith('@unc.edu.ph')) {
+      Alert.alert('Domain Error', 'Email must follow the format: example@unc.edu.ph');
+      return false;
+    }
+    if (!password.trim() || password.length < 6) {
+      Alert.alert('Validation Error', 'Password must be at least 6 characters');
       return false;
     }
     if (!activeBatchNo) {
@@ -86,16 +110,26 @@ export default function AddAthleteScreen() {
 
     setLoading(true);
     try {
+      // Security/Duplicate Check
+      const dupCheck = await checkDuplicateAthlete(email.trim(), parseInt(playerNo), activeBatchNo);
+      if (dupCheck.exists) {
+        Alert.alert('Duplicate Found', dupCheck.message);
+        setLoading(false);
+        return;
+      }
+
       const result = await createAthlete({
         first_name: firstName.trim(),
         middle_name: middleName.trim() || null,
         last_name: lastName.trim(),
         player_no: parseInt(playerNo),
-        position: position.trim()
+        position: position.trim(),
+        email: email.trim(),
+        password: password.trim()
       }, activeBatchNo);
 
       if (result.success) {
-        Alert.alert('Success', 'Athlete added successfully', [
+        Alert.alert('Success', 'Athlete account and record created successfully', [
           { text: 'OK', onPress: () => router.back() }
         ]);
       } else {
@@ -146,7 +180,7 @@ export default function AddAthleteScreen() {
         </View>
 
         {/* Number and Position Row */}
-        <View className="flex-row gap-4 mb-6">
+        <View className="flex-row gap-4 mb-4">
           <View className="flex-1">
             <Text className="text-sm font-medium text-gray-700 mb-1">Jersey No. *</Text>
             <TextInput
@@ -161,13 +195,64 @@ export default function AddAthleteScreen() {
 
           <View className="flex-1">
             <Text className="text-sm font-medium text-gray-700 mb-1">Position *</Text>
-            <TextInput
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-800"
-              placeholder="e.g. Guard"
-              value={position}
-              onChangeText={setPosition}
-            />
+            <TouchableOpacity 
+              onPress={() => setShowPositions(!showPositions)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 flex-row justify-between items-center"
+            >
+              <Text className={position ? 'text-gray-800' : 'text-gray-400'}>
+                {position || 'Select Position'}
+              </Text>
+              <Text className="text-gray-400 text-xs">▼</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Position Dropdown (Selection List) */}
+        {showPositions && (
+          <View className="mb-6 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden shadow-inner">
+            {positions.map((pos) => (
+              <TouchableOpacity
+                key={pos.value}
+                onPress={() => {
+                  setPosition(pos.value);
+                  setShowPositions(false);
+                }}
+                className={`p-4 border-b border-gray-100 flex-row justify-between items-center ${position === pos.value ? 'bg-red-50' : ''}`}
+              >
+                <Text className={`text-sm ${position === pos.value ? 'font-bold text-red-600' : 'text-gray-700'}`}>
+                  {pos.label}
+                </Text>
+                {position === pos.value && <Text className="text-red-600">✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <Text className="text-lg font-semibold text-gray-800 mt-4 mb-2">Credentials</Text>
+        <Text className="text-xs text-gray-500 mb-4">These will be used by the athlete to log in to their account.</Text>
+
+        <View className="mb-4">
+          <Text className="text-sm font-medium text-gray-700 mb-1">Email (Athlete Login) *</Text>
+          <Text className="text-[10px] text-red-500 font-medium mb-1">Note: Must end with @unc.edu.ph</Text>
+          <TextInput
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-800"
+            placeholder="athlete@unc.edu.ph"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
+
+        <View className="mb-6">
+          <Text className="text-sm font-medium text-gray-700 mb-1">Password *</Text>
+          <TextInput
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-800"
+            placeholder="At least 6 characters"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
         </View>
 
         {/* Submit Button */}

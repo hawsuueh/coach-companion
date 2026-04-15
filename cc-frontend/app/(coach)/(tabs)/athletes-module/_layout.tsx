@@ -1,10 +1,10 @@
-// app/(coach)/(tabs)/training-module/_layout.tsx
+// app/(coach)/(tabs)/athletes-module/_layout.tsx
 import { Stack, usePathname } from 'expo-router';
 import { View } from 'react-native';
 import Header2 from '@/components/headers/Header2';
 import { HeaderProvider, useHeader } from '@/components/contexts/HeaderContext';
 
-function TrainingModuleContent() {
+function AthletesModuleContent() {
   const pathname = usePathname();
   const { title } = useHeader();
 
@@ -23,10 +23,10 @@ function TrainingModuleContent() {
   );
 }
 
-export default function TrainingModuleLayout() {
+export default function AthletesModuleLayout() {
   return (
     <HeaderProvider>
-      <TrainingModuleContent />
+      <AthletesModuleContent />
     </HeaderProvider>
   );
 }

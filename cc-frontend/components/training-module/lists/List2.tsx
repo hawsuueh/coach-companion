@@ -35,7 +35,6 @@ export default function List2({
         {rightText && (
           <Text className="text-label3 text-gray-500">{rightText}</Text>
         )}
-        <Ionicons name="chevron-forward" size={20} color="black" />
       </View>
     </TouchableOpacity>
   );

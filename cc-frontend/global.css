@@ -10,6 +10,9 @@
   .text-h2 {
     @apply font-poetsen text-[20px] leading-[1.2] tracking-[0.2px];
   }
+  .text-h3 {
+    @apply font-poetsen text-[16px] leading-[1.2] tracking-[0.2px];
+  }
 
   /* Titles */
   .text-title1 {

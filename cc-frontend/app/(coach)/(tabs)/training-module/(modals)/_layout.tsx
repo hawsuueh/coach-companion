@@ -10,7 +10,7 @@ export default function ModalsLayout() {
       }}
     >
       <Stack.Screen
-        name="(modals)/generate-training/index"
+        name="generate-training"
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'
@@ -18,7 +18,15 @@ export default function ModalsLayout() {
       />
 
       <Stack.Screen
-        name="(modals)/generate-training/assign-training"
+        name="edit-training"
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
+      
+      <Stack.Screen
+        name="add-exercise"
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'
@@ -26,7 +34,7 @@ export default function ModalsLayout() {
       />
 
       <Stack.Screen
-        name="(modals)/edit-training/"
+        name="edit-exercise"
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom'

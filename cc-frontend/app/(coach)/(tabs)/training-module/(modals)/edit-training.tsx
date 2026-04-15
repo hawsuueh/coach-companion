@@ -43,12 +43,12 @@ export default function EditTrainingModal() {
   // 🧠 Simulated "database" data
   const dummyTrainingData = {
     id: 1,
-    name: 'Explosive Power Training',
+    name: 'Core Strength Training',
     athletes: ['1', '2'],
     equipments: ['1', '2'],
     date: '2025-10-20',
     start_time: '08:30',
-    duration: '1h 30m'
+    duration: '1h'
   };
 
   useEffect(() => {

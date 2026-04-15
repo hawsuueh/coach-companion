@@ -46,7 +46,7 @@ function AthleteLayoutContent() {
   );
 }
 
-export default function CoachLayout() {
+export default function AthleteLayout() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* ✅ Provider wraps everything that needs drawer access */}
