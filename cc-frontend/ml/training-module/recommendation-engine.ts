@@ -1,14 +1,15 @@
 import { RandomForest } from './random-forest';
 import { applyRules } from './rule-engine';
-import { scoreExercises } from './content-matcher';
-import { GameStats, AthleteProfile, Exercise, DataPoint } from './types';
+import { scoreExercises, generateSyntheticSamples } from './content-matcher';
+import { GameStats, AthleteProfile, Exercise } from './types';
 
 export class RecommendationEngine {
   private forest: RandomForest;
 
-  constructor(trainingData: DataPoint[]) {
-    // We use more trees because we have more features now (11 vs 5)
+  constructor() {
     this.forest = new RandomForest(20);
+    // Auto-train on initialization using synthetic data
+    const trainingData = generateSyntheticSamples(300);
     this.forest.train(trainingData);
   }
 
@@ -16,10 +17,10 @@ export class RecommendationEngine {
     last5Games: GameStats[],
     athlete: AthleteProfile,
     allExercises: Exercise[]
-  ) {
+  ): Exercise[] {
     const count = last5Games.length || 1;
 
-    // 1. Feature Engineering: Transforming raw stats into ML Features
+    // 1. Feature Engineering (Must match the length/order of training data)
     const avgStats = [
       last5Games.reduce((a, b) => a + b.points, 0) / count,
       last5Games.reduce((a, b) => a + b.assists, 0) / count,
@@ -31,8 +32,7 @@ export class RecommendationEngine {
       last5Games.reduce((a, b) => a + b.steals, 0) / count,
       last5Games.reduce((a, b) => a + b.blocks, 0) / count,
       last5Games.reduce((a, b) => a + b.fouls, 0) / count,
-
-      // Efficiency Feature: Are they missing shots they usually make? (Sign of fatigue)
+      // Efficiency
       last5Games.reduce(
         (a, b) =>
           a +
@@ -41,28 +41,25 @@ export class RecommendationEngine {
             : 0),
         0
       ) / count,
-
-      // Volume Feature: Total physical engagement
+      // Volume
       last5Games.reduce(
         (a, b) => a + (b.field_goals_attempted + b.free_throws_attempted),
         0
       ) / count,
-
-      // Defensive Intensity: High steals/blocks/fouls usually mean high physical output
+      // Defensive Intensity
       last5Games.reduce((a, b) => a + (b.steals + b.blocks + b.fouls), 0) /
         count
     ];
 
-    // 2. Random Forest Prediction
+    // 2. Random Forest Prediction (Returns 0, 1, or 2)
     const intensityLabel = this.forest.predict(avgStats);
 
-    // 3. Rule Engine: Safety First (Remove injured body parts)
+    // 3. Rule Engine: Apply hard constraints (Injuries/Position)
     const safeExercises = applyRules(allExercises, athlete);
 
-    // 4. Content Matcher: Match to weaknesses (body_focus_scores)
+    // 4. Content Matcher: Scoring based on intensityLabel + body_focus_scores
     const ranked = scoreExercises(safeExercises, athlete, intensityLabel);
 
-    // Return Top 8 most relevant exercises
     return ranked.slice(0, 8);
   }
 }

@@ -21,7 +21,7 @@ export const getLatestBodypartAnalysisByAthleteService = async (
       )
     `
     )
-    .eq('analysis.account_no', athleteId) // if analysis is linked by account_no; adjust if needed
+    .eq('analysis.athlete_no', athleteId)
     .order('analysis_id', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -59,4 +59,70 @@ export const getEquipmentsService = async () => {
     throw error;
   }
   return data;
+};
+
+// analysis.service.ts
+
+export const createFullAnalysisService = async (
+  athleteId: number,
+  bodyData: {
+    strengths: string[];
+    weaknesses: string[];
+    bodypart_focus_scores: Record<string, number>;
+    performance_summary: any;
+  },
+  injuryData: {
+    name: string;
+    affected_bodypart: string[];
+    recommended_adjustments: any;
+    injury_summary: any;
+  }
+) => {
+  // 1. Create the Parent Record in 'analysis'
+  const { data: analysisRecord, error: analysisError } = await supabase
+    .from('analysis')
+    .insert([
+      {
+        athlete_no: athleteId,
+        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        time: new Date().toLocaleTimeString('en-GB') // HH:MM:SS
+      }
+    ])
+    .select()
+    .single();
+
+  if (analysisError)
+    throw new Error(`Analysis Error: ${analysisError.message}`);
+
+  const analysisId = analysisRecord.analysis_id;
+
+  // 2. Create the Bodypart Analysis Record
+  const { error: bodyError } = await supabase.from('bodypart_analysis').insert([
+    {
+      analysis_id: analysisId,
+      strengths: bodyData.strengths,
+      weaknesses: bodyData.weaknesses,
+      bodypart_focus_scores: bodyData.bodypart_focus_scores,
+      performance_summary: bodyData.performance_summary
+    }
+  ]);
+
+  if (bodyError)
+    throw new Error(`Bodypart Analysis Error: ${bodyError.message}`);
+
+  // 3. Create the Injury Analysis Record
+  const { error: injuryError } = await supabase.from('injury_analysis').insert([
+    {
+      analysis_id: analysisId,
+      name: injuryData.name,
+      affected_bodypart: injuryData.affected_bodypart,
+      recommended_adjustments: injuryData.recommended_adjustments,
+      injury_summary: injuryData.injury_summary
+    }
+  ]);
+
+  if (injuryError)
+    throw new Error(`Injury Analysis Error: ${injuryError.message}`);
+
+  return { success: true, analysisId };
 };
