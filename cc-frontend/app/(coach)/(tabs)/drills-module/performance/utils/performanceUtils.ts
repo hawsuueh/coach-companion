@@ -100,26 +100,52 @@ export class PerformanceAnalyzer {
       PerformanceAnalyzer.STAT_IMPACT
     ) as (keyof typeof PerformanceAnalyzer.STAT_IMPACT)[];
 
+    const MIN_GAMES = 2; // require at least 2 games to include a player in population, useful to avoid 1 game players skewing results
+
+    // Build per-player aggregates mean and count
+    const perPlayerAgg = new Map<number, { count: number; means: Record<string, number> }>();
+    analyzedRecords.forEach(r => {
+      const entry = perPlayerAgg.get(r.player_id) || { count: 0, means: {} as Record<string, number> };
+      entry.count++;
+      // accumulate sums for stats
+      Object.keys(PerformanceAnalyzer.STAT_IMPACT).forEach((stat) => {
+        const s = stat as keyof typeof PerformanceAnalyzer.STAT_IMPACT;
+        entry.means[s] = (entry.means[s] || 0) + (r as any)[s];
+      });
+      perPlayerAgg.set(r.player_id, entry);
+    });
+    // finalize means
+    perPlayerAgg.forEach(entry => {
+      Object.keys(entry.means).forEach(k => (entry.means[k] = entry.means[k] / entry.count));
+    });
+
     statKeys.forEach(stat => {
-      const allValues = analyzedRecords.map(r => r[stat]);
-      const playerValues = playerRecords.map(r => r[stat]);
+      // allValues = per-player means for players with enough games
+      const allValues = Array.from(perPlayerAgg.values())
+        .filter(e => e.count >= MIN_GAMES)
+        .map(e => e.means[stat as string]);
+
+      // player per-game values for this stat
+      const playerValues = playerRecords.map(r => (r as any)[stat]);
+
+      if (allValues.length === 0 || playerValues.length === 0) {
+        playerAttentionScores.push({
+          stat: PerformanceAnalyzer.STAT_LABELS[stat],
+          score: 0
+        });
+        return;
+      }
 
       const mean = this.calculateMean(allValues);
       const stdDev = this.calculateStdDev(allValues, mean);
       const playerAvg = this.calculateMean(playerValues);
       const impact = PerformanceAnalyzer.STAT_IMPACT[stat];
 
-      // 4. Calculate Z-Score
       let zScore =
         stdDev === 0
-          ? impact === 1 && playerAvg < mean
-            ? -2
-            : impact === -1 && playerAvg > mean
-              ? 2
-              : 0 // Handle zero std deviation
+          ? 0
           : (playerAvg - mean) / stdDev;
 
-      // Negative score means attention is needed
       playerAttentionScores.push({
         stat: PerformanceAnalyzer.STAT_LABELS[stat],
         score: zScore * -impact
