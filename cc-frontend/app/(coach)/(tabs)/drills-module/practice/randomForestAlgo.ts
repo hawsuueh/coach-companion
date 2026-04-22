@@ -29,21 +29,22 @@ export class DrillRandomForest {
    * Trains the forest using synthetic or real training samples.
    */
   public buildForest(
-    samples: TrainingSample[],
-    features: StatKey[],
-    numTrees: number = 20,
-    maxDepth: number = 5
-  ): void {
-    this.forest = [];
-    for (let i = 0; i < numTrees; i++) {
-      // Bootstrap aggregating (Bagging): 80% subset
-      const subset = samples
-        .sort(() => 0.5 - Math.random())
-        .slice(0, Math.floor(samples.length * 0.8));
-
-      this.forest.push(this.buildTree(subset, features, 0, maxDepth));
+  samples: TrainingSample[],
+  features: StatKey[],
+  numTrees: number = 20,
+  maxDepth: number = 5,
+  maxFeatures: number | 'sqrt' | 'log2' = 'sqrt'
+): void {
+  this.forest = [];
+  for (let i = 0; i < numTrees; i++) {
+    // Bootstrap with replacement
+    const subset: TrainingSample[] = [];
+    for (let j = 0; j < samples.length; j++) {
+      subset.push(samples[Math.floor(Math.random() * samples.length)]);
     }
+    this.forest.push(this.buildTree(subset, features, 0, maxDepth, maxFeatures));
   }
+}
 
   /**
    * Basic prediction: Returns drill IDs sorted by majority vote.
@@ -129,39 +130,40 @@ export class DrillRandomForest {
   // --- Private Helper Methods (Tree Logic) ---
 
   private buildTree(
-    samples: TrainingSample[],
-    features: StatKey[],
-    depth: number,
-    maxDepth: number
-  ): TreeNode {
-    if (depth >= maxDepth || samples.length <= 1) {
-      const labelCounts: Record<number, number> = {};
-      samples.forEach(s => {
-        s.labels.forEach(id => {
-          labelCounts[id] = (labelCounts[id] || 0) + 1;
-        });
+  samples: TrainingSample[],
+  features: StatKey[],
+  depth: number,
+  maxDepth: number,
+  maxFeatures: number | 'sqrt' | 'log2'
+): TreeNode {
+  if (depth >= maxDepth || samples.length <= 1) {
+    const labelCounts: Record<number, number> = {};
+    samples.forEach(s => {
+      s.labels.forEach(id => {
+        labelCounts[id] = (labelCounts[id] || 0) + 1;
       });
-      const sorted = Object.entries(labelCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([id]) => parseInt(id));
-      return { prediction: sorted };
-    }
-
-    const split = this.findBestSplit(samples, features);
-    if (!split) return { prediction: [] }; // Fallback
-
-    const { left, right } = this.splitData(
-      samples,
-      split.feature,
-      split.threshold
-    );
-    return {
-      feature: split.feature,
-      threshold: split.threshold,
-      left: this.buildTree(left, features, depth + 1, maxDepth),
-      right: this.buildTree(right, features, depth + 1, maxDepth)
-    };
+    });
+    const sorted = Object.entries(labelCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => parseInt(id));
+    return { prediction: sorted };
   }
+
+  const split = this.findBestSplit(samples, features, maxFeatures);
+  if (!split) return { prediction: [] };
+
+  const { left, right } = this.splitData(
+    samples,
+    split.feature,
+    split.threshold
+  );
+  return {
+    feature: split.feature,
+    threshold: split.threshold,
+    left: this.buildTree(left, features, depth + 1, maxDepth, maxFeatures),
+    right: this.buildTree(right, features, depth + 1, maxDepth, maxFeatures)
+  };
+}
 
   private predictTree(
     tree: TreeNode,
@@ -176,34 +178,49 @@ export class DrillRandomForest {
       : this.predictTree(tree.right!, input);
   }
 
-  private findBestSplit(samples: TrainingSample[], features: StatKey[]) {
-    let bestScore = Infinity;
-    let bestFeature: StatKey | null = null;
-    let bestThreshold = 0;
+  private findBestSplit(
+  samples: TrainingSample[],
+  features: StatKey[],
+  maxFeatures: number | 'sqrt' | 'log2'
+) {
+  const M = features.length;
+  const k =
+    typeof maxFeatures === 'number'
+      ? Math.max(1, Math.min(maxFeatures, M))
+      : maxFeatures === 'sqrt'
+      ? Math.max(1, Math.floor(Math.sqrt(M)))
+      : Math.max(1, Math.floor(Math.log2(M)));
 
-    for (const feature of features) {
-      const thresholds = Array.from(
-        new Set(samples.map(s => s.features[feature]))
-      );
-      for (const t of thresholds) {
-        const { left, right } = this.splitData(samples, feature, t);
-        if (left.length === 0 || right.length === 0) continue;
+  // sample k features without replacement
+  const featShuffled = features.slice().sort(() => 0.5 - Math.random());
+  const candidateFeatures = featShuffled.slice(0, k);
 
-        const score =
-          (left.length / samples.length) * this.giniImpurity(left) +
-          (right.length / samples.length) * this.giniImpurity(right);
+  let bestScore = Infinity;
+  let bestFeature: StatKey | null = null;
+  let bestThreshold = 0;
 
-        if (score < bestScore) {
-          bestScore = score;
-          bestFeature = feature;
-          bestThreshold = t;
-        }
+  for (const feature of candidateFeatures) {
+    // gather unique candidate thresholds (unique feature values)
+    const vals = Array.from(new Set(samples.map(s => s.features[feature]))).sort((a, b) => a - b);
+    for (const t of vals) {
+      const { left, right } = this.splitData(samples, feature, t);
+      if (left.length === 0 || right.length === 0) continue;
+
+      const score =
+        (left.length / samples.length) * this.giniImpurity(left) +
+        (right.length / samples.length) * this.giniImpurity(right);
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestFeature = feature;
+        bestThreshold = t;
       }
     }
-    return bestFeature
-      ? { feature: bestFeature, threshold: bestThreshold }
-      : null;
   }
+  return bestFeature
+    ? { feature: bestFeature, threshold: bestThreshold }
+    : null;
+}
 
   private giniImpurity(samples: TrainingSample[]): number {
     const labelCounts: Record<number, number> = {};
@@ -245,7 +262,7 @@ export class DrillRandomForest {
     let score = 0;
     for (const stat of drill.good_for) {
       const attention = attentionScores[stat] ?? 0;
-      score += (weights[stat] ?? 0) * Math.abs(attention);
+      score += (weights[stat] ?? 0) * Math.max(0, attention);
     }
     return score;
   }

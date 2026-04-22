@@ -92,6 +92,10 @@ export default function AthleteDetailScreen() {
       setAttentionPriorities(attentionAreas);
       setExcellenceAreas(excellenceAreas);
 
+      // limit strengths and weaknesses shown
+      setAttentionPriorities(attentionAreas.slice(0, 4));
+      setExcellenceAreas(excellenceAreas.slice(0, 4));
+
       // Set the most recent game as the default selected game
       if (sortedRecords.length > 0) {
         setSelectedGame(sortedRecords[0]);
@@ -538,15 +542,25 @@ export default function AthleteDetailScreen() {
               />
             </View>
           )}
-
+          { /* Note area */}
+          <View style={[styles.statsCard, styles.attentionCard]}>
+            <Text style={[styles.sectionTitle, { color: '#387B45' }]}>
+              Player Analysis
+            </Text>
+            <Text style={[styles.sectionText]}>
+              This is based on standardized comparison to team averages over the
+              last {actualGamesCharted} games. 
+            </Text>
+            <Text>
+              Note: Having lower values mean you're excelling in that area!
+            </Text>
+          </View>
           {/* Excelling at... */}
           <View style={[styles.statsCard, styles.excellenceCard]}>
             <Text style={[styles.sectionTitle, { color: '#387B45' }]}>
               Current Strengths
             </Text>
-            <Text style={[styles.sectionText]}>
-              This was generated from the last {actualGamesCharted} games.
-            </Text>
+            
             {excellenceAreas.length > 0 ? (
               excellenceAreas.map((item, index) => (
                 <View key={index} style={styles.priorityItem}>
@@ -555,7 +569,7 @@ export default function AthleteDetailScreen() {
                     <Text style={styles.excellenceCardText}>{item.stat}</Text>
                   </Text>
                   <Text style={{ color: '#387B45', fontWeight: 'bold' }}>
-                    +{item.score.toFixed(2)} *
+                    {item.score.toFixed(2)} *
                   </Text>
                 </View>
               ))
@@ -565,10 +579,6 @@ export default function AthleteDetailScreen() {
                 the average). Check again after a few games!
               </Text>
             )}
-            <Text>
-              *Based on standardized comparison to team averages (z-score) over
-              last {actualGamesCharted} games
-            </Text>
           </View>
 
           {/* Priority List / Needs Attention */}
@@ -586,7 +596,7 @@ export default function AthleteDetailScreen() {
                     {index + 1}.{' '}
                     <Text style={styles.priorityStat}>{item.stat}</Text>
                   </Text>
-                  <Text>{item.score.toFixed(2)} *</Text>
+                  <Text>{item.score.toFixed(2)}</Text>
                 </View>
               ))
             ) : (
@@ -595,10 +605,6 @@ export default function AthleteDetailScreen() {
                 above the average). 🎉
               </Text>
             )}
-            <Text>
-              *Based on standardized comparison to team averages (z-score) over
-              last {actualGamesCharted} games
-            </Text>
           </View>
         </>
       )}

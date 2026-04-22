@@ -153,16 +153,13 @@ export class PerformanceAnalyzer {
     });
 
     // 5. Sort and filter results
-    // Sort from worst score (most negative, attention needed) to best score (most positive, excelling)
     return {
       attentionAreas: [...playerAttentionScores]
-        .sort((a, b) => a.score - b.score)
-        .filter(i => i.score < 0)
-        .slice(0, 3),
+        .filter(i => i.score > 0) // Positive = Needs Work
+        .sort((a, b) => b.score - a.score), // Sort highest score to top
       excellenceAreas: [...playerAttentionScores]
-        .sort((a, b) => b.score - a.score)
-        .filter(i => i.score > 0)
-        .slice(0, 3)
+        .filter(i => i.score < 0) // Negative = Excelling
+        .sort((a, b) => a.score - b.score) 
     };
   }
 
