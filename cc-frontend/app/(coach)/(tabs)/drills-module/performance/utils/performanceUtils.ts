@@ -51,6 +51,53 @@ export class PerformanceAnalyzer {
   };
 
   /**
+   * const position = {
+    "Point Guard": "PG",
+    "Shooting Guard": "SG",
+    "Small Forward": "SF",
+    "Power Forward": "PF",
+    "Center": "C",
+    "Reserve Guard": "RG",
+    "Reserve Forward": "RF",
+    }
+   */
+
+  /**
+   * Weights determining how much a stat matters for a position
+   * 1.0 is neutral. Higher increases urgency/excellence magnitude
+   * Lower (min 0.2) dampens the impact of that stat on analysis
+   * This makes sure a for example, a Center with low 3PT% isn't 
+   * flagged as much as a PG with low 3PT%, 
+   * since it's less critical for their role.
+   * 
+   */ 
+  private static readonly BASE_WEIGHTS: Record<string, Partial<Record<StatKey, number>>> = {
+    'Point Guard': { assists: 1.5, _3PTS_PCT: 1.2, REB: 0.4, blocks: 0.2 },
+    'Shooting Guard': { _3PTS_PCT: 1.5, points: 1.3, REB: 0.6 },
+    'Small Forward': { points: 1.2, REB: 1.0, assists: 1.0 },
+    'Power Forward': { REB: 1.4, blocks: 1.3, _3PTS_PCT: 0.5 },
+    'Center': { REB: 1.6, blocks: 1.6, _3PTS_PCT: 0.2, assists: 0.5 }
+  };
+
+  private static getWeight(position: string | undefined, stat: StatKey): number {
+    if (!position) return 1.0;
+
+    let weight = 1.0;
+    
+    // Map Reserve roles to primary logic with 0.9 scale
+    if (position === "Reserve Guard") {
+      weight = (this.BASE_WEIGHTS['Point Guard']?.[stat] ?? 1.0) * 0.9;
+    } else if (position === "Reserve Forward") {
+      weight = (this.BASE_WEIGHTS['Power Forward']?.[stat] ?? 1.0) * 0.9;
+    } else {
+      weight = this.BASE_WEIGHTS[position]?.[stat] ?? 1.0;
+    }
+
+    // Clip weights between 0.2 and 2.0 to prevent extreme outliers
+    return Math.max(0.2, Math.min(2.0, weight));
+  }
+
+  /**
    * Calculates the top 3 areas needing attention and top 3 areas of excellence
    * for a given player based on the last N games, using z-scores.
    * @param playerId The current player's ID.
@@ -61,7 +108,9 @@ export class PerformanceAnalyzer {
   public analyzePlayerPerformance(
     playerId: number,
     allGameRecords: GameRecord[],
-    gamesLimit: number
+    gamesLimit: number,
+    // ? just to make sure if position isnt listed
+    playerPosition?: string
   ): { attentionAreas: ScoreResult[]; excellenceAreas: ScoreResult[] } {
     // 1. Filter raw records for the last N games
     const maxGameId = Math.max(...allGameRecords.map(r => r.game_id));
@@ -140,6 +189,7 @@ export class PerformanceAnalyzer {
       const stdDev = this.calculateStdDev(allValues, mean);
       const playerAvg = this.calculateMean(playerValues);
       const impact = PerformanceAnalyzer.STAT_IMPACT[stat];
+      const weight = PerformanceAnalyzer.getWeight(playerPosition, stat);
 
       let zScore =
         stdDev === 0
@@ -148,7 +198,7 @@ export class PerformanceAnalyzer {
 
       playerAttentionScores.push({
         stat: PerformanceAnalyzer.STAT_LABELS[stat],
-        score: zScore * -impact
+        score: zScore * -impact * weight
       });
     });
 

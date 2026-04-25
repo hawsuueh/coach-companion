@@ -87,7 +87,8 @@ export default function AthleteDetailScreen() {
         new PerformanceAnalyzer().analyzePlayerPerformance(
           id,
           game_record_data,
-          CHART_GAMES_LIMIT
+          CHART_GAMES_LIMIT,
+          foundAthlete?.position
         );
       setAttentionPriorities(attentionAreas);
       setExcellenceAreas(excellenceAreas);

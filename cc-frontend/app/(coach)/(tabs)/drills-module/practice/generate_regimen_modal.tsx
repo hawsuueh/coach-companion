@@ -160,12 +160,15 @@ const RegimenFormModal: React.FC<RegimenFormModalProps> = ({
 
       finalAthleteIds.forEach(idStr => {
         const athleteId = parseInt(idStr);
+        const finalAthlete = athleteList.find(a => a.athlete_no === athleteId);
+        if (!finalAthlete) return;
 
         // C. Get performance analysis from the Analyzer class
         const analysis = analyzer.analyzePlayerPerformance(
           athleteId,
           game_record_data,
-          5
+          5,
+          finalAthlete?.position
         );
 
         const attentionAreaLabels = analysis.attentionAreas.map(a => a.stat);
