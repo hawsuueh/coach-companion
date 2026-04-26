@@ -20,7 +20,9 @@ function CoachLayoutContent() {
     '/training-module/analysis',
     '/training-module/tracking',
     '/athletes-module',
-    '/drills-module'
+    '/drills-module',
+    '/drills-module/practice',
+    '/drills-module/performance'
   ];
 
   // Check if current path is a training-module deeper route
