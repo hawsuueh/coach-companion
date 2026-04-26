@@ -8,7 +8,12 @@ import {
   View,
   ActivityIndicator,
   Modal,
-  FlatList
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -136,13 +141,21 @@ export default function LoginScreen() {
       className="flex-1"
     >
       {/* Overlay */}
-      <View className="absolute inset-0 bg-black/40" />
+      <View className="absolute inset-0 bg-black/60" />
 
-      <View className="flex-1 px-6">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* Header with logos */}
         <View className="flex-row justify-between pt-12">
           <Image
-            source={require('@/assets/logos/logo-cc.png')}
+            source={require('@/assets/logos/greyhounds_logo.png')}
             className="h-20 w-20"
             resizeMode="contain"
           />
@@ -154,21 +167,14 @@ export default function LoginScreen() {
         </View>
 
         {/* Main content */}
-        <View className="flex-1 items-center justify-center">
+        <View className="items-center py-6">
           {/* Title */}
           <View className="mb-10 items-center">
-            <Text
-              className="text-5xl leading-tight text-white"
-              style={{ fontFamily: 'poetsen' }}
-            >
-              Coach
-            </Text>
-            <Text
-              className="text-5xl leading-tight text-white"
-              style={{ fontFamily: 'poetsen' }}
-            >
-              Companion
-            </Text>
+            <Image
+              source={require('@/assets/logos/CC_WithText.png')}
+              className="h-44 w-96"
+              resizeMode="contain"
+            />
             <View className="mt-3 h-1 w-12 rounded-full bg-[#EC1D25]" />
           </View>
 
@@ -290,7 +296,8 @@ export default function LoginScreen() {
             Coach Companion v1.0
           </Text>
         </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Role Picker Modal - shown when user has multiple roles */}
       <Modal
