@@ -13,7 +13,6 @@ export const getTrainingsService = async (coachNo: string | number | null) => {
       name,
       date,
       time,
-      duration,
       coach:coach_no (
         contact_no
       )
@@ -40,7 +39,6 @@ export const getTrainingDetailsService = async (trainingId: string) => {
       name,
       date,
       time,
-      duration,
       athlete_training (
         athlete_training_id,
         athlete:athlete_no (
@@ -78,8 +76,7 @@ export const getAthleteTrainingCoachService = async (
         training_id,
         name,
         date,
-        time,
-        duration
+        time
       ),
       athlete:athlete_no (
         athlete_no,
@@ -107,14 +104,16 @@ export const getAthleteTrainingExerciseService = async (
     .select(
       `
       athlete_training_exercise_id,
-      sets,
-      reps,
-      duration,
       exercise:exercise_id (
         exercise_id,
         name,
         video_url,
-        instructions
+        instructions,
+        exercise_bodypart (
+          bodypart (
+            name
+          )
+        )
       )
     `
     )
@@ -139,7 +138,7 @@ export const getAthleteTrainingsService = async (
         name,
         date,
         time,
-        duration
+        no_of_exercise
       )
     `
     )
@@ -165,7 +164,7 @@ export const getAthleteTrainingService = async (athleteTrainingId: string) => {
         name,
         date,
         time,
-        duration
+        no_of_exercise
       ),
       athlete_training_tracking (
         athlete_training_tracking_id,

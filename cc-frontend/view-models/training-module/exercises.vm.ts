@@ -13,15 +13,21 @@ export const getExercisesVM = async () => {
   const raw = await getExercisesService();
 
   return raw.map((ex: any) => {
-    // collect bodypart names from exercise_bodypart relation
-    const bodyparts =
-      ex.exercise_bodypart?.map((eb: any) => eb.bodypart?.name) || [];
-    const description = bodyparts.join(', '); // combine into one string
+    // 1. Dig into the nested join table
+    // ex.exercise_bodypart is an array of objects
+    const bodypartNames =
+      ex.exercise_bodypart
+        ?.map((eb: any) => eb.bodypart?.name) // Extract the 'name' from the nested 'bodypart' object
+        .filter((name: string | undefined) => name != null) || []; // Remove any nulls just in case
+
+    // 2. Format the body parts as a readable string for the 'description' field
+    const description =
+      bodypartNames.length > 0 ? bodypartNames.join(', ') : 'General Exercise';
 
     return {
       exerciseId: ex.exercise_id,
       exerciseName: ex.name,
-      description // bodypart names instead of dummy text
+      description: description // This now shows "Chest, Shoulders" etc.
     };
   });
 };

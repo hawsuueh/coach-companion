@@ -18,7 +18,7 @@ export const getExercisesService = async () => {
     return [];
   }
 
-  return JSON.parse(JSON.stringify(data));
+  return data; // No need to JSON.parse(JSON.stringify()) if using standard Supabase client
 };
 
 export const getExerciseService = async (exerciseId: string) => {

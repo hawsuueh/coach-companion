@@ -7,27 +7,26 @@ import MultiSelectDropdown from '@/components/training-module/inputs/MultiSelect
 import DateInput from '@/components/training-module/inputs/DateInput';
 import MultiSelectCalendar from '@/components/training-module/inputs/MultiSelectCalendar';
 import TimeInput from '@/components/training-module/inputs/TimeInput';
+import NumberInput from '@/components/training-module/inputs/NumberInput';
 import MainButton from '@/components/training-module/buttons/MainButton';
 import { useRouter } from 'expo-router';
+import { MLService } from '@/services/training-module/ml.service';
+import supabase from '@/config/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
 // Import the new ML generation function
-import {
-  getAthletesAndEquipmentsVM,
-  generateTrainingSessionVM
-} from '@/view-models/training-module/training.vm';
+import { getAthletesAndEquipmentsVM } from '@/view-models/training-module/training.vm';
 
 export default function GenerateTrainingModal() {
   const { setTitle } = useHeader();
   const router = useRouter();
-
+  const { coachNo } = useAuth();
   const [trainingName, setTrainingName] = useState('');
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
-  const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const [dates, setDates] = useState<string[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [startTime, setStartTime] = useState('');
-  const [duration, setDuration] = useState('');
+  const [noOfExercise, setNoOfExercise] = useState<number | null>(null);
   const [athleteData, setAthleteData] = useState<any[]>([]);
-  const [equipmentData, setEquipmentData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New state to track ML processing
@@ -44,9 +43,8 @@ export default function GenerateTrainingModal() {
         const { athleteDropdown, equipmentDropdown } =
           await getAthletesAndEquipmentsVM();
         setAthleteData(athleteDropdown);
-        setEquipmentData(equipmentDropdown);
       } catch (err) {
-        console.error('Error fetching athletes/equipments', err);
+        console.error('Error fetching athletes', err);
       } finally {
         setLoading(false);
       }
@@ -54,58 +52,100 @@ export default function GenerateTrainingModal() {
     fetchData();
   }, []);
 
-  // The updated handleGenerate function
-  const handleGenerate = async () => {
-    // 1. Validation
-    if (
-      !trainingName ||
-      selectedAthletes.length === 0 ||
-      dates.length === 0 ||
-      !startTime ||
-      !duration
-    ) {
-      Alert.alert(
-        'Missing Fields',
-        'Please fill in all the required training details.'
-      );
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // 2. Call the ML Orchestrator in the VM
-      // coachNo should ideally come from your Auth context/session
-      const coachNo = '1';
-
-      await generateTrainingSessionVM(
-        coachNo,
-        trainingName,
-        selectedAthletes,
-        selectedEquipments,
-        dates,
-        startTime,
-        duration
-      );
-
-      Alert.alert('Success', 'Training plans generated successfully via ML!');
-      router.back();
-    } catch (err) {
-      console.error('Generation failed:', err);
-      Alert.alert(
-        'Error',
-        'An error occurred while generating the training plan.'
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const handleAthleteSelectChange = (values: string[]) => {
     setSelectedAthletes(values);
   };
 
-  const handleEquipmentSelectChange = (values: string[]) => {
-    setSelectedEquipments(values);
+  const handleGenerate = async () => {
+    if (
+      !trainingName ||
+      selectedAthletes.length === 0 ||
+      !noOfExercise ||
+      dates.length === 0
+    ) {
+      Alert.alert('Missing Information', 'Please fill in all fields.');
+      return;
+    }
+
+    setIsGenerating(true);
+    const mlService = new MLService();
+
+    try {
+      // 1. Create the Main Training Records first (One per date)
+      for (const date of dates) {
+        const { data: training, error: tError } = await supabase
+          .from('training')
+          .insert({
+            coach_no: Number(coachNo),
+            name: trainingName,
+            date: date,
+            time: startTime
+            // coach_no: currentCoachId // Make sure you have the coach ID available
+          })
+          .select()
+          .single();
+
+        if (tError) throw tError;
+
+        // 2. Loop through each Athlete for THIS training session
+        for (const athleteId of selectedAthletes) {
+          // A. Link Athlete to Training
+          const { data: atLink, error: atError } = await supabase
+            .from('athlete_training')
+            .insert({
+              athlete_no: Number(athleteId),
+              training_id: training.training_id
+            })
+            .select()
+            .single();
+
+          if (atError) throw atError;
+
+          // B. Run AI Logic for this specific Athlete
+          const zScores = await mlService.getAthleteZScores(Number(athleteId));
+          const focusScores = mlService.predictFatigue(zScores);
+          const distribution = mlService.calculateDistribution(
+            focusScores,
+            noOfExercise
+          );
+
+          // C. Fetch and Link Exercises based on AI Distribution
+          for (const item of distribution) {
+            if (item.count === 0) continue;
+
+            const { data: exercises } = await supabase
+              .from('exercise_bodypart')
+              .select('exercise_id')
+              .eq('bodypart_id', item.bodyPartId)
+              .limit(item.count);
+
+            if (exercises && exercises.length > 0) {
+              const exerciseEntries = exercises.map(ex => ({
+                athlete_training_id: atLink.athlete_training_id,
+                exercise_id: ex.exercise_id
+              }));
+
+              const { error: eError } = await supabase
+                .from('athlete_training_exercise')
+                .insert(exerciseEntries);
+
+              if (eError) console.error('Exercise Link Error:', eError);
+            }
+          }
+        }
+      }
+
+      Alert.alert(
+        'Success',
+        'Individualized training generated for all athletes!'
+      );
+      router.replace('/(coach)/(tabs)/training-module/training');
+    } catch (error: any) {
+      console.error('Generation Error:', error);
+      Alert.alert('Error', 'Failed to populate training tables.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -147,19 +187,6 @@ export default function GenerateTrainingModal() {
           />
         </View>
 
-        <View className="mb-4 px-6">
-          <MultiSelectDropdown
-            data={equipmentData}
-            value={selectedEquipments}
-            IconComponent={Ionicons}
-            icon="barbell-outline"
-            onChange={handleEquipmentSelectChange}
-            placeholder={
-              loading ? 'Loading equipments...' : 'Select equipments'
-            }
-          />
-        </View>
-
         <View className="px-6">
           <DateInput
             dates={dates}
@@ -185,11 +212,10 @@ export default function GenerateTrainingModal() {
           />
         </View>
         <View className="mb-4 px-6">
-          <TimeInput
-            label="Duration"
-            mode="duration"
-            value={duration}
-            onChange={setDuration}
+          <NumberInput
+            label="Number of Exercises"
+            value={noOfExercise}
+            onChange={setNoOfExercise}
           />
         </View>
       </ScrollView>

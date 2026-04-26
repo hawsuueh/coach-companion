@@ -24,7 +24,7 @@ export default function Exercises() {
 
   const handleLongPress = (exerciseId: string) => {
     setSelectedExerciseId(exerciseId);
-    setDeleteModalVisible(true); // ✅ open modal
+    setDeleteModalVisible(true); //
   };
 
   const handleDelete = async () => {
