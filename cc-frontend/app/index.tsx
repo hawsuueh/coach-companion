@@ -8,13 +8,9 @@ import {
   View,
   ActivityIndicator,
   Modal,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Keyboard,
-  TouchableWithoutFeedback
+  FlatList
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -143,15 +139,17 @@ export default function LoginScreen() {
       {/* Overlay */}
       <View className="absolute inset-0 bg-black/60" />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingBottom: 32
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={20}
       >
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
         {/* Header with logos */}
         <View className="flex-row justify-between pt-12">
           <Image
@@ -167,7 +165,7 @@ export default function LoginScreen() {
         </View>
 
         {/* Main content */}
-        <View className="items-center py-6">
+        <View className="flex-1 items-center justify-center py-6">
           {/* Title */}
           <View className="mb-10 items-center">
             <Image
@@ -296,8 +294,7 @@ export default function LoginScreen() {
             Coach Companion v1.0
           </Text>
         </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       {/* Role Picker Modal - shown when user has multiple roles */}
       <Modal
