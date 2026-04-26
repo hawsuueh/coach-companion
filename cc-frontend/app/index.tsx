@@ -36,7 +36,14 @@ export default function LoginScreen() {
   const [showRolePicker, setShowRolePicker] = useState(false);
 
   const router = useRouter();
-  const { signIn, user, profile, activeRole, setActiveRole, loading: authLoading } = useAuth();
+  const {
+    signIn,
+    user,
+    profile,
+    activeRole,
+    setActiveRole,
+    loading: authLoading
+  } = useAuth();
 
   // Auto-redirect based on auth state
   useEffect(() => {
@@ -329,7 +336,8 @@ export default function LoginScreen() {
                 onPress={() => handleRoleSelect(role)}
                 className="flex-row items-center rounded-xl bg-gray-50 px-4 py-4"
                 style={{
-                  marginBottom: index < (profile?.roles?.length || 0) - 1 ? 12 : 0
+                  marginBottom:
+                    index < (profile?.roles?.length || 0) - 1 ? 12 : 0
                 }}
                 activeOpacity={0.7}
               >

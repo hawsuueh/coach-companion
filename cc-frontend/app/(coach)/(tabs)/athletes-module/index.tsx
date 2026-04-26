@@ -2,7 +2,14 @@
 import { useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useEffect, useState, useCallback } from 'react';
-import { FlatList, View, Text, TouchableOpacity, Modal, Alert } from 'react-native';
+import {
+  FlatList,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Alert
+} from 'react-native';
 import AthleteCard from '@/components/cards/AthleteCard';
 import FloatingButton from '@/components/buttons/FloatingButton';
 import SeasonCard from '@/components/cards/SeasonCard';
@@ -78,7 +85,7 @@ export default function AthleteScreen() {
                 parseInt(athlete.id),
                 selectedBatch.batch_no
               );
-              
+
               if (success) {
                 // Refresh list
                 await refreshAthletes();
@@ -240,7 +247,6 @@ export default function AthleteScreen() {
     setShowBatchModal(false);
   };
 
-
   // When one of the athlete card is pressed, navigate to the athlete detail screen
   const handleAthletePress = (athlete: Athlete) => {
     console.log('Athlete pressed:', athlete.name);
@@ -319,7 +325,9 @@ export default function AthleteScreen() {
         onSearchChange={setSearchQuery}
         onFilterPress={handleFilterPress}
         filterType="batch"
-        placeholder={activeTab === 'seasons' ? 'Search seasons...' : 'Search athletes...'}
+        placeholder={
+          activeTab === 'seasons' ? 'Search seasons...' : 'Search athletes...'
+        }
       />
 
       {/* Batch Selection Indicator - Only show on Athletes tab */}
@@ -339,7 +347,6 @@ export default function AthleteScreen() {
           </Text>
         </View>
       )}
-
 
       {/* Athlete/Game List */}
       <View className="flex-1 px-3">

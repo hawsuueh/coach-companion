@@ -28,11 +28,11 @@ export default function SubTab({
       {tabs.map((tab, index) => (
         <TouchableOpacity
           key={tab.id}
-          className={`flex-1 items-center pb-2 ${activeTab === tab.id ? 'border-b-2 border-red-500' : ''}`}
+          className={`flex-1 items-center pb-2 ${activeTab === tab.id ? 'border-b-2 border-accent' : ''}`}
           onPress={() => onTabChange(tab.id)}
         >
           <Text
-            className={`font-semibold ${activeTab === tab.id ? 'text-black' : 'text-gray-500'}`}
+            className={`text-h3 ${activeTab === tab.id ? 'text-black' : 'text-gray-500'}`}
           >
             {tab.label}
           </Text>

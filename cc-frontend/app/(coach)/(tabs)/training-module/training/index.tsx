@@ -71,7 +71,7 @@ export default function Training() {
           <List1
             title={item.trainingName}
             // ✅ VM already formats date + time + duration
-            subtitle={`${item.dateTime} • ${item.duration}`}
+            subtitle={`${item.dateTime}`}
             onPress={() => handleTrainingPress(item.trainingId)}
             onLongPress={() => console.log(`Long pressed ${item.trainingName}`)}
           />

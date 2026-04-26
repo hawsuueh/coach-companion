@@ -9,7 +9,6 @@ import IconButton from '@/components/training-module/buttons/IconButton';
 import FloatingButton from '@/components/training-module/buttons/FloatingButton';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { useHeader } from '@/components/training-module/contexts/HeaderContext';
-import { TimerCard } from '@/components/training-module/cards/TimerCard';
 import { getTrainingDetailsVM } from '@/view-models/training-module';
 
 export default function TrainingDetails() {
@@ -81,10 +80,6 @@ export default function TrainingDetails() {
           date={training.date}
           time={training.time}
         />
-      </View>
-
-      <View className="items-center">
-        <TimerCard remainingSeconds={training.duration} />
       </View>
 
       {/* Filter Button */}

@@ -1,7 +1,7 @@
 // app/(coach)/(tabs)/training-module/_layout.tsx
 import { Stack, usePathname } from 'expo-router';
 import { View } from 'react-native';
-import TrainingTabs from '@/components/training-module/navigations/TrainingTabs';
+import TrainingTabs2 from '@/components/training-module/navigations/TrainingTabs2';
 import Header2 from '@/components/headers/Header2';
 import {
   HeaderProvider,
@@ -24,7 +24,7 @@ function TrainingModuleContent() {
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       {/* Show TrainingTabs only on landing paths */}
-      {isLandingPath && <TrainingTabs />}
+      {isLandingPath && <TrainingTabs2 />}
 
       {/* Show Header2 only on deeper paths */}
       {!isLandingPath && <Header2 title={title} />}

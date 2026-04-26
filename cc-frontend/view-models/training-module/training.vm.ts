@@ -14,14 +14,6 @@ import {
 } from '@/services/training-module/training.service';
 import { formatDate } from '@/utils/formatDate';
 import { formatTime } from '@/utils/formatTime';
-import { formatDuration } from '@/utils/formatDuration';
-import { RecommendationEngine } from '@/ml/training-module/recommendation-engine';
-import {
-  fetchMLTrainingDataset,
-  fetchAthleteStatsAndProfile,
-  fetchExercisesForAlgo,
-  saveGeneratedTrainingSession
-} from '@/services/training-module/ml.service'; // We'll create this next
 
 // Coach
 // Get Trainings
@@ -34,7 +26,6 @@ export const getTrainingsVM = async (coachNo: string | number | null) => {
       coachNo: t.coach_no,
       trainingName: t.name,
       dateTime: `${formatDate(t.date)} • ${formatTime(t.time)}`,
-      duration: formatDuration(t.duration),
       contactNo: t.coach?.contact_no || null
     }));
   } catch (err) {
@@ -53,7 +44,6 @@ export const getTrainingDetailsVM = async (trainingId: string) => {
     name: raw.name,
     date: formatDate(raw.date),
     time: formatTime(raw.time),
-    duration: raw.duration,
     athletes:
       raw.athlete_training?.map((at: any) => ({
         athleteTrainingId: at.athlete_training_id.toString(),
@@ -91,16 +81,12 @@ export const getAthleteTrainingCoachVM = async (athleteTrainingId: string) => {
     trainingName: training?.name ?? '',
     date: training?.date ? formatDate(training.date) : '',
     time: training?.time ? formatTime(training.time) : '',
-    duration: training?.duration ?? 0,
     exercises:
       rawExercises?.map((ate: any) => ({
         athleteTrainingExerciseId: ate.athlete_training_exercise_id.toString(),
         exerciseId: ate.exercise?.exercise_id.toString(),
         exerciseName: ate.exercise?.name ?? '',
-        sets: ate.sets,
-        reps: ate.reps,
-        duration: ate.duration,
-        subtitle: `${ate.sets} sets • ${ate.reps} reps • ${formatDuration(ate.duration / ate.sets)} duration`
+        subtitle: `$bodypart`
       })) ?? []
   };
 };
@@ -111,15 +97,23 @@ export const getAthleteTrainingExerciseVM = async (
   const raw = await getAthleteTrainingExerciseService(athleteTrainingId);
   if (!raw) return [];
 
-  return raw.map((ate: any) => ({
-    athleteTrainingExerciseId: ate.athlete_training_exercise_id.toString(),
-    exerciseId: ate.exercise?.exercise_id.toString(),
-    exerciseName: ate.exercise?.name ?? '',
-    sets: ate.sets,
-    reps: ate.reps,
-    duration: ate.duration,
-    subtitle: `${ate.sets} sets • ${ate.reps} reps • ${formatDuration(ate.duration / ate.sets)} duration`
-  }));
+  return raw.map((ate: any) => {
+    // Navigate: exercise -> exercise_bodypart array -> bodypart object -> name
+    const bodyparts =
+      ate.exercise?.exercise_bodypart
+        ?.map((eb: any) => eb.bodypart?.name)
+        .filter(Boolean) || [];
+
+    const bodypartString =
+      bodyparts.length > 0 ? bodyparts.join(', ') : 'General';
+
+    return {
+      athleteTrainingExerciseId: ate.athlete_training_exercise_id.toString(),
+      exerciseId: ate.exercise?.exercise_id.toString(),
+      exerciseName: ate.exercise?.name ?? '',
+      subtitle: bodypartString // This will now show "Chest, Shoulders" or "Legs"
+    };
+  });
 };
 
 // Athlete
@@ -252,58 +246,4 @@ export const getAthletesAndEquipmentsVM = async () => {
   }));
 
   return { athleteDropdown, equipmentDropdown };
-};
-
-export const generateTrainingSessionVM = async (
-  coachNo: string | number,
-  trainingName: string,
-  athleteIds: string[],
-  equipmentIds: string[],
-  dates: string[],
-  startTime: string,
-  duration: string
-) => {
-  try {
-    // 1. Fetch Global Training Data to initialize the Forest
-    // This provides the "historical context" the ML needs to learn
-    const dataset = await fetchMLTrainingDataset();
-    const engine = new RecommendationEngine(dataset);
-
-    // 2. Fetch all exercises that match the selected equipment
-    const allExercises = await fetchExercisesForAlgo(equipmentIds);
-
-    // 3. Process each athlete individually
-    const results = await Promise.all(
-      athleteIds.map(async athleteNo => {
-        // Fetch stats (last 5 games) and Profile (injuries, focus scores)
-        const { last5Games, profile } =
-          await fetchAthleteStatsAndProfile(athleteNo);
-
-        // Run Hybrid Recommendation (Random Forest -> Rules -> Content Match)
-        const recommendedExercises = engine.generateTraining(
-          last5Games,
-          profile,
-          allExercises
-        );
-
-        return { athleteNo, exercises: recommendedExercises };
-      })
-    );
-
-    // 4. Save the finalized training to Supabase
-    // This will populate 'training', 'athlete_training', and 'athlete_training_exercise'
-    const success = await saveGeneratedTrainingSession({
-      coachNo,
-      trainingName,
-      dates,
-      startTime,
-      duration,
-      results
-    });
-
-    return success;
-  } catch (err) {
-    console.error('Generation VM Error:', err);
-    throw err;
-  }
 };
