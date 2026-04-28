@@ -1,133 +1,55 @@
-import { Link, Slot, useSegments } from 'expo-router';
-import React from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// app/(coach)/(tabs)/drills-module/_layout.tsx
+import { Stack, usePathname } from 'expo-router';
+import { View, Text } from 'react-native';
+import Header2 from '@/components/headers/Header2';
+import SubTabs from '@/components/navigation/SubTabs';
+import {
+  HeaderProvider,
+  useHeader
+} from '@/components/training-module/contexts/HeaderContext';
 
-// Get screen width for dynamic sizing
-const { width } = Dimensions.get('window');
+function DrillsModuleContent() {
+  const pathname = usePathname();
+  const { title } = useHeader();
 
-// Define dynamic sizing constants
-const TAB_HORIZONTAL_PADDING = width * 0.08;
-const TAB_VERTICAL_PADDING = 12;
-const FONT_SIZE = 18;
+  // Define the landing paths for this module
+  const landingPaths = [
+    '/drills-module/practice',
+    '/drills-module/performance'
+  ];
 
-const SEPARATOR_MARGIN = width * 0.03; // Margin for the "|" separator
+  // Define the tabs for the Drills module
+  const drillTabs = [
+    { name: 'Practice', href: '/drills-module/practice' },
+    { name: 'Performance', href: '/drills-module/performance' }
+  ];
 
-export default function PerformancePracticeLayout() {
-  const segments: string[] = useSegments();
-  const currentTab = segments[segments.length - 1] || 'practice';
-  const isDetailScreen =
-    segments.includes('[athleteId]') ||
-    segments.includes('team_performance') ||
-    segments.includes('practice_regimens');
+  const isLandingPath = landingPaths.includes(pathname);
+
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: '#f8f8f8' }}
-      edges={['left', 'right']}
-    >
-      {!isDetailScreen && (
-        <View>
-          <View
-            id="main"
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingVertical: 0,
-              backgroundColor: '#fff',
-              borderBottomWidth: 1,
-              borderBottomColor: '#eee'
-            }}
-          >
-            {/* Practice tab button */}
-            <Link href="/drills-module/practice" asChild>
-              <Pressable>
-                <View
-                  style={[
-                    styles.tabContainer, // Base style for a tab
-                    {
-                      paddingVertical: TAB_VERTICAL_PADDING,
-                      paddingHorizontal: TAB_HORIZONTAL_PADDING
-                    },
-                    currentTab === 'practice' && styles.selectedTabContainer // Apply underline style if active
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabLabel, // Base text style for tab
-                      { fontSize: FONT_SIZE },
-                      currentTab === 'practice' && styles.selectedTabLabel // Apply active text style if active
-                    ]}
-                  >
-                    Practice
-                  </Text>
-                </View>
-              </Pressable>
-            </Link>
-
-            {/* Separator text */}
-            <Text
-              style={{
-                marginHorizontal: SEPARATOR_MARGIN,
-                color: '#ccc', // Lighter color for the separator
-                fontSize: FONT_SIZE
-              }}
-            >
-              |
-            </Text>
-
-            {/* Performance tab button */}
-            <Link href="/drills-module/performance" asChild>
-              <Pressable>
-                <View
-                  style={[
-                    styles.tabContainer, // Base style for a tab
-                    {
-                      paddingVertical: TAB_VERTICAL_PADDING,
-                      paddingHorizontal: TAB_HORIZONTAL_PADDING
-                    },
-                    currentTab === 'performance' && styles.selectedTabContainer // Apply underline style if active
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabLabel, // Base text style for tab
-                      { fontSize: FONT_SIZE },
-                      currentTab === 'performance' && styles.selectedTabLabel // Apply active text style if active
-                    ]}
-                  >
-                    Performance
-                  </Text>
-                </View>
-              </Pressable>
-            </Link>
-          </View>
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
+      {/* 1. LANDING HEADER (Title + Tabs) */}
+      {isLandingPath && (
+        <View className="bg-white">
+          {/* Red Underlined Tabs */}
+          <SubTabs tabs={drillTabs} />
         </View>
       )}
-      {/* This View directly handles the Slot content and ensures it takes remaining height */}
-      <View style={{ flex: 1, backgroundColor: '#f8f8f8' }}>
-        <Slot />
+      {/* Shown when you click on a specific drill or performance stat */}
+      {!isLandingPath && <Header2 title={title} />}
+
+      {/* 3. ACTUAL SCREEN CONTENT */}
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  tabContainer: {
-    alignItems: 'center'
-  },
-  selectedTabContainer: {
-    borderBottomWidth: 2,
-    borderBottomColor: 'red'
-  },
-  // Base text style for any tab label
-  tabLabel: {
-    color: '#333',
-    fontWeight: 'bold'
-  },
-  // Specific style for the text of the selected tab
-  selectedTabLabel: {
-    color: '#000',
-    fontWeight: '900'
-  }
-});
+export default function DrillsModuleLayout() {
+  return (
+    <HeaderProvider>
+      <DrillsModuleContent />
+    </HeaderProvider>
+  );
+}
