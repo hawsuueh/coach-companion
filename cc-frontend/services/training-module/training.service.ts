@@ -4,6 +4,8 @@ import supabase from '@/config/supabaseClient';
 // Coach
 // Fetch the Trainings
 export const getTrainingsService = async (coachNo: string | number | null) => {
+  if (coachNo === null || coachNo === undefined || coachNo === '') return [];
+
   const { data, error } = await supabase
     .from('training')
     .select(
@@ -128,6 +130,9 @@ export const getAthleteTrainingExerciseService = async (
 export const getAthleteTrainingsService = async (
   athleteNo: string | number | null
 ) => {
+  if (athleteNo === null || athleteNo === undefined || athleteNo === '')
+    return [];
+
   const { data, error } = await supabase
     .from('athlete_training')
     .select(

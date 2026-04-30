@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -136,13 +137,23 @@ export default function LoginScreen() {
       className="flex-1"
     >
       {/* Overlay */}
-      <View className="absolute inset-0 bg-black/40" />
+      <View className="absolute inset-0 bg-black/60" />
 
-      <View className="flex-1 px-6">
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingBottom: 32
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={20}
+      >
         {/* Header with logos */}
         <View className="flex-row justify-between pt-12">
           <Image
-            source={require('@/assets/logos/logo-cc.png')}
+            source={require('@/assets/logos/greyhounds_logo.png')}
             className="h-20 w-20"
             resizeMode="contain"
           />
@@ -154,21 +165,14 @@ export default function LoginScreen() {
         </View>
 
         {/* Main content */}
-        <View className="flex-1 items-center justify-center">
+        <View className="flex-1 items-center justify-center py-6">
           {/* Title */}
           <View className="mb-10 items-center">
-            <Text
-              className="text-5xl leading-tight text-white"
-              style={{ fontFamily: 'poetsen' }}
-            >
-              Coach
-            </Text>
-            <Text
-              className="text-5xl leading-tight text-white"
-              style={{ fontFamily: 'poetsen' }}
-            >
-              Companion
-            </Text>
+            <Image
+              source={require('@/assets/logos/CC_WithText.png')}
+              className="h-44 w-96"
+              resizeMode="contain"
+            />
             <View className="mt-3 h-1 w-12 rounded-full bg-[#EC1D25]" />
           </View>
 
@@ -290,7 +294,7 @@ export default function LoginScreen() {
             Coach Companion v1.0
           </Text>
         </View>
-      </View>
+      </KeyboardAwareScrollView>
 
       {/* Role Picker Modal - shown when user has multiple roles */}
       <Modal
