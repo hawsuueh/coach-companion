@@ -24,6 +24,7 @@ import { PerformanceAnalyzer } from './utils/performanceUtils';
 
 const screenWidth = Dimensions.get('window').width;
 const CHART_GAMES_LIMIT = 5; // Game limit on charts
+import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 
 export default function AthleteDetailScreen() {
   const { athleteId } = useLocalSearchParams();
@@ -41,6 +42,11 @@ export default function AthleteDetailScreen() {
   const [excellenceAreas, setExcellenceAreas] = useState<
     { stat: string; score: number }[]
   >([]);
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Athlete Analysis');
+  }, [setTitle]);
 
   // holding drill ID for forest algo - DEBUGGING
   const STAT_LABELS: { [key: string]: string } = {
@@ -543,14 +549,14 @@ export default function AthleteDetailScreen() {
               />
             </View>
           )}
-          { /* Note area */}
+          {/* Note area */}
           <View style={[styles.statsCard, styles.attentionCard]}>
             <Text style={[styles.sectionTitle, { color: '#387B45' }]}>
               Player Analysis
             </Text>
             <Text style={[styles.sectionText]}>
               This is based on standardized comparison to team averages over the
-              last {actualGamesCharted} games. 
+              last {actualGamesCharted} games.
             </Text>
             <Text>
               Note: Having lower values mean you're excelling in that area!
@@ -561,7 +567,7 @@ export default function AthleteDetailScreen() {
             <Text style={[styles.sectionTitle, { color: '#387B45' }]}>
               Current Strengths
             </Text>
-            
+
             {excellenceAreas.length > 0 ? (
               excellenceAreas.map((item, index) => (
                 <View key={index} style={styles.priorityItem}>

@@ -29,7 +29,7 @@ const y = rawData.map((d: any) => [
 ]);
 
 // 3. Initialize and Train
-const rf = new RandomForest(15, 8); // 15 trees, depth of 8
+const rf = new RandomForest(15, 8); // 15 trees
 console.log('🛠️ Training Random Forest from scratch...');
 rf.train(X, y);
 

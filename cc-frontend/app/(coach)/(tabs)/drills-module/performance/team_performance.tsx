@@ -1,11 +1,12 @@
-import { Stack } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LineChart, ProgressChart } from "react-native-chart-kit";
+import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LineChart, ProgressChart } from 'react-native-chart-kit';
 
-import game_record_data from "./game_records";
+import game_record_data from './game_records';
+import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 
-const screenWidth = Dimensions.get("window").width;
+const screenWidth = Dimensions.get('window').width;
 const CHART_GAMES_LIMIT = 5; // Limit charts to the most recent 5 games
 
 // Define an interface for aggregated team game data
@@ -42,14 +43,20 @@ export default function TeamPerformanceScreen() {
     totalMade3PTS: 0,
     totalAttempt3PTS: 0,
     totalMadeFT: 0,
-    totalAttemptFT: 0,
+    totalAttemptFT: 0
   });
+
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Team Analysis');
+  }, [setTitle]);
 
   useEffect(() => {
     // Aggregate data by game_id
     const aggregatedGames: { [key: number]: TeamGameStats } = {};
 
-    game_record_data.forEach((record) => {
+    game_record_data.forEach(record => {
       if (!aggregatedGames[record.game_id]) {
         aggregatedGames[record.game_id] = {
           game_id: record.game_id,
@@ -65,7 +72,7 @@ export default function TeamPerformanceScreen() {
           made3PTS: 0,
           attempt3PTS: 0,
           madeFT: 0,
-          attemptFT: 0,
+          attemptFT: 0
         };
       }
       const game = aggregatedGames[record.game_id];
@@ -121,7 +128,7 @@ export default function TeamPerformanceScreen() {
         totalMade3PTS: 0,
         totalAttempt3PTS: 0,
         totalMadeFT: 0,
-        totalAttemptFT: 0,
+        totalAttemptFT: 0
       }
     );
     setOverallTeamStats(overallStats);
@@ -130,40 +137,40 @@ export default function TeamPerformanceScreen() {
   const getTeamStatLineChartData = (statKey: keyof TeamGameStats) => {
     const recordsToChart = teamGameStats.slice(0, CHART_GAMES_LIMIT).reverse();
     return {
-      labels: recordsToChart.map((r) => `G${r.game_id}`),
-      datasets: [{ data: recordsToChart.map((r) => r[statKey] as number) }],
+      labels: recordsToChart.map(r => `G${r.game_id}`),
+      datasets: [{ data: recordsToChart.map(r => r[statKey] as number) }]
     };
   };
 
   const chartConfig = {
-    backgroundColor: "#e26a00",
-    backgroundGradientFrom: "#fefefe",
-    backgroundGradientTo: "#ffffff",
+    backgroundColor: '#e26a00',
+    backgroundGradientFrom: '#fefefe',
+    backgroundGradientTo: '#ffffff',
     decimalPlaces: 0, // Default to 0 decimal places for counting stats
     color: (opacity = 1) => `rgba(236, 29, 37, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
     style: {
-      borderRadius: 16,
+      borderRadius: 16
     },
     propsForDots: {
-      r: "6",
-      strokeWidth: "2",
-      stroke: "#EC1D25",
+      r: '6',
+      strokeWidth: '2',
+      stroke: '#EC1D25'
     },
-    fillShadowGradientFrom: "#EC1D25",
-    fillShadowGradientTo: "#FFFFFF",
+    fillShadowGradientFrom: '#EC1D25',
+    fillShadowGradientTo: '#FFFFFF',
     fillShadowGradientFromOpacity: 0.5,
-    fillShadowGradientToOpacity: 0.1,
+    fillShadowGradientToOpacity: 0.1
   };
 
   const calculatePercentage = (made: number, attempt: number) => {
-    return attempt > 0 ? ((made / attempt) * 100).toFixed(2) : "0.00";
+    return attempt > 0 ? ((made / attempt) * 100).toFixed(2) : '0.00';
   };
 
   const StatGridItem = ({ label, value, highlight = false }: any) => (
     <View style={styles.gridItem}>
       <Text style={styles.gridLabel}>{label}</Text>
-      <Text style={[styles.gridValue, highlight && { color: "#EC1D25" }]}>
+      <Text style={[styles.gridValue, highlight && { color: '#EC1D25' }]}>
         {value}
       </Text>
     </View>
@@ -173,7 +180,7 @@ export default function TeamPerformanceScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Stack.Screen options={{ headerTitle: "Team Analytics" }} />
+      <Stack.Screen options={{ headerTitle: 'Team Analytics' }} />
 
       <Text style={styles.mainHeader}>Team Performance Dashboard</Text>
 
@@ -245,7 +252,7 @@ export default function TeamPerformanceScreen() {
             <Text style={styles.sectionTitle}>Overall Shooting Efficiency</Text>
             <ProgressChart
               data={{
-                labels: ["FG", "3PT", "FT"],
+                labels: ['FG', '3PT', 'FT'],
                 data: [
                   overallTeamStats.totalAttemptFG > 0
                     ? overallTeamStats.totalMadeFG /
@@ -258,14 +265,14 @@ export default function TeamPerformanceScreen() {
                   overallTeamStats.totalAttemptFT > 0
                     ? overallTeamStats.totalMadeFT /
                       overallTeamStats.totalAttemptFT
-                    : 0,
-                ],
+                    : 0
+                ]
               }}
               width={screenWidth - 60}
               height={180}
               chartConfig={{
                 ...chartConfig,
-                color: (opacity = 1) => `rgba(236, 29, 37, ${opacity})`,
+                color: (opacity = 1) => `rgba(236, 29, 37, ${opacity})`
               }}
               hideLegend={false}
               style={styles.chartStyle}
@@ -281,7 +288,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Points Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalPoints")}
+                data={getTeamStatLineChartData('totalPoints')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -291,7 +298,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Rebounds Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalRebounds")}
+                data={getTeamStatLineChartData('totalRebounds')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -301,7 +308,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Assists Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalAssists")}
+                data={getTeamStatLineChartData('totalAssists')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -311,7 +318,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Steals Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalSteals")}
+                data={getTeamStatLineChartData('totalSteals')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -321,7 +328,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Blocks Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalBlocks")}
+                data={getTeamStatLineChartData('totalBlocks')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -331,7 +338,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Turnovers Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalTurnovers")}
+                data={getTeamStatLineChartData('totalTurnovers')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -341,7 +348,7 @@ export default function TeamPerformanceScreen() {
 
               <Text style={styles.chartLabelHeader}>Fouls Per Game</Text>
               <LineChart
-                data={getTeamStatLineChartData("totalFouls")}
+                data={getTeamStatLineChartData('totalFouls')}
                 width={screenWidth - 60}
                 height={200}
                 chartConfig={chartConfig}
@@ -358,74 +365,74 @@ export default function TeamPerformanceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA", padding: 16 },
+  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 16 },
   mainHeader: {
     fontSize: 24,
-    fontWeight: "800",
-    color: "#1A1C1E",
+    fontWeight: '800',
+    color: '#1A1C1E',
     marginBottom: 20,
-    textAlign: "center",
+    textAlign: 'center'
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 3
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#495057",
+    fontWeight: '700',
+    color: '#495057',
     marginBottom: 16,
-    textTransform: "uppercase",
+    textTransform: 'uppercase',
     letterSpacing: 0.5,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F3F5",
-    paddingBottom: 8,
+    borderBottomColor: '#F1F3F5',
+    paddingBottom: 8
   },
   chartLabelHeader: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333',
     marginTop: 20,
     marginBottom: 8,
-    textAlign: "center",
+    textAlign: 'center'
   },
   summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between'
   },
   gridItem: {
-    width: "48%",
-    backgroundColor: "#F8F9FA",
+    width: '48%',
+    backgroundColor: '#F8F9FA',
     padding: 12,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#F1F3F5",
+    borderColor: '#F1F3F5'
   },
   gridLabel: {
     fontSize: 10,
-    color: "#8E8E93",
-    fontWeight: "bold",
-    textTransform: "uppercase",
+    color: '#8E8E93',
+    fontWeight: 'bold',
+    textTransform: 'uppercase'
   },
   gridValue: {
     fontSize: 18,
-    fontWeight: "800",
-    color: "#1C1C1E",
-    marginTop: 2,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginTop: 2
   },
-  chartStyle: { marginVertical: 8, borderRadius: 16, alignSelf: "center" },
+  chartStyle: { marginVertical: 8, borderRadius: 16, alignSelf: 'center' },
   noDataText: {
     fontSize: 16,
-    color: "#8E8E93",
-    textAlign: "center",
-    marginTop: 50,
-  },
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 50
+  }
 });

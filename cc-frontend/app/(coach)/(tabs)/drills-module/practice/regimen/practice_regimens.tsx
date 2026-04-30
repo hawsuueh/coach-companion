@@ -26,6 +26,7 @@ import AthletePracticeRegimens from './athlete_practice_regimens';
 import RegimenCard from './regimen_card';
 import RegimenDetailView from './regimen_detail_view';
 import { getAllDrills } from '../../services/drill';
+import { useHeader } from '@/components/training-module/contexts/HeaderContext';
 
 export default function PracticeRegimens() {
   const router = useRouter();
@@ -51,6 +52,12 @@ export default function PracticeRegimens() {
     if (data) setRegimensList(data);
     setIsLoading(false);
   };
+
+  const { setTitle } = useHeader();
+
+  useEffect(() => {
+    setTitle('Practice Regimens');
+  }, [setTitle]);
 
   useEffect(() => {
     fetchRegimens();
@@ -133,24 +140,6 @@ export default function PracticeRegimens() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.manualHeader}>
-        <TouchableOpacity
-          onPress={handleHeaderBack}
-          style={styles.backButton}
-          activeOpacity={1}
-        >
-          <Ionicons name="arrow-back" size={28} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {selectedAthleteId
-            ? `${selectedAthlete?.first_name}'s Regimens`
-            : selectedRegimenId
-              ? 'Regimen Details'
-              : 'Practice Regimens'}
-        </Text>
-        <View style={{ width: 28 }} />
-      </View>
-
       {!selectedAthleteId && !selectedRegimenId ? (
         <View style={styles.fullFlex}>
           <View style={styles.tabBar}>
@@ -225,15 +214,6 @@ export default function PracticeRegimens() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  manualHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee'
-  },
   headerTitle: { fontSize: 18, fontWeight: '700' },
   backButton: { padding: 4 },
   fullFlex: { flex: 1 },
@@ -242,8 +222,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 8,
     marginHorizontal: 16,
-    borderRadius: 10,
-    marginTop: 10
+    borderRadius: 10
   },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
   activeTab: { backgroundColor: '#007AFF' },

@@ -4,7 +4,7 @@ interface Node {
   threshold?: number;
   left?: Node;
   right?: Node;
-  value?: number[]; // Leaf node prediction (Focus Scores)
+  value?: number[];
 }
 
 // 2. The Decision Tree (The "Worker")

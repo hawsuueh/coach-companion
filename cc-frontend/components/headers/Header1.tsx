@@ -18,7 +18,7 @@ export default function Header1({
     '/home': 'Home',
     '/athletes-module': 'Athletes & Games',
     '/training-module': 'Training & Exercises',
-    '/drills-module': 'Practice & Drills'
+    '/drills-module': 'Practice & Peformance'
   };
 
   // Default title fallback

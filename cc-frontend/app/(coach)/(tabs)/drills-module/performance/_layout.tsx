@@ -13,18 +13,19 @@ export default function PerformanceLayout() {
         }}
       />
       {/* This defines the route for individual athlete views.
-          '[athleteId]' makes the ID a dynamic parameter in the URL. */}
+            '[athleteId]' makes the ID a dynamic parameter in the URL. */}
       <Stack.Screen
         name="[athleteId]"
         options={{
           headerTitle: 'Athlete Performance',
-          headerShown: true
+          headerShown: false
         }}
       />
       <Stack.Screen
         name="team_performance"
         options={{
-          headerTitle: 'Team Performance'
+          headerTitle: 'Team Performance',
+          headerShown: false
         }}
       />
     </Stack>
