@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 
@@ -28,7 +28,14 @@ export default function Header1({
 
   return (
     <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-5 py-4 shadow-sm">
-      <Text className="text-h1">{title}</Text>
+      <View className="flex-row items-center">
+        <Image
+          source={require('@/assets/logos/CC_NoText.png')}
+          className="mr-3 h-9 w-9"
+          resizeMode="contain"
+        />
+        <Text className="text-h1">{title}</Text>
+      </View>
 
       <View className="flex-row items-center">
         <TouchableOpacity onPress={onNotificationPress} className="ml-4">
